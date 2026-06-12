@@ -5,12 +5,13 @@
 
 ## ▶ 下一步从这里继续
 
-写信屏第 1 关已完成(选 ≥15 天后的送达日期)。下一步候选:
+第 3 关后端:Supabase 已接通,封存能写进 letters 表(后端用 curl 201 验过;app 端代码已接但 simulator 被占用,未在 app 内实测)。下一步候选:
 
-1. **第 2 关:封存仪式动效** —— 火漆封印 → 放进时光宝盒 → 宝盒连信一起消失(情绪:放手交给时间)。
-2. **第 3 关:最小后端** —— 数据库 + 一个"封存"接口,让信真的被存下来(目前封存只是本地 useState,刷新即没)。
+1. **邮箱 OTP 登录** —— 现在 owner_email 是写死的 `test@dearfuture.app`;收紧 RLS 成"只有验证过邮箱的人能写、且写自己的"。
+2. **每天的送达定时任务 + 发邮件**(需接 Resend 发信服务)。
+3. **第 2 关:封存仪式动效**(纯前端,随时可插)。
 
-提醒:封存后那一屏目前是通用文案,未显示日期(暂不显示,守"封存即消失");中文日期胶囊是已知小瑕疵(iOS compact 跟系统地区走)。
+提醒:封存后那屏暂用通用文案(守"封存即消失");中文日期胶囊已知小瑕疵;Android 未验证。
 
 ---
 
@@ -31,6 +32,14 @@
 - **/code-review(high effort,7 角度 finder)第一轮**:核心 15 天下限在 iOS 上确认拦死,无崩溃级 bug。已修(iOS 验证):送达日 onValueChange 归零 startOfDay(#3)、`(15 天后)` 改插值 MIN_SEAL_DAYS(#4)、封存抽 handleSeal 单点捕获 effectiveDate 为后端铺路(#6)、夹取 `>`→`>=`(#7)、earliest 用 useMemo 按当天缓存(#8)、formatDate 改 toLocaleDateString('zh-CN')(#9)。
   - **Android 未验证**(本机无 emulator):已按文档加 `presentation="inline"`(防 Android 挂载即弹模态)、KAV Android behavior 改 'height';但 Android 上 compact 内联胶囊不存在、布局需专门适配 —— **记入"Android 适配"待办,装 emulator 后再验证**。
   - **故意缓修**:#5 iOS 软键盘升起时 SafeAreaView 底部 inset 与 KAV padding 叠加约 34px 间隙 —— 纯视觉、需"键盘感知 inset"才算干净修,且模拟器是硬件键盘模式看不到,留作后期 polish(iOS 行为本次未动,无回归)。
+
+## 2026-06-12 — 第 3 关:接通 Supabase 后端
+
+- 建 Supabase 项目 `dear-future-app`(组织 BuilderDane,区域 eu-west-3 / Paris,owner dengdan01@gmail.com)。
+- SQL Editor 建 `letters` 表(id uuid / owner_email / body / deliver_on date / sealed_at / delivered_at);打开 RLS,只建一条 **insert** 策略(to anon, authenticated, with check true)—— **客户端只能写、永远读不到**,与第一戒"app 从不给你看信"同构。
+- app 接入:`npx expo install @supabase/supabase-js react-native-url-polyfill`;`.env`(gitignored)放 EXPO_PUBLIC_SUPABASE_URL + anon key;新建 `src/lib/supabase.ts`(persistSession:false,暂不登录);`handleSeal` 改为 `supabase.from('letters').insert(...)`,deliver_on 用本地 `toISODate` 避免时区偏一天;owner_email 暂写死占位。
+- 验证:用 anon key curl POST /rest/v1/letters → **HTTP 201**,Table Editor 里看到该行。后端链路(前端→钥匙→RLS→DB)打通。
+- 教学:解释了 anon(anonymous 匿名)public key = app 的"门卡",公开安全因真正门卫是 RLS;OTP=One-Time Password。
 
 ## 2026-06-09 — 第三次:设计两个仪式 + 重逢的读信方式
 

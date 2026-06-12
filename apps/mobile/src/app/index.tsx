@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MIN_SEAL_DAYS } from '@/constants/rules';
+import { supabase } from '@/lib/supabase';
 
 // 把日期"归零"到当天 00:00(本地时区)—— 我们按"整天"算,不掺时分秒。
 function startOfDay(base: Date): Date {
@@ -24,6 +25,14 @@ function formatDate(d: Date): string {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+// 按本地时区输出 'YYYY-MM-DD'(给数据库的 date 列;不用 toISOString,避免跨时区偏一天)。
+function toISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function WriteScreen() {
   const [letter, setLetter] = useState(''); // 信里写了什么
   const [sealed, setSealed] = useState(false); // 封存了没?
@@ -42,11 +51,17 @@ export default function WriteScreen() {
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
   const canSeal = letter.trim().length > 0;
 
-  // 封存:把"这一刻要交给时间的东西"在这里捕获成具体的值(归一化的送达日 + 信的内容)。
-  // 第 3 关接后端时,只需把下面这行 console.log 换成"POST 给 Supabase";夹取/归一化逻辑只此一处,不会漂移。
-  function handleSeal() {
-    const sealedDeliverOn = effectiveDate; // 已归零到 00:00 的合法送达日
-    console.log('封存 →', { body: letter.trim(), deliverOn: sealedDeliverOn.toISOString() });
+  // 封存:把信真正写进 Supabase 的 letters 表。
+  async function handleSeal() {
+    const { error } = await supabase.from('letters').insert({
+      owner_email: 'test@dearfuture.app', // 临时占位;下一步加邮箱 OTP 后换成验证过的真邮箱
+      body: letter.trim(),
+      deliver_on: toISODate(effectiveDate),
+    });
+    if (error) {
+      console.log('封存失败:', error.message);
+      return; // 没写成功就不切到"已封存"屏,信还在,可重试
+    }
     setSealed(true);
   }
 
