@@ -1,0 +1,26 @@
+# 依赖(几万个文件,绝不进 git;别人 clone 后自己 npm install)
+node_modules/
+
+# 密钥 / 环境变量(绝不进 git)—— 下一关 Supabase 的钥匙就放这种文件里
+.env
+.env.*
+!.env.example
+
+# 构建产物
+dist/
+build/
+web-build/
+apps/mobile/.expo/
+
+# 日志
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# 系统 / 编辑器杂物
+.DS_Store
+*.pem
+
+# 个人版工作日志(按 CLAUDE.md 习惯:.local 不进 git)
+SCRATCHPAD.local.md
