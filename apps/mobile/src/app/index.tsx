@@ -1,5 +1,5 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,9 +19,9 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-// 把日期显示成「2026 年 6 月 27 日」这样。
+// 把日期显示成「2026年6月27日」—— 跟随系统的中文格式化(和选择器 locale 一致),省去手写拼接。
 function formatDate(d: Date): string {
-  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 export default function WriteScreen() {
@@ -29,17 +29,26 @@ export default function WriteScreen() {
   const [sealed, setSealed] = useState(false); // 封存了没?
 
   // 最早可选的送达日 = 今天(归零到 00:00)+ 15 天。
-  // 每次渲染都按"现在"重算 —— 这样即使 app 一直开着、跨过了午夜,
-  // 15 天下限也不会悄悄缩成 14 天。
-  const earliest = addDays(startOfDay(new Date()), MIN_SEAL_DAYS);
+  // 用 useMemo 按"今天是哪天"缓存:同一天内复用同一个对象(不每次按键都重算),
+  // 跨过午夜后 todayStamp 变化才重算 —— 既省分配,又不会让 15 天下限悄悄缩成 14 天。
+  const todayStamp = startOfDay(new Date()).getTime();
+  const earliest = useMemo(() => addDays(new Date(todayStamp), MIN_SEAL_DAYS), [todayStamp]);
 
   // 用户选的送达日;还没选时为 null,跟着 earliest 走。
   const [deliverOn, setDeliverOn] = useState<Date | null>(null);
   // 真正生效的日期:没选过就用 earliest;选过、但因跨午夜早于了 earliest,也夹回 earliest。
-  const effectiveDate = deliverOn && deliverOn.getTime() > earliest.getTime() ? deliverOn : earliest;
+  const effectiveDate = deliverOn && deliverOn.getTime() >= earliest.getTime() ? deliverOn : earliest;
 
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
   const canSeal = letter.trim().length > 0;
+
+  // 封存:把"这一刻要交给时间的东西"在这里捕获成具体的值(归一化的送达日 + 信的内容)。
+  // 第 3 关接后端时,只需把下面这行 console.log 换成"POST 给 Supabase";夹取/归一化逻辑只此一处,不会漂移。
+  function handleSeal() {
+    const sealedDeliverOn = effectiveDate; // 已归零到 00:00 的合法送达日
+    console.log('封存 →', { body: letter.trim(), deliverOn: sealedDeliverOn.toISOString() });
+    setSealed(true);
+  }
 
   // 岔路口①:已封存 → 写信的纸消失,只剩一句安静的话。
   if (sealed) {
@@ -56,7 +65,7 @@ export default function WriteScreen() {
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TextInput
           style={styles.input}
           value={letter}
@@ -75,20 +84,23 @@ export default function WriteScreen() {
             <DateTimePicker
               mode="date"
               display="compact"
+              presentation="inline"
               value={effectiveDate}
               minimumDate={earliest}
               locale="zh_CN"
               accentColor="#3a3a3a"
-              onValueChange={(_event, date) => setDeliverOn(date)}
+              onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
               style={styles.datePicker}
             />
           </View>
 
-          <Text style={styles.earliestHint}>最早 {formatDate(earliest)}(15 天后)</Text>
+          <Text style={styles.earliestHint}>
+            最早 {formatDate(earliest)}({MIN_SEAL_DAYS} 天后)
+          </Text>
 
           <Pressable
             style={[styles.sealButton, !canSeal && styles.sealButtonDisabled]}
-            onPress={() => setSealed(true)}
+            onPress={handleSeal}
             disabled={!canSeal}
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSeal }}>

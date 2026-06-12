@@ -26,6 +26,11 @@
   - 验证:截图确认默认 Jun 27、日历 1–26 灰、打字后按钮变黑。`@expo/ui` 原生组件在 Expo Go 能跑(本来担心要 dev build,实测不用)。
 - **真机问题**:用户手机 Expo Go 只到 SDK 54(我们用 56),多半是 iOS 版本旧。结论:现在用模拟器,真机留到上线前做 Development Build。
 - **已知小瑕疵**:中文日期胶囊仍显示英文(iOS compact 跟系统地区走,`locale` 不完全管用),纯视觉,暂不追。
+- **上 git**(commit `1cf629d`):根目录建成 monorepo(删了 apps/mobile 的脚手架 .git),删多标签脚手架残骸,推到私有仓 **github.com/deng-diana/dear-future-app**(账号 deng-diana)。提交前过了资深 RN reviewer:结论"可提交",并修了它指出的"跨午夜 15 天缩成 14 天"off-by-one(earliest 改为每渲染按当天 00:00 重算)+ 无障碍属性。
+- **剩余脚手架图片**(react-logo / tabIcons/explore / tutorial-web 等)未删,纯图片不影响编译,以后顺手清。
+- **/code-review(high effort,7 角度 finder)第一轮**:核心 15 天下限在 iOS 上确认拦死,无崩溃级 bug。已修(iOS 验证):送达日 onValueChange 归零 startOfDay(#3)、`(15 天后)` 改插值 MIN_SEAL_DAYS(#4)、封存抽 handleSeal 单点捕获 effectiveDate 为后端铺路(#6)、夹取 `>`→`>=`(#7)、earliest 用 useMemo 按当天缓存(#8)、formatDate 改 toLocaleDateString('zh-CN')(#9)。
+  - **Android 未验证**(本机无 emulator):已按文档加 `presentation="inline"`(防 Android 挂载即弹模态)、KAV Android behavior 改 'height';但 Android 上 compact 内联胶囊不存在、布局需专门适配 —— **记入"Android 适配"待办,装 emulator 后再验证**。
+  - **故意缓修**:#5 iOS 软键盘升起时 SafeAreaView 底部 inset 与 KAV padding 叠加约 34px 间隙 —— 纯视觉、需"键盘感知 inset"才算干净修,且模拟器是硬件键盘模式看不到,留作后期 polish(iOS 行为本次未动,无回归)。
 
 ## 2026-06-09 — 第三次:设计两个仪式 + 重逢的读信方式
 
