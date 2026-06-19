@@ -65,6 +65,16 @@ export default function WriteScreen() {
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
   const canSeal = letter.trim().length > 0;
 
+  // 写信此刻的"邮戳":日期 + 城市(从时区推断,不要定位权限)+ 时间。
+  // useMemo([]) 只在进屏时算一次 —— 像信纸顶端写下的那一刻,定住不动。
+  const stamp = useMemo(() => {
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // 例:Europe/London
+    const city = tz.split('/').pop()?.replace(/_/g, ' ') ?? ''; // → London
+    return { date: formatDate(now), time, city };
+  }, []);
+
   // 真正把信写进 Supabase 的 letters 表。
   // 只送"信的内容 + 送达日";主人(owner_id)由数据库按当前登录的人自动填。
   async function doSeal() {
@@ -142,6 +152,13 @@ export default function WriteScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {/* 顶部邮戳:此刻的日期 / 城市 / 时间 —— "此刻的你"。 */}
+        <View style={styles.dateline}>
+          <Text style={styles.datelineText}>{stamp.date}</Text>
+          {stamp.city ? <Text style={styles.datelineText}>{stamp.city}</Text> : null}
+          <Text style={styles.datelineText}>{stamp.time}</Text>
+        </View>
+
         <TextInput
           style={styles.input}
           value={letter}
@@ -153,32 +170,35 @@ export default function WriteScreen() {
           textAlignVertical="top"
         />
 
-        <View style={styles.footer}>
-          {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
-          <View style={styles.dateRow}>
-            <Text style={styles.dateLabel}>When should it find you again?</Text>
-            <DateTimePicker
-              mode="date"
-              display="compact"
-              presentation="inline"
-              value={effectiveDate}
-              minimumDate={earliest}
-              locale="en_US"
-              accentColor="#3a3a3a"
-              onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
-              style={styles.datePicker}
-            />
-          </View>
+        {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,日期 + 封存才出现。 */}
+        {canSeal ? (
+          <View style={styles.footer}>
+            {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
+            <View style={styles.dateRow}>
+              <Text style={styles.dateLabel}>When should it find you again?</Text>
+              <DateTimePicker
+                mode="date"
+                display="compact"
+                presentation="inline"
+                value={effectiveDate}
+                minimumDate={earliest}
+                locale="en_US"
+                accentColor="#3a3a3a"
+                onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
+                style={styles.datePicker}
+              />
+            </View>
 
-          <Pressable
-            style={[styles.sealButton, !canSeal && styles.sealButtonDisabled]}
-            onPress={handleSeal}
-            disabled={!canSeal}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canSeal }}>
-            <Text style={styles.sealButtonText}>Seal</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              style={[styles.sealButton, !canSeal && styles.sealButtonDisabled]}
+              onPress={handleSeal}
+              disabled={!canSeal}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canSeal }}>
+              <Text style={styles.sealButtonText}>Seal</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -188,6 +208,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: '#fbf6ec' },
   input: { flex: 1, padding: 24, fontSize: 18, lineHeight: 30, color: '#33302b' },
+
+  // 顶部邮戳:打字机字体 + 暖棕色,左缘与信纸正文对齐(都是 24)。
+  dateline: { paddingHorizontal: 24, paddingTop: 4, gap: 2 },
+  datelineText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontSize: 13,
+    color: '#9a8b6c',
+    letterSpacing: 0.5,
+  },
 
   footer: { padding: 16, gap: 10 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
