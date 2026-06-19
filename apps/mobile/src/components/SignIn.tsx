@@ -53,7 +53,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
           {stage === 'email' ? (
             <>
               <Text style={styles.title}>Where should it be sent, years from now?</Text>
-              <Text style={styles.hint}>This email is your account and the address it returns to.</Text>
+              <Text style={styles.hint}>Your letter will return here. This address is your only key.</Text>
               <TextInput
                 style={styles.input}
                 value={email}
@@ -68,8 +68,8 @@ export default function SignIn({ onVerified, onCancel }: Props) {
             </>
           ) : (
             <>
-              <Text style={styles.title}>Enter the code</Text>
-              <Text style={styles.hint}>We emailed it to {email.trim()}.</Text>
+              <Text style={styles.title}>A code is waiting for you</Text>
+              <Text style={styles.hint}>We sent it to {email.trim()}.</Text>
               <TextInput
                 style={[styles.input, styles.codeInput]}
                 value={code}
@@ -104,7 +104,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
           )}
 
           <Pressable onPress={onCancel} disabled={busy}>
-            <Text style={styles.cancel}>Cancel</Text>
+            <Text style={styles.cancel}>Not now</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
