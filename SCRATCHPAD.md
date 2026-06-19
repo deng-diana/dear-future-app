@@ -5,13 +5,20 @@
 
 ## ▶ 下一步从这里继续
 
-第 3 关后端:Supabase 已接通,封存能写进 letters 表(后端用 curl 201 验过;app 端代码已接但 simulator 被占用,未在 app 内实测)。下一步候选:
+登录闭环已通(写→封→登录 OTP→封存)。下一步:**收紧数据库门规则** —— 把信的主人从 `owner_email` 字符串改成账号 ID `owner_id uuid default auth.uid()`,RLS `with check (owner_id = auth.uid())`,客户端不再传 owner。之后:演示模式开关 → 送达定时任务 → 看信页 → 封存动效。
 
-1. **邮箱 OTP 登录** —— 现在 owner_email 是写死的 `test@dearfuture.app`;收紧 RLS 成"只有验证过邮箱的人能写、且写自己的"。
-2. **每天的送达定时任务 + 发邮件**(需接 Resend 发信服务)。
-3. **第 2 关:封存仪式动效**(纯前端,随时可插)。
+提醒:验证码是 8 位(Supabase 默认),app 已能收完整码;封存后那屏 + 写信屏仍是中文文案,PRD 定了全球版要改英文(待办);中文日期胶囊小瑕疵;Android 未验证。
 
-提醒:封存后那屏暂用通用文案(守"封存即消失");中文日期胶囊已知小瑕疵;Android 未验证。
+---
+
+## 2026-06-19 — 黑客松筹备:PRD + 邮箱 OTP 登录闭环
+
+- **PRD.md**:写了 2 天黑客松版 PRD —— 范围(做/不做/演示假装)、逐屏英文文案、5 戒验收、90 秒演示脚本、两天工时排期、风险兜底。核心策略:演示时把送达设"2 分钟后",现场演完整个魔法闭环。
+- **记住登录**:`supabase.ts` 加 AsyncStorage + persistSession/autoRefreshToken/detectSessionInUrl:false,关 app 再开还记得登录。
+- **登录界面**:新建 `src/components/SignIn.tsx`(英文文案)—— 两步:输邮箱 `signInWithOtp` → 输码 `verifyOtp(type:'email')`。
+- **接进封存**:`index.tsx` 加 session 状态 + `onAuthStateChange` 订阅;按封存时没登录→弹 SignIn,验证通过→用真实邮箱 `doSeal`;去掉写死的 `test@dearfuture.app`。
+- **踩坑**:验证码是 **8 位**(原 app maxLength 写死 6,只能输前 6 位→残缺码→invalid);改成 maxLength 10、文案去掉"6-digit"、Verify 够 6 位即可点。旧码会过期,要用最新邮件的完整码。
+- **验证**:tsc 0 错误;模拟器实测完整跑通,落到"🕯️ 信已封存"屏。
 
 ---
 
@@ -32,6 +39,21 @@
 - **/code-review(high effort,7 角度 finder)第一轮**:核心 15 天下限在 iOS 上确认拦死,无崩溃级 bug。已修(iOS 验证):送达日 onValueChange 归零 startOfDay(#3)、`(15 天后)` 改插值 MIN_SEAL_DAYS(#4)、封存抽 handleSeal 单点捕获 effectiveDate 为后端铺路(#6)、夹取 `>`→`>=`(#7)、earliest 用 useMemo 按当天缓存(#8)、formatDate 改 toLocaleDateString('zh-CN')(#9)。
   - **Android 未验证**(本机无 emulator):已按文档加 `presentation="inline"`(防 Android 挂载即弹模态)、KAV Android behavior 改 'height';但 Android 上 compact 内联胶囊不存在、布局需专门适配 —— **记入"Android 适配"待办,装 emulator 后再验证**。
   - **故意缓修**:#5 iOS 软键盘升起时 SafeAreaView 底部 inset 与 KAV padding 叠加约 34px 间隙 —— 纯视觉、需"键盘感知 inset"才算干净修,且模拟器是硬件键盘模式看不到,留作后期 polish(iOS 行为本次未动,无回归)。
+
+## 2026-06-12 — 第 3 关·auth 方案(经 staff 级 subagent review,长远 best practice)
+
+**验证方式**:6 位邮箱 OTP 验证码(非魔法链接)—— 原生 app 更稳。✅ reviewer 认可。
+
+**reviewer 升级的 4 点(必改/须考虑):**
+1. **信的主人用 `auth.uid()`(账号ID),不是 owner_email 字符串。** 邮箱会变/会废(正是 manifesto line 63 担心的死信箱问题);主人身份要稳定,**送达邮箱在"寄出那一刻"再从账号查**(可更新/可重新确认)。→ 改表:`owner_id uuid default auth.uid()`,客户端不传、由服务端定;RLS `with check (owner_id = auth.uid())`。载灵魂,不是 nicety。
+2. **auth 发信用 Send Email Hook 调 Resend API,不用 custom SMTP。** auth 和到期发信共用一个 provider/域名/DKIM/信誉面板;SMTP 会变成第二条代码路径+第二个信誉源。
+3. **provider:现在 Resend(快),代码包一层 `sendEmail()` 模块,长期落到 Amazon SES**(便宜、AWS 级耐久、自己持有 DKIM 域名身份、与 Paris 区一致)。真正要长存的是"你自己拥有的认证域名",provider 可换。
+4. **不能拖到上线前的:** ① 域名(邮件信誉要数周养成,reviewer 说这是唯一真陷阱——test mode 只能让你推迟"写代码",推迟不了"养信誉")② signInWithOtp 上 Turnstile 防刷(被刷→退信→毁域名信誉)③ GDPR 删除/导出 Edge Function(EU 用户存信件,near roadmap)。
+
+**fine as-is**:supabase-js 会话配置(AsyncStorage+persistSession+autoRefresh+detectSessionInUrl:false+AppState 起停)、无 select/update/delete 的 RLS。
+
+**reviewer 建议顺序**:买域名 → Resend/SES 包一层 + Send Email Hook → owner=uid+服务端定 email → Turnstile → GDPR。
+**实操折中**:现在可用 Resend test mode(只发到本人邮箱)先把 auth 建+测起来,但域名别拖到上线前。
 
 ## 2026-06-12 — 第 3 关:接通 Supabase 后端
 

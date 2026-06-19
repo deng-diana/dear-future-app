@@ -1,8 +1,10 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
-import { useMemo, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import SignIn from '@/components/SignIn';
 import { MIN_SEAL_DAYS } from '@/constants/rules';
 import { supabase } from '@/lib/supabase';
 
@@ -37,6 +39,17 @@ export default function WriteScreen() {
   const [letter, setLetter] = useState(''); // 信里写了什么
   const [sealed, setSealed] = useState(false); // 封存了没?
 
+  // 登录状态:session = 当前登录的人(没登录就是 null)。
+  const [session, setSession] = useState<Session | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false); // 是否正在显示登录界面
+
+  // 启动时读一次登录状态,并订阅之后的变化(登录/登出会自动更新)。
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   // 最早可选的送达日 = 今天(归零到 00:00)+ 15 天。
   // 用 useMemo 按"今天是哪天"缓存:同一天内复用同一个对象(不每次按键都重算),
   // 跨过午夜后 todayStamp 变化才重算 —— 既省分配,又不会让 15 天下限悄悄缩成 14 天。
@@ -51,10 +64,10 @@ export default function WriteScreen() {
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
   const canSeal = letter.trim().length > 0;
 
-  // 封存:把信真正写进 Supabase 的 letters 表。
-  async function handleSeal() {
+  // 真正把信写进 Supabase 的 letters 表(此时一定已登录,用验证过的邮箱)。
+  async function doSeal(ownerEmail: string) {
     const { error } = await supabase.from('letters').insert({
-      owner_email: 'test@dearfuture.app', // 临时占位;下一步加邮箱 OTP 后换成验证过的真邮箱
+      owner_email: ownerEmail,
       body: letter.trim(),
       deliver_on: toISODate(effectiveDate),
     });
@@ -63,6 +76,31 @@ export default function WriteScreen() {
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
     setSealed(true);
+  }
+
+  // 按「封存」:没登录就先弹登录;已登录就直接封。
+  function handleSeal() {
+    if (!session) {
+      setShowSignIn(true);
+      return;
+    }
+    doSeal(session.user.email!);
+  }
+
+  // 岔路口⓪:正在登录 → 显示登录界面(输邮箱 → 收码 → 验证)。
+  if (showSignIn) {
+    return (
+      <SignIn
+        onCancel={() => setShowSignIn(false)}
+        onVerified={async () => {
+          setShowSignIn(false);
+          // 验证刚通过,拿最新的登录信息,用真实邮箱完成封存。
+          const { data } = await supabase.auth.getSession();
+          const email = data.session?.user.email;
+          if (email) doSeal(email);
+        }}
+      />
+    );
   }
 
   // 岔路口①:已封存 → 写信的纸消失,只剩一句安静的话。
