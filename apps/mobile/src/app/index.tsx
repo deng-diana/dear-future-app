@@ -133,6 +133,12 @@ export default function WriteScreen() {
   // 岔路口②:还没封存 → 照常写信 + 选日期 + 封存按钮。
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+      {/*
+        已登录时:头像行放在 SafeAreaView 最顶部(普通 flex 流,非绝对定位)。
+        SafeAreaView 的 padding-top 已被证明能正确推开刘海,头像行自然落在刘海下方。
+      */}
+      {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -174,9 +180,6 @@ export default function WriteScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-
-      {/* 已登录时:右上角安静的头像,点开看邮箱 + 登出。 */}
-      {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
     </SafeAreaView>
   );
 }

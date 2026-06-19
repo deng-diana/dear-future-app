@@ -12,21 +12,33 @@ export default function AccountButton({ email, onSignOut }: Props) {
   const insets = useSafeAreaInsets(); // 安全区(避开刘海)
   const initial = email.trim().charAt(0).toUpperCase() || '·'; // 默认头像 = 邮箱首字母
 
+  // 卡片顶部:优先用真实刘海高度;若 insets 还没测到(返回 0),
+  // 回退到 iOS 标准状态栏高度 44,保证卡片不会躲进状态栏下面。
+  const cardTop = (insets.top > 0 ? insets.top : 44) + 8;
+
   return (
     <>
-      <Pressable
-        style={[styles.avatar, { top: insets.top + 8 }]}
-        onPress={() => setOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Account">
-        <Text style={styles.initial}>{initial}</Text>
-      </Pressable>
+      {/*
+        头像行:普通 flex 流(不再 position: absolute)。
+        index.tsx 把它渲染在 SafeAreaView 顶部,
+        SafeAreaView 的 padding 已经把内容推到刘海下方 —— 这个机制已被证明有效。
+        头像靠右:用 alignItems: 'flex-end' + 固定高度实现"安静的右上角"效果。
+      */}
+      <View style={styles.headerRow}>
+        <Pressable
+          style={styles.avatar}
+          onPress={() => setOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Account">
+          <Text style={styles.initial}>{initial}</Text>
+        </Pressable>
+      </View>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         {/* 半透明背景:点空白处关掉 */}
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           {/* 卡片本身:吸收点击,不让它穿透去关掉 */}
-          <Pressable style={[styles.card, { top: insets.top + 54 }]} onPress={() => {}}>
+          <Pressable style={[styles.card, { top: cardTop + 46 }]} onPress={() => {}}>
             <Text style={styles.label}>Your letters return to</Text>
             <Text style={styles.email} numberOfLines={1}>
               {email}
@@ -48,16 +60,20 @@ export default function AccountButton({ email, onSignOut }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // 头像所在的行:撑满横向宽度,头像贴右边,高度给够 avatar 尺寸 + 上下留白。
+  headerRow: {
+    height: 54,
+    paddingHorizontal: 16,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   avatar: {
-    position: 'absolute',
-    right: 16,
     width: 38,
     height: 38,
     borderRadius: 19,
     backgroundColor: '#ece3d2',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
   initial: { fontSize: 16, fontWeight: '600', color: '#6b6155' },
 
