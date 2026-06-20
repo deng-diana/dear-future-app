@@ -1,7 +1,7 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
@@ -75,6 +75,21 @@ export default function WriteScreen() {
     return { date: formatDate(now), time, city };
   }, []);
 
+  // 背景"呼吸":一层极淡的暖色,缓缓在 0 ↔ 0.05 之间起伏(约 9 秒一轮),
+  // 让纸面像活着、有温度,但几乎察觉不到。用内置 Animated(零配置,稳)。
+  const breath = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breath, { toValue: 1, duration: 4500, useNativeDriver: true }),
+        Animated.timing(breath, { toValue: 0, duration: 4500, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [breath]);
+  const breathOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0, 0.05] });
+
   // 真正把信写进 Supabase 的 letters 表。
   // 只送"信的内容 + 送达日";主人(owner_id)由数据库按当前登录的人自动填。
   async function doSeal() {
@@ -143,6 +158,14 @@ export default function WriteScreen() {
   // 岔路口②:还没封存 → 照常写信 + 选日期 + 封存按钮。
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+      {/* 背景呼吸层:绝对铺满、不挡触摸,opacity 由 Animated 缓缓起伏。 */}
+      <Animated.View pointerEvents="none" style={[styles.breath, { opacity: breathOpacity }]} />
+
+      {/* 右下角:微微翘起的纸角(近似版;真实纹理/卷角以后用图片素材升级)。 */}
+      <View pointerEvents="none" style={styles.curlWrap}>
+        <View style={styles.curl} />
+      </View>
+
       {/*
         已登录时:头像行放在 SafeAreaView 最顶部(普通 flex 流,非绝对定位)。
         SafeAreaView 的 padding-top 已被证明能正确推开刘海,头像行自然落在刘海下方。
@@ -159,15 +182,19 @@ export default function WriteScreen() {
           <Text style={styles.datelineText}>{stamp.time}</Text>
         </View>
 
+        {/* 永久题头:衬线大字,信纸的"称呼"。 */}
+        <Text style={styles.title}>Dear future me,</Text>
+
+        {/* 正文:在题头下面写;光标是暖金棕色。 */}
         <TextInput
           style={styles.input}
           value={letter}
           onChangeText={setLetter}
-          placeholder="Dear future me…"
-          placeholderTextColor="#b3a99a"
           multiline
           autoFocus
           textAlignVertical="top"
+          selectionColor="#B7864E"
+          cursorColor="#B7864E"
         />
 
         {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,日期 + 封存才出现。 */}
@@ -206,16 +233,58 @@ export default function WriteScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#fbf6ec' },
-  input: { flex: 1, padding: 24, fontSize: 18, lineHeight: 30, color: '#33302b' },
+  screen: { flex: 1, backgroundColor: '#F4EEE4' },
 
-  // 顶部邮戳:打字机字体 + 暖棕色,左缘与信纸正文对齐(都是 24)。
-  dateline: { paddingHorizontal: 24, paddingTop: 4, gap: 2 },
+  // 背景呼吸层:一层极淡的暖色,铺满全屏(opacity 由动画控制)。
+  breath: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#E4D4B8' },
+
+  // 衬线题头「Dear future me,」。
+  title: {
+    fontFamily: 'CormorantGaramond_600SemiBold',
+    fontSize: 36,
+    lineHeight: 43,
+    color: '#5B4638',
+    paddingHorizontal: 24,
+    marginTop: 18,
+    marginBottom: 2,
+  },
+
+  // 正文:暖色墨,左缘与题头对齐。
+  input: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 6,
+    paddingBottom: 24,
+    fontSize: 18,
+    lineHeight: 30,
+    color: '#4A3D31',
+  },
+
+  // 顶部邮戳:打字机字体,左缘与信纸正文对齐(都是 24)。
+  dateline: { paddingHorizontal: 24, paddingTop: 4 },
   datelineText: {
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    fontSize: 13,
-    color: '#9a8b6c',
-    letterSpacing: 0.5,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#6B5A4B',
+    letterSpacing: 1.1,
+  },
+
+  // 右下角翘起的纸角:一个旋转 45° 的方块,半个探出屏外,
+  // 朝纸面投一道极淡的影(opacity < 0.08),像被掀起一角。
+  curlWrap: { position: 'absolute', right: 0, bottom: 0, width: 70, height: 70 },
+  curl: {
+    position: 'absolute',
+    right: -30,
+    bottom: -30,
+    width: 60,
+    height: 60,
+    backgroundColor: '#EFE6D5',
+    transform: [{ rotate: '45deg' }],
+    shadowColor: '#000',
+    shadowOpacity: 0.07,
+    shadowRadius: 7,
+    shadowOffset: { width: -2, height: -2 },
   },
 
   footer: { padding: 16, gap: 10 },
@@ -236,7 +305,7 @@ const styles = StyleSheet.create({
   // 封存后那一屏
   sealedScreen: {
     flex: 1,
-    backgroundColor: '#fbf6ec',
+    backgroundColor: '#F4EEE4',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,

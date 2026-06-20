@@ -114,7 +114,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#fbf6ec' },
+  screen: { flex: 1, backgroundColor: '#F4EEE4' },
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
   title: { fontSize: 22, color: '#33302b', lineHeight: 30 },
   hint: { fontSize: 14, color: '#8a8175', lineHeight: 20 },
