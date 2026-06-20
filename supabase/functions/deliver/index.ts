@@ -8,9 +8,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 
-// Resend 已验证的发信子域名;看信页(read 函数,下一步建)的地址。
+// Resend 已验证的发信子域名;看信页(部署在 Vercel)的地址。
 const FROM_DOMAIN = 'mail.dearfuture.space';
-const READ_BASE = `${SUPABASE_URL}/functions/v1/read`;
+const READ_BASE = 'https://dear-future-app.vercel.app';
 
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -41,7 +41,7 @@ Deno.serve(async () => {
     }
 
     const year = new Date(letter.deliver_on).getFullYear();
-    const readUrl = `${READ_BASE}?token=${letter.reveal_token}`;
+    const readUrl = `${READ_BASE}/#token=${letter.reveal_token}`;
 
     // 发邮件:发件人显示名「You, in 20XX」,带看信链接 + 底部夹纯文字全文(保命副本)。
     const emailRes = await fetch('https://api.resend.com/emails', {
