@@ -24,3 +24,4 @@ yarn-error.*
 
 # 个人版工作日志(按 CLAUDE.md 习惯:.local 不进 git)
 SCRATCHPAD.local.md
+.vercel

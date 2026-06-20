@@ -5,6 +5,9 @@ import { Animated, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet,
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
+import Dateline from '@/components/Dateline';
+import PaperBackground from '@/components/PaperBackground';
+import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
 import { MIN_SEAL_DAYS } from '@/constants/rules';
 import { supabase } from '@/lib/supabase';
@@ -23,11 +26,6 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-// 把日期显示成「2026年6月27日」—— 跟随系统的中文格式化(和选择器 locale 一致),省去手写拼接。
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
 // 按本地时区输出 'YYYY-MM-DD'(给数据库的 date 列;不用 toISOString,避免跨时区偏一天)。
 function toISODate(d: Date): string {
   const y = d.getFullYear();
@@ -38,6 +36,7 @@ function toISODate(d: Date): string {
 
 export default function WriteScreen() {
   const [letter, setLetter] = useState(''); // 信里写了什么
+  const [sealing, setSealing] = useState(false); // 正在播封存仪式动画?
   const [sealed, setSealed] = useState(false); // 封存了没?
 
   // 登录状态:session = 当前登录的人(没登录就是 null)。
@@ -65,16 +64,6 @@ export default function WriteScreen() {
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
   const canSeal = letter.trim().length > 0;
 
-  // 写信此刻的"邮戳":日期 + 城市(从时区推断,不要定位权限)+ 时间。
-  // useMemo([]) 只在进屏时算一次 —— 像信纸顶端写下的那一刻,定住不动。
-  const stamp = useMemo(() => {
-    const now = new Date();
-    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // 例:Europe/London
-    const city = tz.split('/').pop()?.replace(/_/g, ' ') ?? ''; // → London
-    return { date: formatDate(now), time, city };
-  }, []);
-
   // 背景"呼吸":一层极淡的暖色,缓缓在 0 ↔ 0.05 之间起伏(约 9 秒一轮),
   // 让纸面像活着、有温度,但几乎察觉不到。用内置 Animated(零配置,稳)。
   const breath = useRef(new Animated.Value(0)).current;
@@ -101,7 +90,7 @@ export default function WriteScreen() {
       console.log('封存失败:', error.message);
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
-    setSealed(true);
+    setSealing(true); // 写库成功 → 先播封存仪式动画,动画结束再切"已封存"屏
   }
 
   // 按「封存」:没登录就先弹登录;已登录就直接封。
@@ -142,6 +131,18 @@ export default function WriteScreen() {
     );
   }
 
+  // 岔路口①ʹ:正在播封存仪式 → 火漆盖章 → 信飘走消失,结束后切"已封存"屏。
+  if (sealing) {
+    return (
+      <SealCeremony
+        onDone={() => {
+          setSealing(false);
+          setSealed(true);
+        }}
+      />
+    );
+  }
+
   // 岔路口①:已封存 → 写信的纸消失,只剩一句安静的话。
   if (sealed) {
     return (
@@ -158,32 +159,25 @@ export default function WriteScreen() {
   // 岔路口②:还没封存 → 照常写信 + 选日期 + 封存按钮。
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      {/* 背景呼吸层:绝对铺满、不挡触摸,opacity 由 Animated 缓缓起伏。 */}
-      <Animated.View pointerEvents="none" style={[styles.breath, { opacity: breathOpacity }]} />
+      {/* 纸张质感包裹层:象牙底 + 极淡颗粒 + 内晕 + 右下角翘角。 */}
+      <PaperBackground>
+        {/* 背景呼吸层:绝对铺满、不挡触摸,opacity 由 Animated 缓缓起伏。 */}
+        <Animated.View pointerEvents="none" style={[styles.breath, { opacity: breathOpacity }]} />
 
-      {/* 右下角:微微翘起的纸角(近似版;真实纹理/卷角以后用图片素材升级)。 */}
-      <View pointerEvents="none" style={styles.curlWrap}>
-        <View style={styles.curl} />
-      </View>
+        {/*
+          已登录时:头像行放在最顶部(普通 flex 流,非绝对定位)。
+          SafeAreaView 的 padding-top 已被证明能正确推开刘海,头像行自然落在刘海下方。
+        */}
+        {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
 
-      {/*
-        已登录时:头像行放在 SafeAreaView 最顶部(普通 flex 流,非绝对定位)。
-        SafeAreaView 的 padding-top 已被证明能正确推开刘海,头像行自然落在刘海下方。
-      */}
-      {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。 */}
+          <Dateline />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        {/* 顶部邮戳:此刻的日期 / 城市 / 时间 —— "此刻的你"。 */}
-        <View style={styles.dateline}>
-          <Text style={styles.datelineText}>{stamp.date}</Text>
-          {stamp.city ? <Text style={styles.datelineText}>{stamp.city}</Text> : null}
-          <Text style={styles.datelineText}>{stamp.time}</Text>
-        </View>
-
-        {/* 永久题头:衬线大字,信纸的"称呼"。 */}
-        <Text style={styles.title}>Dear future me,</Text>
+          {/* 永久题头:衬线大字,信纸的"称呼"。 */}
+          <Text style={styles.title}>Dear future me,</Text>
 
         {/* 正文:在题头下面写;光标是暖金棕色。 */}
         <TextInput
@@ -226,7 +220,8 @@ export default function WriteScreen() {
             </Pressable>
           </View>
         ) : null}
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </PaperBackground>
     </SafeAreaView>
   );
 }
@@ -259,33 +254,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 26,
     color: '#4A3D31',
-  },
-
-  // 顶部邮戳:IBM Plex Mono Medium(品牌规范:元数据 / 时间戳字体),左缘与信纸正文对齐(都是 24)。
-  dateline: { paddingHorizontal: 24, paddingTop: 4 },
-  datelineText: {
-    fontFamily: 'IBMPlexMono_500Medium',
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#6B5A4B',
-    letterSpacing: 1.1,
-  },
-
-  // 右下角翘起的纸角:一个旋转 45° 的方块,半个探出屏外,
-  // 朝纸面投一道极淡的影(opacity < 0.08),像被掀起一角。
-  curlWrap: { position: 'absolute', right: 0, bottom: 0, width: 70, height: 70 },
-  curl: {
-    position: 'absolute',
-    right: -30,
-    bottom: -30,
-    width: 60,
-    height: 60,
-    backgroundColor: '#EFE6D5',
-    transform: [{ rotate: '45deg' }],
-    shadowColor: '#000',
-    shadowOpacity: 0.07,
-    shadowRadius: 7,
-    shadowOffset: { width: -2, height: -2 },
   },
 
   footer: { padding: 16, gap: 10 },
