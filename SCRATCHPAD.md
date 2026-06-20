@@ -5,9 +5,28 @@
 
 ## ▶ 下一步从这里继续
 
-登录闭环已通(写→封→登录 OTP→封存)。下一步:**收紧数据库门规则** —— 把信的主人从 `owner_email` 字符串改成账号 ID `owner_id uuid default auth.uid()`,RLS `with check (owner_id = auth.uid())`,客户端不再传 owner。之后:演示模式开关 → 送达定时任务 → 看信页 → 封存动效。
+**核心闭环全通:写→封→送→看 ✅**(2026-06-20 端到端实测过)。剩下的都是 **polish / 生产硬化**,不是"功能不通":
+1. **封存仪式动效**(火漆→宝盒→消失,第 2 关,纯前端)。
+2. **视觉一批**:可编辑城市(D,已暂停)、纸张纹理/卷角真实化、邮戳/正文细节。
+3. **送达自动化**:现在 deliver 靠手动 curl 触发;上 `pg_cron` 每天自动跑一次。
+4. **生产硬化**:Turnstile 防刷、GDPR 删除/导出、deliver/RPC 加鉴权(现在 verify_jwt 关)。
+5. app 内"演示模式"(现在靠 SQL 把 deliver_on 改今天来演)。
 
-提醒:验证码是 8 位(Supabase 默认),app 已能收完整码;封存后那屏 + 写信屏仍是中文文案,PRD 定了全球版要改英文(待办);中文日期胶囊小瑕疵;Android 未验证。
+提醒:验证码 8 位(Supabase 默认);Android 未验证;看信页缓缓展开已做但可继续雕(配乐/拆封节奏);service_role key 在 2026-06-20 的终端截图里露过一次,**有空可在 Supabase 轮换一下**。
+
+---
+
+## 2026-06-20 — 核心闭环打通:送达 + 看信页(写→封→送→看 全通)
+
+**这天把后半截"送→看"整个做完并端到端验证。**
+
+- **品牌更名 Reunite**:存 `BRAND.md`(创始人写);新建 `README.md` + 根 `CLAUDE.md`;MANIFESTO/MVP-V1/PRD 标题加 Reunite(中文原名"写给未来的自己"保留)。
+- **视觉**:写信屏升级 Cormorant Garamond 题头 + 象牙白 #F4EEE4 + 呼吸层 + 金色光标;邮戳 IBM Plex Mono;正文 Courier Prime;Seal 按钮波尔多红 #7A1E1E + 古金 ✦。头像安全区 bug 修复(改用正常布局流,经 watchr UI 树验证)。
+- **数据库**:`letters` 加 `reveal_token uuid default gen_random_uuid()`;建 `reveal_letter(token)` RPC(security definer + grant anon,只返回已送达的信)。
+- **送达**:新建 `deliver` Edge Function(service_role 跑;查到期未送的信→admin 查邮箱→Resend 发信→回填 delivered_at 防重发)。Resend secret 存 Supabase。**实测:邮件进收件箱(IMPORTANT,非垃圾箱),幂等不重发。**
+- **看信页**:`web/reveal/index.html`(读 token→调 RPC→缓缓展开)。**踩坑:Supabase Storage 把 HTML 一律当 text/plain,托管不了网页** → 改部署 **Vercel**(`vercel.json` 把 web/reveal 当静态站;`https://dear-future-app.vercel.app`,text/html 正确)。deliver 邮件链接改指向它。
+- **网关坑**:Supabase Edge Function 即使 verify_jwt 关,网关仍要 Authorization 头 → 浏览器没法直接开函数,所以看信页必须放 Vercel。
+- **端到端验证**(watchr + Gmail MCP):造到期信→触发 deliver→新邮件链接=Vercel→打开渲染出正确那封信。✅
 
 ---
 
