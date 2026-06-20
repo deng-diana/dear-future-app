@@ -249,14 +249,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  // 正文:暖色墨,左缘与题头对齐。
+  // 正文:打字机字体 Courier Prime,暖色墨,左缘与题头对齐。
   input: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 6,
     paddingBottom: 24,
-    fontSize: 18,
-    lineHeight: 30,
+    fontFamily: 'CourierPrime_400Regular',
+    fontSize: 16,
+    lineHeight: 26,
     color: '#4A3D31',
   },
 
