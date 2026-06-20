@@ -69,8 +69,10 @@ export default function PaperBackground({ children }: Props) {
 
   return (
     <View style={styles.root}>
-      {/* ── 主内容 ── */}
-      {children}
+      {/* ── 主内容:显式 flex:1 容器确保子元素能正确占满剩余高度 ── */}
+      <View style={styles.content}>
+        {children}
+      </View>
 
       {/* ── 颗粒层:32 个极淡暖色小点,模拟纸浆纤维 ── */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -100,6 +102,11 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#F4EEE4', // 象牙白底色
+  },
+  // 内容容器:明确给 flex:1,保证 children(含 KAV flex:1)能正确拿到全部剩余高度。
+  // 没有这层包裹时,Yoga 在 children 里同时有 absolute 子视图的情况下可能无法正确分配高度。
+  content: {
+    flex: 1,
   },
 
   // 外晕:极淡边框,四周 2px,颜色比纸面稍深一点
