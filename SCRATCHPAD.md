@@ -7,6 +7,13 @@
 
 **🏁 黑客松提交:2026-06-21 上午 11:00 前。** 产品功能已全部完成,**重点是把现场 demo 演漂亮**(演示脚本见本文件 2026-06-20 下半段)。
 
+**提交表单需 4 个必填链接 + 待办:**
+- ⬜ **Live Demo Link → 方案 A:把 Expo app 导出网页版部署 Vercel**(RN for Web;日期选择器加 `Platform.OS==='web'` 兼容;看信页挪到 `/read`,主页放 app)。兜底:先填看信页 URL。
+- ⬜ Link to Code → 先 `git push` 到 GitHub(本地领先 origin 23 文件)。
+- ⬜ Link to Presentation → 做 deck。
+- ⬜ Link to Demo Video → 录演示视频。
+- 💡 **多媒体封存(朋友反馈:纯文字不够 impressive)**:在信里加**图片 +(可选)短视频**一起封存、到期送达。**符合 manifesto 第二戒(真实高于体面)**。评估:**图片=中等可行、冲击力高**;**视频=高难高险(大文件上传/播放/编码),建议缓到赛后或仅作 roadmap**。截止前优先级低于上面 4 个必交项。
+
 **演示要点**:`DEMO_MODE = true`(`src/constants/rules.ts`)—— 封信后几秒邮箱就收到(允许选今天 + 封存后自动调 deliver)。**演示结束后改回 `false` 恢复 15 天规则。** 演示前务必:① 模拟器里**先登录好**(免现场等 OTP)② Gmail 开在浏览器备好 ③ 若卡白屏,`xcrun simctl terminate booted host.exp.Exponent` 强杀重开。
 
 **赛后再做(已记 to-do,黑客松不碰)**:

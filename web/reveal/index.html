@@ -23,10 +23,93 @@
 
   /* 缓缓浮现:一段段慢慢升起、淡入 —— 这一页的灵魂是"慢"。 */
   .reveal { opacity:0; transform:translateY(10px); animation:rise 2.6s cubic-bezier(.2,.6,.2,1) forwards; }
-  .reveal.d1 { animation-delay:.2s; }
-  .reveal.d2 { animation-delay:1.0s; }
-  .reveal.d3 { animation-delay:1.9s; }
+  .reveal.d1  { animation-delay:.2s; }
+  .reveal.d1p { animation-delay:.7s; }
+  .reveal.d1v { animation-delay:1.3s; }
+  .reveal.d2  { animation-delay:2.2s; }
+  .reveal.d3  { animation-delay:3.1s; }
   @keyframes rise { to { opacity:1; transform:translateY(0); } }
+
+  /* ── Polaroid frame ── */
+  .polaroid-wrap {
+    /* Center inside the max-width column */
+    display: flex;
+    justify-content: center;
+    margin: 24px 0 0;
+  }
+
+  .polaroid {
+    --paper-bg: #FBF8F1;
+    --paper-shadow:
+      0 1px 2px rgba(13,13,13,.06),
+      0 8px 24px rgba(13,13,13,.08),
+      0 24px 48px rgba(13,13,13,.06);
+    position: relative;
+    background: var(--paper-bg);
+    padding: 22px 22px 36px;
+    box-shadow: var(--paper-shadow);
+    /* Width: fits comfortably in 620px column with room to breathe */
+    width: min(320px, 88vw);
+  }
+
+  .polaroid--photo { transform: rotate(-2deg); }
+  .polaroid--video { transform: rotate(2deg); }
+
+  /* Tape strip at the top */
+  .polaroid-tape {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-1deg);
+    width: 64px;
+    height: 18px;
+    background: rgba(255,199,82,.32);
+    border: 1px solid rgba(140,94,16,.12);
+  }
+
+  /* The photo/video window — 4:5 aspect ratio */
+  .polaroid-window {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #E8E0D4;
+  }
+
+  /* Film-grain overlay via inline SVG fractalNoise */
+  .polaroid-window::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
+    mix-blend-mode: overlay;
+    opacity: 0.18;
+  }
+
+  /* The actual image or video inside the window */
+  .polaroid-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
+  }
+
+  /* Video: controls sit on top of the vintage filter; keep them reachable */
+  .polaroid-media--video {
+    /* Don't apply the same absolute positioning for video so controls show */
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
+  }
 </style>
 </head>
 <body>
@@ -49,6 +132,43 @@
       catch (e) { return d; }
     }
 
+    // Build a Polaroid block for a photo URL.
+    // Returns an HTML string, or '' if url is falsy.
+    function photoPolaroid(url) {
+      if (!url) return '';
+      // esc() the URL to prevent XSS via a malicious photo_url
+      var safe = esc(url);
+      return (
+        '<div class="polaroid-wrap reveal d1p">' +
+          '<figure class="polaroid polaroid--photo">' +
+            '<div class="polaroid-tape"></div>' +
+            '<div class="polaroid-window">' +
+              '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" loading="lazy" />' +
+            '</div>' +
+          '</figure>' +
+        '</div>'
+      );
+    }
+
+    // Build a Polaroid block for a video URL.
+    // Returns an HTML string, or '' if url is falsy.
+    function videoPolaroid(url) {
+      if (!url) return '';
+      var safe = esc(url);
+      return (
+        '<div class="polaroid-wrap reveal d1v">' +
+          '<figure class="polaroid polaroid--video">' +
+            '<div class="polaroid-tape"></div>' +
+            '<div class="polaroid-window">' +
+              '<video class="polaroid-media polaroid-media--video" src="' + safe + '" controls preload="metadata">' +
+                'Your browser does not support HTML5 video.' +
+              '</video>' +
+            '</div>' +
+          '</figure>' +
+        '</div>'
+      );
+    }
+
     async function main() {
       const token = getToken();
       const root = document.getElementById('root');
@@ -66,8 +186,15 @@
           return;
         }
         const letter = rows[0];
+
+        // photo_url and video_url may be null/undefined — guard both.
+        const photoHtml = photoPolaroid(letter.photo_url || null);
+        const videoHtml = videoPolaroid(letter.video_url || null);
+
         root.innerHTML =
           '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +
+          photoHtml +
+          videoHtml +
           '<div class="salutation reveal d2">Dear future me,</div>' +
           '<div class="body reveal d3">' + esc(letter.body) + '</div>' +
           '<div class="star reveal d3">&#10022;</div>';
