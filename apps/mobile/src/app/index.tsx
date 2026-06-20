@@ -9,7 +9,7 @@ import Dateline from '@/components/Dateline';
 import PaperBackground from '@/components/PaperBackground';
 import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
-import { MIN_SEAL_DAYS } from '@/constants/rules';
+import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
 import { supabase } from '@/lib/supabase';
 
 // 把日期"归零"到当天 00:00(本地时区)—— 我们按"整天"算,不掺时分秒。
@@ -89,6 +89,11 @@ export default function WriteScreen() {
     if (error) {
       console.log('封存失败:', error.message);
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
+    }
+    if (DEMO_MODE) {
+      // 演示模式:封存后立刻触发送达云函数 → 几秒内邮箱就收到这封信。
+      // fire-and-forget:不阻塞封存动画,后台把信发出去。
+      supabase.functions.invoke('deliver').catch(() => {});
     }
     setSealing(true); // 写库成功 → 先播封存仪式动画,动画结束再切"已封存"屏
   }
