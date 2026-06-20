@@ -5,14 +5,29 @@
 
 ## ▶ 下一步从这里继续
 
-**核心闭环全通:写→封→送→看 ✅**(2026-06-20 端到端实测过)。剩下的都是 **polish / 生产硬化**,不是"功能不通":
-1. **封存仪式动效**(火漆→宝盒→消失,第 2 关,纯前端)。
-2. **视觉一批**:可编辑城市(D,已暂停)、纸张纹理/卷角真实化、邮戳/正文细节。
-3. **送达自动化**:现在 deliver 靠手动 curl 触发;上 `pg_cron` 每天自动跑一次。
-4. **生产硬化**:Turnstile 防刷、GDPR 删除/导出、deliver/RPC 加鉴权(现在 verify_jwt 关)。
-5. app 内"演示模式"(现在靠 SQL 把 deliver_on 改今天来演)。
+**🏁 黑客松提交:2026-06-21 上午 11:00 前。** 产品功能已全部完成,**重点是把现场 demo 演漂亮**(演示脚本见本文件 2026-06-20 下半段)。
 
-提醒:验证码 8 位(Supabase 默认);Android 未验证;看信页缓缓展开已做但可继续雕(配乐/拆封节奏);service_role key 在 2026-06-20 的终端截图里露过一次,**有空可在 Supabase 轮换一下**。
+**演示要点**:`DEMO_MODE = true`(`src/constants/rules.ts`)—— 封信后几秒邮箱就收到(允许选今天 + 封存后自动调 deliver)。**演示结束后改回 `false` 恢复 15 天规则。** 演示前务必:① 模拟器里**先登录好**(免现场等 OTP)② Gmail 开在浏览器备好 ③ 若卡白屏,`xcrun simctl terminate booted host.exp.Exponent` 强杀重开。
+
+**赛后再做(已记 to-do,黑客松不碰)**:
+- 🛡️ 生产硬化:Turnstile 防刷(signInWithOtp)、GDPR 删除/导出、deliver/RPC 加鉴权(现 verify_jwt 关)。
+- 🔒 安全:**轮换 service_role 钥匙**(2026-06-20 终端截图露过)。
+- 🎨 资产:真实棉纸纹理(需图片素材)、App 图标 + 启动屏(火漆+北极星)、看信页配乐/拆封节奏。
+- 📱 平台:Android 未验证、真机 Development Build。
+- 💰 商业:"封存收一次费"的收款。
+- 演示后把 `DEMO_MODE` 改回 `false`。
+
+提醒:验证码 8 位;邮件发件域名仍是 mail.dearfuture.space(旧域名,可日后换 Reunite 域名)。
+
+---
+
+## 2026-06-20(下半)— 品牌 + 视觉 + 自动化 + 演示模式(黑客松冲刺)
+
+- **品牌 Reunite**:见上半段。
+- **视觉动效(均 watchr 真机验证)**:🎬 封存仪式动效 `SealCeremony`(火漆 spring 盖章→上飘淡出"交给时间"→落 Sealed 屏);🏙️ 可编辑城市 `Dateline`(点 London 改、AsyncStorage 记住、点线下划线暗示、零权限);📄 纸张质感 `PaperBackground`(象牙底+颗粒+内晕+卷角近似)。
+- **送达自动化**:`pg_cron` + `pg_net` 建定时任务 `deliver-letters-daily`(每天 UTC 09:00 调 deliver,`active=true`)。
+- **演示模式**:`DEMO_MODE` 开关;封存即可立刻送达(实测 app 封信 → ~12s 进收件箱)。
+- **大坑教训**:Expo Go 进程会**卡死、不再重载**(exp:// 重开/改代码都没用),界面空白且无报错 —— 必须 `xcrun simctl terminate booted host.exp.Exponent` 强杀重开才真重载。曾误以为是布局 bug,白查很久。
 
 ---
 
