@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reunite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Courier+Prime&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ivory:#F4EEE4; --ink:#4A3D31; --brown:#5B4638; --soft:#6B5A4B; --faint:#A0907A; --gold:#B7864E;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { background:var(--ivory); color:var(--ink); }
+  body { min-height:100vh; display:flex; justify-content:center; -webkit-font-smoothing:antialiased; }
+  .wrap { width:100%; max-width:620px; padding:14vh 28px 18vh; }
+  .meta { font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:.08em; line-height:1.9; color:var(--soft); }
+  .salutation { font-family:'Cormorant Garamond',serif; font-weight:600; font-size:34px; line-height:1.2; color:var(--brown); margin:28px 0 18px; }
+  .body { font-family:'Courier Prime',monospace; font-size:16px; line-height:1.95; white-space:pre-wrap; color:var(--ink); }
+  .star { margin-top:64px; text-align:center; color:var(--gold); font-size:20px; }
+  .state { font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:.06em; color:var(--faint); }
+
+  /* 缓缓浮现:一段段慢慢升起、淡入 —— 这一页的灵魂是"慢"。 */
+  .reveal { opacity:0; transform:translateY(10px); animation:rise 2.6s cubic-bezier(.2,.6,.2,1) forwards; }
+  .reveal.d1 { animation-delay:.2s; }
+  .reveal.d2 { animation-delay:1.0s; }
+  .reveal.d3 { animation-delay:1.9s; }
+  @keyframes rise { to { opacity:1; transform:translateY(0); } }
+</style>
+</head>
+<body>
+  <main class="wrap" id="root">
+    <p class="state" id="state">Opening…</p>
+  </main>
+
+  <script>
+    // 这两个都是公开值(anon key 本就随 app 公开),放这里安全。
+    const SUPABASE_URL = 'https://vxvgcozpuerrjtoxwumi.supabase.co';
+    const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4dmdjb3pwdWVycmp0b3h3dW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzAyODQsImV4cCI6MjA5Njg0NjI4NH0.POL88HDZCOubSx-2b-i0HBP3CK7Sn72TZRzeKz-nuhk';
+
+    function getToken() {
+      const h = new URLSearchParams(location.hash.slice(1));
+      return h.get('token') || new URLSearchParams(location.search).get('token');
+    }
+    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function fmtDate(d) {
+      try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
+      catch (e) { return d; }
+    }
+
+    async function main() {
+      const token = getToken();
+      const root = document.getElementById('root');
+      const state = document.getElementById('state');
+      if (!token) { state.textContent = 'This link is missing its key.'; return; }
+      try {
+        const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/reveal_letter', {
+          method: 'POST',
+          headers: { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_token: token }),
+        });
+        const rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) {
+          state.textContent = 'This letter is not ready yet, or the link is no longer valid.';
+          return;
+        }
+        const letter = rows[0];
+        root.innerHTML =
+          '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +
+          '<div class="salutation reveal d2">Dear future me,</div>' +
+          '<div class="body reveal d3">' + esc(letter.body) + '</div>' +
+          '<div class="star reveal d3">&#10022;</div>';
+      } catch (e) {
+        state.textContent = 'Something went wrong opening this letter.';
+      }
+    }
+    main();
+  </script>
+</body>
+</html>
