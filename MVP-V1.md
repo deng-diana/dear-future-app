@@ -1,4 +1,4 @@
-# MVP — V1 范围(已钉死 2026-06-09)
+# Reunite — MVP V1 范围(已钉死 2026-06-09)
 
 > 灵魂见 [MANIFESTO.md](MANIFESTO.md)。这份只说 V1 到底做什么。
 >

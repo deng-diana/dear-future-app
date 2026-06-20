@@ -222,7 +222,7 @@ export default function WriteScreen() {
               disabled={!canSeal}
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSeal }}>
-              <Text style={styles.sealButtonText}>Seal</Text>
+              <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
             </Pressable>
           </View>
         ) : null}
@@ -260,10 +260,10 @@ const styles = StyleSheet.create({
     color: '#4A3D31',
   },
 
-  // 顶部邮戳:打字机字体,左缘与信纸正文对齐(都是 24)。
+  // 顶部邮戳:IBM Plex Mono Medium(品牌规范:元数据 / 时间戳字体),左缘与信纸正文对齐(都是 24)。
   dateline: { paddingHorizontal: 24, paddingTop: 4 },
   datelineText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontFamily: 'IBMPlexMono_500Medium',
     fontSize: 14,
     lineHeight: 22,
     color: '#6B5A4B',
@@ -294,13 +294,13 @@ const styles = StyleSheet.create({
   earliestHint: { fontSize: 12, color: '#b3a99a', textAlign: 'right' },
 
   sealButton: {
-    backgroundColor: '#3a3a3a',
+    backgroundColor: '#7A1E1E', // 品牌色:波尔多红
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
   },
-  sealButtonDisabled: { backgroundColor: '#ddd5c7' }, // 不满足条件:按钮变灰
-  sealButtonText: { color: '#fbf6ec', fontSize: 17, fontWeight: '600', letterSpacing: 4 },
+  sealButtonDisabled: { backgroundColor: '#C9B6A6' }, // 未激活:暖灰玫瑰(不满足条件)
+  sealButtonText: { color: '#D6B26E', fontSize: 17, fontWeight: '600', letterSpacing: 4 }, // 古金色文字
 
   // 封存后那一屏
   sealedScreen: {

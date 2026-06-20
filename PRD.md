@@ -1,4 +1,4 @@
-# PRD — 写给未来的自己(2 天黑客松版)
+# Reunite — PRD · 写给未来的自己(2 天黑客松版)
 
 > 灵魂见 [MANIFESTO.md](MANIFESTO.md)。范围见 [MVP-V1.md](MVP-V1.md)。
 > 这份 PRD 只回答一件事:**两天里,做出能完整演示的那个闭环。**
