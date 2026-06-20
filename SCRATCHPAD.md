@@ -7,6 +7,11 @@
 
 **🏁 黑客松提交:2026-06-21 上午 11:00 前。** 产品功能已全部完成,**重点是把现场 demo 演漂亮**(演示脚本见本文件 2026-06-20 下半段)。
 
+**📸 多媒体封存已落地(2026-06-21 凌晨)**:信件可附 1 张照片 + 1 段≤30s 短视频,封存一起送达,看信页以 Polaroid 呈现(`249a428`)。fresh-eyes 资深 review 抓到并修掉 3 个必修项(`82a4a57`):看信页 XSS(引号转义 + 只渲染本桶链接)、上传失败静默丢图(改成 Alert 提示不封存)、大视频 OOM(图≤12MB/视频≤25MB 上限)。**未上线:看信页(含 Polaroid + XSS 修复)还没部署到 Vercel。** 命令:`cd ~/Desktop/dear-future-app && npx vercel --prod --yes`。
+- ⬜ **测多媒体端到端**:模拟器选图/选视频 → 封存 → 邮箱 → 看信页 Polaroid 显示。
+- ⚠️ **需你确认**:Supabase Storage 里 `memories` 桶**存在且为 Public**;**不要**给它加任何 "select/list" 策略(公开桶靠 CDN 直链取文件,不需要 select 策略;加了反而让所有人能列举别人的照片)。
+- 赛后 backlog(review 提出):给 `photo_url/video_url` 加 DB check 约束只允许本桶域名、孤儿文件清理、`randomFolder` 换 crypto 随机、私有桶+签名链接。
+
 **提交表单需 4 个必填链接 + 待办:**
 - ⬜ **Live Demo Link → 方案 A:把 Expo app 导出网页版部署 Vercel**(RN for Web;日期选择器加 `Platform.OS==='web'` 兼容;看信页挪到 `/read`,主页放 app)。兜底:先填看信页 URL。
 - ⬜ Link to Code → 先 `git push` 到 GitHub(本地领先 origin 23 文件)。
