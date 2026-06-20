@@ -41,7 +41,7 @@ Deno.serve(async () => {
     }
 
     const year = new Date(letter.deliver_on).getFullYear();
-    const readUrl = `${READ_BASE}/#token=${letter.reveal_token}`;
+    const readUrl = `${READ_BASE}/?token=${letter.reveal_token}`;
 
     // 发邮件:发件人显示名「You, in 20XX」,带看信链接 + 底部夹纯文字全文(保命副本)。
     const emailRes = await fetch('https://api.resend.com/emails', {
