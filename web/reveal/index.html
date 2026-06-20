@@ -126,7 +126,9 @@
       const h = new URLSearchParams(location.hash.slice(1));
       return h.get('token') || new URLSearchParams(location.search).get('token');
     }
-    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    // 只信任我们自己 Supabase 存储桶的链接,别的一律不渲染(纵深防御:就算 esc 漏了也挡得住)。
+    function safeMediaUrl(u) { return (typeof u === 'string' && u.indexOf(SUPABASE_URL + '/storage/') === 0) ? u : null; }
     function fmtDate(d) {
       try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
       catch (e) { return d; }
@@ -188,8 +190,8 @@
         const letter = rows[0];
 
         // photo_url and video_url may be null/undefined — guard both.
-        const photoHtml = photoPolaroid(letter.photo_url || null);
-        const videoHtml = videoPolaroid(letter.video_url || null);
+        const photoHtml = photoPolaroid(safeMediaUrl(letter.photo_url));
+        const videoHtml = videoPolaroid(safeMediaUrl(letter.video_url));
 
         root.innerHTML =
           '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +

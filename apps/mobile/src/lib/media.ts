@@ -3,10 +3,24 @@
 import { decode } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import { Alert } from 'react-native';
 
 import { supabase } from './supabase';
 
 export type PickedMedia = { uri: string; kind: 'photo' | 'video' };
+
+// 体积上限:我们把整个文件读进内存再上传,太大手机会崩溃,所以先拦住。
+const MAX_PHOTO_BYTES = 12 * 1024 * 1024; // 12 MB
+const MAX_VIDEO_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// 太大就提示并拒绝;拿不到大小(undefined)就放行。
+function tooBig(size: number | undefined, max: number, label: string): boolean {
+  if (typeof size === 'number' && size > max) {
+    Alert.alert(`${label} too large`, `Please choose one under ${Math.round(max / 1024 / 1024)} MB.`);
+    return true;
+  }
+  return false;
+}
 
 // 选 1 张照片(从相册)。
 export async function pickPhoto(): Promise<PickedMedia | null> {
@@ -15,6 +29,7 @@ export async function pickPhoto(): Promise<PickedMedia | null> {
     quality: 0.8,
   });
   if (res.canceled || !res.assets?.[0]) return null;
+  if (tooBig(res.assets[0].fileSize, MAX_PHOTO_BYTES, 'Photo')) return null;
   return { uri: res.assets[0].uri, kind: 'photo' };
 }
 
@@ -26,6 +41,7 @@ export async function pickVideo(): Promise<PickedMedia | null> {
     videoMaxDuration: 30,
   });
   if (res.canceled || !res.assets?.[0]) return null;
+  if (tooBig(res.assets[0].fileSize, MAX_VIDEO_BYTES, 'Video')) return null;
   return { uri: res.assets[0].uri, kind: 'video' };
 }
 

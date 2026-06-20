@@ -96,6 +96,12 @@ export default function WriteScreen() {
       const folder = randomFolder();
       if (photo) photoUrl = await uploadMedia(photo, folder);
       if (video) videoUrl = await uploadMedia(video, folder);
+      // 上传失败 → 千万别封存。封存即消失,信一走用户永远发现不了图丢了。
+      if ((photo && !photoUrl) || (video && !videoUrl)) {
+        setBusy(false);
+        Alert.alert('Upload failed', "Your photo or video didn't upload. Please check your connection and try again.");
+        return; // 信还在、可重试
+      }
     }
     const { error } = await supabase.from('letters').insert({
       body: letter.trim(),
