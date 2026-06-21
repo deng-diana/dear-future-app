@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reunite — Live Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 温暖的米色背景,让手机居中浮起来 */
+    background: radial-gradient(circle at 50% 28%, #F3E6CC 0%, #E7D6B8 55%, #DAC6A4 100%);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 缩放容器:JS 按视口算缩放比,保证整台手机始终完整可见、居中 */
+  .stage {
+    transform-origin: center center;
+    will-change: transform;
+  }
+
+  /* 手机外框:深色机身 + 圆角 + 柔和投影 */
+  .phone {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    background: #0e0e0f;
+    border-radius: 56px;
+    padding: 14px;
+    box-shadow:
+      0 2px 4px rgba(40,26,12,.20),
+      0 30px 70px rgba(60,40,20,.32),
+      0 12px 28px rgba(60,40,20,.22);
+  }
+
+  /* 屏幕:圆角裁切,装 app 的 iframe */
+  .screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 44px;
+    overflow: hidden;
+    background: #FAE6C9; /* 与 app 同色,加载瞬间不闪白 */
+  }
+  .screen iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+
+  /* 顶部刘海(纯装饰) */
+  .notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 148px;
+    height: 30px;
+    background: #0e0e0f;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+    z-index: 5;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <!-- 真正的 app 在 /app(Expo web 导出),这里只是把它框进手机里 -->
+        <iframe src="/app" title="Reunite app" allow="clipboard-write; encrypted-media"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 按视口大小把整台手机等比缩放到刚好放下,始终居中、完整。
+    (function () {
+      var stage = document.getElementById('stage');
+      var PHONE_W = 390 + 28;   // 含机身边框
+      var PHONE_H = 844 + 28;
+      var MARGIN = 32;
+      function fit() {
+        var s = Math.min(
+          1,
+          (window.innerWidth - MARGIN) / PHONE_W,
+          (window.innerHeight - MARGIN) / PHONE_H
+        );
+        stage.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
