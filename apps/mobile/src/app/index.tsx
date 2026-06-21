@@ -1,12 +1,11 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
 import Dateline from '@/components/Dateline';
-import PaperBackground from '@/components/PaperBackground';
 import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
@@ -73,21 +72,6 @@ export default function WriteScreen() {
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
   // 只有"称呼"还不算写了信 —— 要等用户在称呼之外真的写了字,底部才出现。
   const canSeal = letter.trim().length > 0 && letter.trim() !== 'Dear future me,';
-
-  // 背景"呼吸":一层极淡的暖色,缓缓在 0 ↔ 0.05 之间起伏(约 9 秒一轮),
-  // 让纸面像活着、有温度,但几乎察觉不到。用内置 Animated(零配置,稳)。
-  const breath = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(breath, { toValue: 1, duration: 4500, useNativeDriver: true }),
-        Animated.timing(breath, { toValue: 0, duration: 4500, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [breath]);
-  const breathOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0, 0.05] });
 
   // 真正把信写进 Supabase 的 letters 表。
   // 只送"信的内容 + 送达日";主人(owner_id)由数据库按当前登录的人自动填。
@@ -231,11 +215,8 @@ export default function WriteScreen() {
   // 岔路口②:还没封存 → 写信 + 选附件 + 「Finish」(日期 / 封存以弹层形式出现)。
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      {/* 纸张质感包裹层:象牙底 + 极淡颗粒 + 内晕 + 右下角翘角。 */}
-      <PaperBackground>
-        {/* 背景呼吸层:绝对铺满、不挡触摸,opacity 由 Animated 缓缓起伏。 */}
-        <Animated.View pointerEvents="none" style={[styles.breath, { opacity: breathOpacity }]} />
-
+      {/* 干净纯色底(#FAE6C9)—— 去掉纸张质感 + 呼吸层(用户要求)。 */}
+      <View style={styles.flex}>
         {/*
           已登录时:头像行放在最顶部(普通 flex 流,非绝对定位)。
           SafeAreaView 的 padding-top 已被证明能正确推开刘海,头像行自然落在刘海下方。
@@ -310,7 +291,7 @@ export default function WriteScreen() {
           </View>
         ) : null}
         </KeyboardAvoidingView>
-      </PaperBackground>
+      </View>
 
       {/*
         选送达日弹层:暗色遮罩浮在写信纸之上(写信内容仍在底下,只是被压暗)。
@@ -370,17 +351,14 @@ export default function WriteScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#EDD8C3' },
-
-  // 背景呼吸层:一层极淡的暖色,铺满全屏(opacity 由动画控制)。
-  breath: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#E0C7A4' },
+  screen: { flex: 1, backgroundColor: '#FAE6C9' }, // 干净纯色底(用户指定)
 
   // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
   // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。
   input: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 32,
+    paddingTop: 28,
     paddingBottom: 24,
     fontFamily: 'CourierPrime_400Regular',
     fontSize: 16,
@@ -388,7 +366,7 @@ const styles = StyleSheet.create({
     color: '#67350F',
   },
 
-  footer: { padding: 16, gap: 10 },
+  footer: { paddingHorizontal: 32, paddingVertical: 20, gap: 14 },
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
   mediaAdd: { fontSize: 14, color: '#9A7E5C' }, // 未选:暖灰
   mediaOn: { fontSize: 14, color: '#B26B24' }, // 已选:波尔多红(✕ 可移除)
@@ -459,10 +437,10 @@ const styles = StyleSheet.create({
   backLinkText: { fontSize: 14, color: '#8A7256' },
 
   sealButton: {
-    backgroundColor: '#B26B24', // 品牌色:波尔多红
+    backgroundColor: '#B26B24', // 品牌主题色
     paddingVertical: 16,
     paddingHorizontal: 40,
-    borderRadius: 14,
+    borderRadius: 0, // 直角(用户要求按钮不要圆角)
     alignItems: 'center',
     alignSelf: 'stretch', // 写信屏的 footer 里照样撑满
   },

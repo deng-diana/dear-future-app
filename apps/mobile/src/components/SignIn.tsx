@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#B26B24',
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 0, // 直角(用户要求按钮不要圆角)
     alignItems: 'center',
   },
   buttonDisabled: { backgroundColor: '#C9B097' },
