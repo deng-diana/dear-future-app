@@ -5,6 +5,26 @@
 
 ## ▶ 下一步从这里继续
 
+### 🌙 明天从这里接(RevenueCat 拿 key)
+**目标:拿到 Apple 的 `appl_` 公钥发给 Claude。**
+1. 登录 app.revenuecat.com → 项目「Create an app called Reunite」
+2. 左下角**齿轮(Project settings)→ Apps → + New → App Store**
+3. 填 App name `Reunite` + Bundle ID `com.stillkindailab.reunite` → 保存
+4. 回 **API Keys** → SDK keys 里出现 Apple 行 → **Show key** → 复制那把 `appl_` 开头的发我
+- 拿到后:开 /loop 把内购接进「封信付费」流程 + **服务器端校验**(碰钱,走安全审查)
+- 顺手:确认 RevenueCat 邮箱(确认邮件里的链接);项目名可改成干净的 `Reunite`
+- ⚠️ 注意:RevenueCat 默认推荐的是**订阅** —— 我们不用;Reunite 是**消耗品**($2.99/$4.99/$9.99 一次封信付一次)
+
+### ✅ 今天完成(2026-06-21 · App Store 上架推进)
+- **deck 修复+精简+商业模式页**:`/deck` 图片 404 修好(相对→`/deck/assets/`);全篇文案 UX 精简去煽情;新增价格阶梯 + 实体信 upsell 页。
+- **关闭 DEMO_MODE**(rules.ts + deliver/index.ts → false),deliver 已重新部署 → 恢复生产逻辑。
+- **账号删除功能**(双商店必需):delete-account Edge Function(JWT 取 uid 防 IDOR + 405 + service_role 删信删号)+ AccountButton 双确认 + 重入保护;过对抗式安全审查(核心安全);已部署。
+- **收信可达性**:DNS(SPF/DKIM/DMARC)dig 确认健康;deliver 加 reply_to + List-Unsubscribe + 落款,已部署。待你做:DMARC 加 rua、配 `unsubscribe@dearfuture.space` 转发。
+- **上架配置**:bundleId/package = `com.stillkindailab.reunite`;app.json 配齐图片/相机/麦克风权限;iOS 图标回品牌图。
+- **RevenueCat 脚手架**:装好 + `src/lib/purchases.ts`(web/无钥匙安全空转,未接封存流程)。
+- **Apple Business 全部 Active**(Diana 当面操作,逐栏指导):Paid Apps 协议、Bank of China 对公(收 USD 结 CNY)、两税表(Certificate of Foreign Status + W-8BEN-E)、EU DSA trader 声明(修了欧盟下不了的坑,Thankly 也会恢复)。账号是**公司**(上海有拙趣文化创意)→ 税表 W-8BEN-E;Google 14天闭测对组织号不适用。
+- 完整上架清单见 [LAUNCH-PLAN.md](LAUNCH-PLAN.md)。
+
 ### ☀️ 早安 — 昨夜自动完成的(/loop,2026-06-21 02:xx)
 **全部已提交、tsc 全绿、工作区干净。** 关键成果:
 - 📸 **多媒体升级**:最多 **4 张照片(多选+缩略图)** + 1 段≤30s 视频;写信→**Finish**→**暗色遮罩弹层选日期**→Seal 两步渐进式流程。
