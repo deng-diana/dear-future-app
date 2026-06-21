@@ -15,20 +15,66 @@
   html, body { background:var(--ivory); color:var(--ink); }
   body { min-height:100vh; display:flex; justify-content:center; -webkit-font-smoothing:antialiased; }
   .wrap { width:100%; max-width:620px; padding:14vh 28px 18vh; }
-  .seal { text-align:center; margin:0 0 8px; }
-  .seal img { width:auto; height:80px; display:inline-block; filter:drop-shadow(0 2px 8px rgba(87,32,7,.18)); }
-  .meta { font-family:'Courier Prime',monospace; font-size:13px; letter-spacing:.08em; line-height:1.9; color:var(--soft); }
+
+  /* ── Header splash stack ── */
+  .header { text-align:center; }
+
+  .header-seal { display:inline-block; }
+  .header-seal img {
+    width:auto;
+    height:96px;
+    display:block;
+    filter:drop-shadow(0 2px 10px rgba(87,32,7,.18));
+  }
+
+  /* Pull the wordmark up to close the gap left by the seal PNG's transparent bottom padding */
+  .header-wordmark {
+    margin-top:-18px;
+    display:flex;
+    justify-content:center;
+  }
+  .header-wordmark img { width:150px; display:block; }
+
+  .header-tagline {
+    font-family:'Courier Prime',monospace;
+    font-size:13px;
+    letter-spacing:.07em;
+    color:var(--ink);
+    margin-top:14px;
+  }
+
+  .header-divider {
+    display:flex;
+    justify-content:center;
+    margin-top:10px;
+  }
+  .header-divider img { width:200px; display:block; }
+
+  /* Delivery date — understated, just below the divider */
+  .deliver-date {
+    font-family:'Courier Prime',monospace;
+    font-size:12px;
+    letter-spacing:.08em;
+    color:var(--soft);
+    opacity:.75;
+    text-align:center;
+    margin-top:12px;
+  }
+
   .salutation { font-family:'Courier Prime',monospace; font-weight:700; font-size:30px; line-height:1.25; color:var(--brown); margin:28px 0 18px; }
   .body { font-family:'Courier Prime',monospace; font-size:16px; line-height:1.95; white-space:pre-wrap; color:var(--ink); }
   .star { margin-top:64px; text-align:center; color:var(--gold); font-size:20px; }
   .state { font-family:'Courier Prime',monospace; font-size:13px; letter-spacing:.06em; color:var(--faint); }
 
-  /* 缓缓浮现:一段段慢慢升起、淡入 —— 这一页的灵魂是"慢"。 */
+  /* ── Staggered fade-in: elements rise up and fade in slowly ── */
   .reveal { opacity:0; transform:translateY(10px); animation:rise 2.6s cubic-bezier(.2,.6,.2,1) forwards; }
   .reveal.s0  { animation-delay:0s; }
   .reveal.d1  { animation-delay:.2s; }
+  .reveal.d1a { animation-delay:.45s; }
+  .reveal.d1b { animation-delay:.65s; }
+  .reveal.d1c { animation-delay:.85s; }
   .reveal.d1p { animation-delay:.7s; }
-  /* Each photo rises in a beat after the one before it. */
+  /* Each photo rises a beat after the one before it */
   .reveal.p0  { animation-delay:.7s; }
   .reveal.p1  { animation-delay:1.0s; }
   .reveal.p2  { animation-delay:1.3s; }
@@ -38,66 +84,92 @@
   .reveal.d3  { animation-delay:3.4s; }
   @keyframes rise { to { opacity:1; transform:translateY(0); } }
 
-  /* ── Photo strip: all photos side-by-side in one horizontal row ── */
+  /* ── Photo fan strip ── */
+  /*
+    Photos overlap each other like a hand-fanned set of prints.
+    Negative margin pulls each photo under the previous one.
+    z-index steps up so the rightmost photo sits on top (visible).
+    transform-origin at bottom-center makes them fan naturally.
+  */
   .photo-strip {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
-    gap: 16px;
-    margin: 24px 0 0;
+    align-items: flex-end;
+    /* Horizontal negative overlap — each polaroid tucks 28px under the next */
+    margin: 32px 0 0;
+    /* Enough horizontal room; allow scroll on very small screens */
+    overflow-x: auto;
+    padding-bottom: 24px; /* room for shadows below the photos */
   }
 
-  /* Each photo polaroid inside the strip is smaller so 2–4 fit in a row */
-  .photo-strip .polaroid-wrap {
-    margin: 0;
-  }
-
-  /* ── Polaroid frame ── */
+  /* ── Polaroid frame (shared base) ── */
   .polaroid-wrap {
-    /* Center inside the max-width column */
     display: flex;
     justify-content: center;
     margin: 24px 0 0;
   }
 
+  /*
+    Warm, soft, multi-layer shadow — inspired by itinerary.html's spot-polaroid.
+    rgba(102,79,54, …) is a warm brown-sepia tone that sits gently on ivory.
+    Three layers: a sharp near shadow for presence, a mid diffuse for lift,
+    a far airy bloom. No harsh black.
+  */
   .polaroid {
     --paper-bg: #FBF1DF;
-    --paper-shadow:
-      0 1px 2px rgba(13,13,13,.06),
-      0 8px 24px rgba(13,13,13,.08),
-      0 24px 48px rgba(13,13,13,.06);
+    --warm-shadow:
+      0 1px 2px  rgba(102,79,54,.06),
+      0 8px 22px rgba(102,79,54,.10),
+      0 24px 48px rgba(102,79,54,.07);
     position: relative;
     background: var(--paper-bg);
-    padding: 14px 14px 28px;
-    box-shadow: var(--paper-shadow);
-    /* Default (video) size — comfortably wide */
-    width: min(320px, 88vw);
+    padding: 14px 14px 32px;
+    box-shadow: var(--warm-shadow);
+    /* GPU compositing hint — keeps rotated content crisp, prevents sub-pixel blur */
+    transition: transform 420ms cubic-bezier(.25,.8,.25,1),
+                box-shadow 420ms cubic-bezier(.25,.8,.25,1);
   }
 
-  /* Photo polaroids are smaller so 2–4 fit in the strip row */
+  /* Photo polaroids: bigger than before, overlapping fan */
   .polaroid--photo {
-    width: min(128px, 40vw);
-    padding: 10px 10px 22px;
+    width: min(148px, 42vw);
+    padding: 11px 11px 28px;
+    /* Negative margin creates the overlap — adjacent photos tuck under each other */
+    margin-left: -28px;
+    transform-origin: bottom center;
   }
+  /* First photo has no left overlap */
+  .polaroid--photo:first-child { margin-left: 0; }
 
-  .polaroid--video { transform: rotate(2deg); }
+  /*
+    Fan rotation: leftmost = -15°, rightmost = +15°.
+    Interpolated values for 2–4 photos:
+      1 photo:  0°
+      2 photos: -15°, +15°
+      3 photos: -15°,  0°, +15°
+      4 photos: -15°, -5°, +5°, +15°
+    Applied via JS-set data-fan-rot attribute.
+  */
+  .polaroid--photo[data-fan-rot="-15"] { transform: rotate(-15deg); }
+  .polaroid--photo[data-fan-rot="-10"] { transform: rotate(-10deg); }
+  .polaroid--photo[data-fan-rot="-5"]  { transform: rotate(-5deg); }
+  .polaroid--photo[data-fan-rot="0"]   { transform: rotate(0deg); }
+  .polaroid--photo[data-fan-rot="5"]   { transform: rotate(5deg); }
+  .polaroid--photo[data-fan-rot="10"]  { transform: rotate(10deg); }
+  .polaroid--photo[data-fan-rot="15"]  { transform: rotate(15deg); }
 
-  /* Scatter the photos so they feel hand-placed, not stamped. */
-  .polaroid--photo.r0 { transform: rotate(-3deg); }
-  .polaroid--photo.r1 { transform: rotate(2deg); }
-  .polaroid--photo.r2 { transform: rotate(-1.5deg); }
-  .polaroid--photo.r3 { transform: rotate(3deg); }
+  /* z-index steps: leftmost lowest, rightmost sits on top */
+  .polaroid--photo[data-fan-z="0"] { z-index:1; }
+  .polaroid--photo[data-fan-z="1"] { z-index:2; }
+  .polaroid--photo[data-fan-z="2"] { z-index:3; }
+  .polaroid--photo[data-fan-z="3"] { z-index:4; }
 
-  /* Tape strip at the top */
-  .polaroid-tape {
-    position: absolute;
-    top: -6px;
-    left: 50%;
-    transform: translateX(-50%) rotate(-1deg);
-    width: 64px;
-    height: 18px;
-    background: rgba(224,169,62,.30);
-    border: 1px solid rgba(178,107,36,.16);
+  /* Video polaroid: own row, slight tilt, same warm shadow */
+  .polaroid--video {
+    width: min(320px, 88vw);
+    transform: rotate(2deg);
+    transform-origin: bottom center;
   }
 
   /* The photo/video window — 4:5 aspect ratio */
@@ -109,7 +181,7 @@
     background: #E3CDB4;
   }
 
-  /* Film-grain overlay via inline SVG fractalNoise */
+  /* Subtle film-grain overlay for vintage warmth */
   .polaroid-window::after {
     content: "";
     position: absolute;
@@ -121,7 +193,7 @@
     opacity: 0.18;
   }
 
-  /* The actual image or video inside the window */
+  /* The actual image inside the window */
   .polaroid-media {
     position: absolute;
     inset: 0;
@@ -132,9 +204,8 @@
     filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
   }
 
-  /* Video: controls sit on top of the vintage filter; keep them reachable */
+  /* Video element inside the window */
   .polaroid-media--video {
-    /* Don't apply the same absolute positioning for video so controls show */
     position: absolute;
     inset: 0;
     width: 100%;
@@ -142,6 +213,12 @@
     object-fit: cover;
     display: block;
     filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
+  }
+
+  /* On narrow screens, let the fan wrap gracefully */
+  @media (max-width: 380px) {
+    .photo-strip { flex-wrap: wrap; gap: 12px; }
+    .polaroid--photo { margin-left: 0; }
   }
 </style>
 </head>
@@ -190,38 +267,58 @@
       return out;
     }
 
+    /*
+      Compute the fan rotation angle for each photo in a group of `total` photos.
+      Leftmost = -15°, rightmost = +15°, interpolated linearly in between.
+      Snapped to the nearest 5° so we can use a small set of attribute-driven CSS rules.
+        1 photo  →  [0]
+        2 photos →  [-15, 15]
+        3 photos →  [-15, 0, 15]
+        4 photos →  [-15, -5, 5, 15]
+    */
+    function fanAngles(total) {
+      if (total === 1) return [0];
+      var out = [];
+      for (var i = 0; i < total; i++) {
+        var raw = -15 + (30 / (total - 1)) * i;
+        // Round to nearest 5 so our CSS attribute selectors match cleanly
+        out.push(Math.round(raw / 5) * 5);
+      }
+      return out;
+    }
+
     // Build a Polaroid block for a photo URL.
-    // `index` scatters rotation + staggers the rise-in animation per photo.
+    // `index` controls fan rotation + z-index + stagger animation.
+    // `total` is how many photos there are in this strip.
     // Returns an HTML string, or '' if url is falsy.
-    function photoPolaroid(url, index) {
+    // SECURITY: every URL goes through esc() AND has already passed safeMediaUrl() via parsePhotoUrls().
+    function photoPolaroid(url, index, total) {
       if (!url) return '';
-      var i = index || 0;
-      // esc() the URL to prevent XSS via a malicious photo_url
-      var safe = esc(url);
-      var rotClass = 'r' + (i % 4);   // r0..r3 — hand-placed scatter
-      // The whole photo-strip wrapper gets a single reveal animation, so
-      // individual polaroids don't need their own reveal/delay classes.
+      var safe = esc(url);          // XSS guard: attribute injection prevention
+      var angles = fanAngles(total);
+      var rot = angles[index] || 0; // degrees, e.g. -15, -5, 0, 5, 15
+      var pClass = 'p' + index;     // animation stagger: p0, p1, p2, p3
       return (
-        '<div class="polaroid-wrap">' +
-          '<figure class="polaroid polaroid--photo ' + rotClass + '">' +
-            '<div class="polaroid-tape"></div>' +
-            '<div class="polaroid-window">' +
-              '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" loading="lazy" />' +
-            '</div>' +
-          '</figure>' +
-        '</div>'
+        '<figure class="polaroid polaroid--photo reveal ' + pClass + '"' +
+          ' data-fan-rot="' + rot + '"' +
+          ' data-fan-z="' + index + '"' +
+          ' style="z-index:' + (index + 1) + ';">' +
+          '<div class="polaroid-window">' +
+            '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" loading="lazy" />' +
+          '</div>' +
+        '</figure>'
       );
     }
 
     // Build a Polaroid block for a video URL.
     // Returns an HTML string, or '' if url is falsy.
+    // SECURITY: url must be the return value of safeMediaUrl(); then also esc()'d here.
     function videoPolaroid(url) {
       if (!url) return '';
-      var safe = esc(url);
+      var safe = esc(url);          // XSS guard
       return (
         '<div class="polaroid-wrap reveal d1v">' +
           '<figure class="polaroid polaroid--video">' +
-            '<div class="polaroid-tape"></div>' +
             '<div class="polaroid-window">' +
               '<video class="polaroid-media polaroid-media--video" src="' + safe + '" controls preload="metadata">' +
                 'Your browser does not support HTML5 video.' +
@@ -253,20 +350,41 @@
         // photo_url may be a JSON array (up to 4), an old single URL, or null.
         // parsePhotoUrls() already runs every URL through safeMediaUrl().
         const photoUrls = parsePhotoUrls(letter.photo_url);
-        // Wrap all photo polaroids in a single flex strip so they sit side by side.
+
+        // Build the overlapping fan strip; each polaroid is an inline <figure>
+        // (no extra wrapper div per photo — the strip flex container handles layout).
         const photoHtml = photoUrls.length > 0
-          ? '<div class="photo-strip reveal d1p">' + photoUrls.map(function (u, i) { return photoPolaroid(u, i); }).join('') + '</div>'
+          ? '<div class="photo-strip">' +
+              photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length); }).join('') +
+            '</div>'
           : '';
+
         // video_url stays a single URL — guard it the same as before.
         const videoHtml = videoPolaroid(safeMediaUrl(letter.video_url));
 
         root.innerHTML =
-          '<div class="seal reveal s0"><img src="assets/seal-stamp.png" alt="Reunite" /></div>' +
-          '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +
+          // ── Splash header ──
+          '<div class="header">' +
+            '<div class="header-seal reveal s0">' +
+              '<img src="assets/seal-stamp.png" alt="Reunite seal" />' +
+            '</div>' +
+            '<div class="header-wordmark reveal d1">' +
+              '<img src="assets/wordmark.svg" alt="Reunite" />' +
+            '</div>' +
+            '<p class="header-tagline reveal d1a">A letter from someone who once was you.</p>' +
+            '<div class="header-divider reveal d1b">' +
+              '<img src="assets/divider.svg" alt="" aria-hidden="true" />' +
+            '</div>' +
+            '<p class="deliver-date reveal d1c">' + esc(fmtDate(letter.deliver_on)) + '</p>' +
+          '</div>' +
+          // ── Photos ──
           photoHtml +
+          // ── Video ──
           videoHtml +
+          // ── Letter body ──
           '<div class="body reveal d3">' + esc(letter.body) + '</div>' +
           '<div class="star reveal d3">&#10022;</div>';
+
       } catch (e) {
         state.textContent = 'Something went wrong opening this letter.';
       }
