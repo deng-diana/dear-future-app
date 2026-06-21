@@ -1,966 +1,1214 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reunite — Meet the person you used to be</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reunite — Meet the person you used to be</title>
 
-    <!-- Fonts: Courier Prime (typewriter) — the dominant typeface for the
-         whole deck. Hierarchy comes from SIZE / WEIGHT (400/700) / spacing,
-         not from different families. Italic kept for editorial emphasis. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-      rel="stylesheet"
-    />
+  <!-- Google Fonts: Cormorant Garamond (elegant serif display) + Courier Prime (typewriter mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
 
-    <style>
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE A · DESIGN TOKENS                                           ║
-         ║  Paper, not software. Warm cream, wax-sienna red for emphasis,    ║
-         ║  one antique-gold north-star as the only motif. Palette sampled   ║
-         ║  from the real wax-seal logo.                                     ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       DESIGN TOKENS  — sampled directly from the wax-seal logo art
+       ═══════════════════════════════════════════════════════════════ */
+    :root {
+      /* Backgrounds */
+      --cream:          #EDD8C3;   /* primary warm cream (logo background) */
+      --cream-deep:     #E3CDB4;   /* slightly richer panel cream */
+      --paper:          #F2E8DC;   /* lighter paper for elements */
+      --paper-dark:     #D9C5AE;   /* shadow / panel border */
+
+      /* Ink */
+      --ink:            #4A2E1C;   /* primary body ink */
+      --ink-soft:       #5C3F2C;   /* softer ink */
+      --ink-faint:      #8A6B52;   /* muted metadata */
+      --ink-ghost:      rgba(74, 46, 28, 0.18); /* hairline borders */
+
+      /* Brand red-brown (the wax seal) */
+      --sienna:         #9B3C10;   /* primary brand colour */
+      --sienna-deep:    #572007;   /* deep emphasis */
+      --sienna-light:   #B24A18;   /* highlight */
+      --sienna-tint:    rgba(155, 60, 16, 0.07);
+
+      /* Gold (the north-star) */
+      --gold:           #E0A93E;   /* antique gold accent */
+      --gold-bright:    #F0C04C;   /* bright gold */
+      --gold-soft:      rgba(224, 169, 62, 0.28);
+      --gold-hair:      rgba(224, 169, 62, 0.55);
+
+      /* Typography */
+      --f-serif:   "Cormorant Garamond", "Georgia", serif;
+      --f-mono:    "Courier Prime", "Courier New", monospace;
+
+      /* Type scale */
+      --t-display: clamp(3.2rem, 8vw, 7rem);
+      --t-h1:      clamp(2.2rem, 5vw, 4.2rem);
+      --t-h2:      clamp(1.6rem, 3.2vw, 2.8rem);
+      --t-h3:      clamp(1.2rem, 2vw, 1.8rem);
+      --t-lead:    clamp(1rem, 1.6vw, 1.4rem);
+      --t-body:    clamp(0.9rem, 1.2vw, 1.1rem);
+      --t-small:   clamp(0.75rem, 0.9vw, 0.88rem);
+      --t-label:   clamp(0.6rem, 0.75vw, 0.72rem);
+
+      /* Spacing */
+      --px: clamp(2rem, 7vw, 7rem);
+      --py: clamp(1.5rem, 5vh, 4.5rem);
+      --gap-xl: clamp(2rem, 5vh, 4rem);
+      --gap-lg: clamp(1.4rem, 3.5vh, 2.8rem);
+      --gap-md: clamp(0.8rem, 2vh, 1.6rem);
+      --gap-sm: clamp(0.4rem, 1vh, 0.8rem);
+
+      /* Motion */
+      --ease:     cubic-bezier(0.22, 1, 0.36, 1);
+      --dur-pan:  0.85s;
+      --dur-in:   1s;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESET + BASE
+       ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--cream);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    body { font-family: var(--f-serif); }
+    img  { display: block; max-width: 100%; }
+    ul   { list-style: none; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SLIDE ENGINE  — horizontal strip, full viewport each
+       ═══════════════════════════════════════════════════════════════ */
+    #deck {
+      display: flex;
+      height: 100vh; height: 100dvh;
+      will-change: transform;
+      transition: transform var(--dur-pan) var(--ease);
+    }
+    .slide {
+      flex: 0 0 100vw; width: 100vw;
+      height: 100vh; height: 100dvh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+      background: var(--cream);
+      padding: var(--py) var(--px);
+    }
+
+    /* Paper grain overlay — barely visible, gives organic texture */
+    .slide::before {
+      content: "";
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 0; opacity: 0.45;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23g)' opacity='0.04'/></svg>");
+    }
+    .slide > * { position: relative; z-index: 1; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ENTRANCE ANIMATIONS
+       ═══════════════════════════════════════════════════════════════ */
+    .r {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity var(--dur-in) var(--ease),
+                  transform var(--dur-in) var(--ease);
+    }
+    .slide.active .r { opacity: 1; transform: translateY(0); }
+
+    /* Staggered children — each .r inside .stagger gets delay by child index */
+    .stagger > .r:nth-child(1)  { transition-delay: 0.1s; }
+    .stagger > .r:nth-child(2)  { transition-delay: 0.3s; }
+    .stagger > .r:nth-child(3)  { transition-delay: 0.5s; }
+    .stagger > .r:nth-child(4)  { transition-delay: 0.7s; }
+    .stagger > .r:nth-child(5)  { transition-delay: 0.9s; }
+    .stagger > .r:nth-child(6)  { transition-delay: 1.1s; }
+    .stagger > .r:nth-child(7)  { transition-delay: 1.3s; }
+    .stagger > .r:nth-child(8)  { transition-delay: 1.5s; }
+
+    /* Slow fade for hero statements */
+    .r-slow {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 1.5s var(--ease), transform 1.5s var(--ease);
+    }
+    .slide.active .r-slow { opacity: 1; transform: translateY(0); }
+
+    /* Twinkle for logo on cover/close */
+    @keyframes twinkle {
+      0%, 100% { transform: scale(1);    filter: drop-shadow(0 4px 12px rgba(87,32,7,0.22)); }
+      50%       { transform: scale(1.04); filter: drop-shadow(0 6px 18px rgba(155,60,16,0.28)); }
+    }
+    .twinkle { animation: twinkle 6s ease-in-out infinite; }
+
+    /* Gold hairline divider — the real asset */
+    .divider {
+      width: clamp(120px, 30vw, 280px);
+      height: auto;
+      opacity: 0.75;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TYPOGRAPHY UTILITY CLASSES
+       ═══════════════════════════════════════════════════════════════ */
+    .t-display {
+      font-family: var(--f-serif);
+      font-weight: 600;
+      font-size: var(--t-display);
+      line-height: 1.0;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .t-h1 {
+      font-family: var(--f-serif);
+      font-weight: 600;
+      font-size: var(--t-h1);
+      line-height: 1.12;
+      letter-spacing: -0.005em;
+      color: var(--ink);
+    }
+    .t-h2 {
+      font-family: var(--f-serif);
+      font-weight: 600;
+      font-size: var(--t-h2);
+      line-height: 1.2;
+      color: var(--ink);
+    }
+    .t-h3 {
+      font-family: var(--f-serif);
+      font-weight: 600;
+      font-size: var(--t-h3);
+      line-height: 1.3;
+      color: var(--ink);
+    }
+    .t-lead {
+      font-family: var(--f-serif);
+      font-weight: 400;
+      font-size: var(--t-lead);
+      line-height: 1.7;
+      color: var(--ink-soft);
+    }
+    .t-body {
+      font-family: var(--f-serif);
+      font-weight: 400;
+      font-size: var(--t-body);
+      line-height: 1.75;
+      color: var(--ink-soft);
+    }
+    .t-small {
+      font-family: var(--f-mono);
+      font-weight: 400;
+      font-size: var(--t-small);
+      line-height: 1.6;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+    }
+    .t-label {
+      font-family: var(--f-mono);
+      font-weight: 700;
+      font-size: var(--t-label);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .t-kicker {
+      font-family: var(--f-mono);
+      font-weight: 700;
+      font-size: var(--t-label);
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .t-sienna { color: var(--sienna); }
+    .t-gold   { color: var(--gold); }
+    .t-italic { font-style: italic; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LAYOUT WRAPPERS
+       ═══════════════════════════════════════════════════════════════ */
+    .inner {
+      width: 100%;
+      max-width: min(1000px, 88vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--gap-md);
+    }
+    .inner-wide   { max-width: min(1160px, 94vw); }
+    .inner-narrow { max-width: min(680px, 84vw); }
+
+    .col-2 {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(2.5rem, 6vw, 6rem);
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    .col-left  {
+      flex: 1 1 280px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap-md);
+      max-width: 40ch;
+    }
+    .col-right {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       PHONE FRAME MOCKUP
+       Clean rounded-rect bezel, warm notch, paper-lift shadow.
+       ═══════════════════════════════════════════════════════════════ */
+    .phone-wrap {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .phone {
+      position: relative;
+      background: #1E1108;           /* very dark warm brown bezel */
+      border-radius: clamp(28px, 4.2vw, 46px);
+      padding: 10px;
+      box-shadow:
+        0 2px 6px rgba(74,30,8,0.12),
+        0 10px 30px rgba(74,30,8,0.18),
+        0 32px 64px rgba(74,30,8,0.14),
+        inset 0 0 0 1px rgba(255,220,180,0.08);
+    }
+    .phone-screen {
+      position: relative;
+      border-radius: clamp(20px, 3.2vw, 36px);
+      overflow: hidden;
+      background: var(--cream);
+      line-height: 0;
+    }
+    .phone-screen img {
+      width: 100%;
+      height: auto;
+      border-radius: inherit;
+      display: block;
+    }
+    /* Dynamic Island pill notch */
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30%;
+      height: 9px;
+      background: #1E1108;
+      border-radius: 10px;
+      z-index: 10;
+    }
+    /* Warm glass glint at top */
+    .phone-screen::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(155deg, rgba(255,248,230,0.09) 0%, transparent 38%);
+      pointer-events: none; z-index: 5;
+      border-radius: inherit;
+    }
+
+    /* Size variants */
+    .phone-lg .phone-screen { width: clamp(160px, 20vw, 220px); }
+    .phone-md .phone-screen { width: clamp(128px, 15vw, 175px); }
+    .phone-sm .phone-screen { width: clamp(100px, 11vw, 142px); }
+
+    /* Tilt variants */
+    .tilt-l { transform: rotate(-3deg); }
+    .tilt-r { transform: rotate( 2.5deg); }
+    .tilt-0 { transform: rotate(0deg); }
+
+    /* Caption under phone */
+    .phone-caption {
+      font-family: var(--f-mono);
+      font-size: var(--t-label);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-top: clamp(6px, 0.8vh, 10px);
+      text-align: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       BROWSER / EMAIL REVEAL FRAME
+       Web-page screenshot gets a minimal browser chrome wrapper.
+       ═══════════════════════════════════════════════════════════════ */
+    .browser-frame {
+      background: #1E1108;
+      border-radius: clamp(10px, 1.5vw, 16px);
+      overflow: hidden;
+      box-shadow:
+        0 2px 8px rgba(74,30,8,0.10),
+        0 12px 36px rgba(74,30,8,0.16),
+        0 34px 70px rgba(74,30,8,0.13);
+      width: clamp(260px, 34vw, 460px);
+    }
+    .browser-bar {
+      background: #160C06;
+      height: clamp(22px, 2.8vh, 30px);
+      display: flex;
+      align-items: center;
+      padding: 0 clamp(10px, 1.4vw, 16px);
+      gap: 6px;
+    }
+    .browser-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.14);
+    }
+    .browser-url {
+      flex: 1;
+      margin: 0 clamp(8px, 1.2vw, 14px);
+      height: clamp(11px, 1.4vh, 16px);
+      background: rgba(255,255,255,0.07);
+      border-radius: 999px;
+    }
+    .browser-screen img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NAV CHROME
+       ═══════════════════════════════════════════════════════════════ */
+    #nav-dots {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 7px;
+      z-index: 200;
+    }
+    .nav-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      border: none; padding: 0;
+      background: rgba(74,46,28,0.22);
+      cursor: pointer;
+      transition: background 0.35s var(--ease), transform 0.35s var(--ease);
+    }
+    .nav-dot:hover  { background: rgba(74,46,28,0.45); }
+    .nav-dot.on     { background: var(--gold); transform: scale(1.55); }
+    .nav-dot:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    #slide-counter {
+      position: fixed;
+      bottom: 15px; right: clamp(18px, 3vw, 44px);
+      font-family: var(--f-mono);
+      font-size: var(--t-label);
+      letter-spacing: 0.18em;
+      color: var(--ink-faint);
+      z-index: 200;
+      user-select: none;
+    }
+    #key-hint {
+      position: fixed;
+      bottom: 15px; left: clamp(18px, 3vw, 44px);
+      font-family: var(--f-mono);
+      font-size: var(--t-label);
+      letter-spacing: 0.14em;
+      color: var(--ink-faint);
+      z-index: 200;
+      user-select: none;
+      transition: opacity 1.4s ease;
+    }
+    #key-hint.gone { opacity: 0; pointer-events: none; }
+
+    /* Clickable prev / next chevrons */
+    #prev-btn, #next-btn {
+      position: fixed;
+      top: 50%; transform: translateY(-50%);
+      z-index: 200;
+      background: none; border: none; cursor: pointer;
+      padding: 12px;
+      color: var(--ink-faint);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #prev-btn { left: clamp(10px, 2vw, 28px); }
+    #next-btn { right: clamp(10px, 2vw, 28px); }
+    body:hover #prev-btn,
+    body:hover #next-btn { opacity: 0.5; }
+    #prev-btn:hover, #next-btn:hover { opacity: 1 !important; }
+    #prev-btn svg, #next-btn svg { width: 24px; height: 24px; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SLIDE-SPECIFIC STYLES
+       ═══════════════════════════════════════════════════════════════ */
+
+    /* ── COVER ── */
+    .cover-logo {
+      width: clamp(88px, 11vw, 130px);
+    }
+    .cover-wm {
+      width: clamp(150px, 20vw, 260px);
+      margin-top: var(--gap-sm);
+    }
+    .cover-tag {
+      font-family: var(--f-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: var(--t-h3);
+      color: var(--ink-soft);
+      margin-top: var(--gap-md);
+    }
+    .cover-whisper {
+      font-family: var(--f-mono);
+      font-size: var(--t-label);
+      letter-spacing: 0.22em;
+      color: var(--ink-faint);
+      margin-top: var(--gap-lg);
+      line-height: 2;
+    }
+
+    /* ── GOLD RULE ── */
+    .rule-h {
+      width: clamp(40px, 6vw, 72px);
+      height: 1px;
+      background: var(--gold-hair);
+      margin: var(--gap-sm) auto;
+    }
+    .rule-h-center { margin-left: auto; margin-right: auto; }
+
+    /* ── STATEMENT / ACHE ── */
+    .s-quote {
+      font-family: var(--f-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(1.5rem, 3.8vw, 3rem);
+      line-height: 1.3;
+      color: var(--ink);
+      max-width: 22ch;
+    }
+    .s-sub {
+      font-family: var(--f-serif);
+      font-weight: 400;
+      font-size: var(--t-lead);
+      line-height: 1.7;
+      color: var(--ink-soft);
+      max-width: 44ch;
+    }
+
+    /* ── ONE RULE SLIDE — ghosted numeral background ── */
+    .ghost-numeral {
+      position: absolute;
+      right: clamp(3vw, 7vw, 10vw);
+      top: 50%;
+      transform: translateY(-55%);
+      font-family: var(--f-serif);
+      font-weight: 600;
+      font-size: clamp(8rem, 22vw, 18rem);
+      line-height: 1;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(155,60,16,0.09);
+      user-select: none;
+      pointer-events: none;
+      letter-spacing: -0.04em;
+    }
+
+    /* ── DISAPPEAR ANIMATION (seal slide) ── */
+    .letter-ghost {
+      font-family: var(--f-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: var(--t-h3);
+      color: var(--ink-soft);
+      line-height: 1.7;
+      max-width: 32ch;
+      opacity: 0.88;
+    }
+    .slide.active .letter-ghost {
+      animation: dissolve 4.2s var(--ease) 0.9s forwards;
+    }
+    @keyframes dissolve {
+      0%   { opacity: 0.88; filter: blur(0px);  transform: translateY(0); }
+      100% { opacity: 0;    filter: blur(5px);  transform: translateY(-14px); }
+    }
+
+    /* ── FIVE COMMANDMENTS ── */
+    .commandment-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      width: 100%;
+      max-width: 52ch;
+      text-align: left;
+    }
+    .commandment-item {
+      display: grid;
+      grid-template-columns: 1.6em 1fr;
+      align-items: baseline;
+      gap: 0.5em;
+      padding: var(--gap-md) 0;
+      border-bottom: 1px solid var(--ink-ghost);
+      font-family: var(--f-serif);
+      font-weight: 600;
+      font-size: var(--t-h3);
+      line-height: 1.35;
+      color: var(--ink);
+    }
+    .commandment-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .commandment-item .ci-star   { color: var(--gold); font-size: 0.75em; }
+    .commandment-inner { display: flex; flex-direction: column; gap: 0.12em; }
+    .commandment-sub {
+      font-family: var(--f-serif);
+      font-weight: 400;
+      font-style: italic;
+      font-size: var(--t-small);
+      color: var(--ink-faint);
+      line-height: 1.45;
+    }
+
+    /* ── EMAIL CHIP ── */
+    .email-chip {
+      font-family: var(--f-mono);
+      font-size: var(--t-small);
+      line-height: 1.9;
+      color: var(--ink-soft);
+      border-left: 2px solid var(--gold);
+      padding-left: 1em;
+      text-align: left;
+    }
+    .email-chip .from { color: var(--sienna); font-weight: 700; }
+
+    /* ── TECH PROOF ── */
+    .tech-stack {
+      font-family: var(--f-mono);
+      font-size: var(--t-small);
+      letter-spacing: 0.06em;
+      color: var(--ink-soft);
+      line-height: 2;
+    }
+    .tech-dot { color: var(--gold); margin: 0 0.4em; }
+
+    /* ── LIVE DEMO PILL ── */
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65em;
+      font-family: var(--f-mono);
+      font-size: var(--t-small);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--sienna);
+      border: 1px solid rgba(155,60,16,0.3);
+      border-radius: 999px;
+      padding: 0.55em 1.3em;
+    }
+    .live-pip {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--sienna);
+      flex-shrink: 0;
+      animation: pip-pulse 2.2s ease-in-out infinite;
+    }
+    @keyframes pip-pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50%       { opacity: 1;   transform: scale(1); }
+    }
+
+    /* ── CLOSING VISION QUOTE ── */
+    .vision-quote {
+      font-family: var(--f-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(1.3rem, 3.2vw, 2.4rem);
+      line-height: 1.45;
+      color: var(--ink);
+      max-width: 30ch;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════════════════════════ */
+    @media (max-height: 700px) {
       :root {
-        --ivory:        #EDD8C3;        /* background cream (from the logo) */
-        --ivory-deep:   #E3CDB4;        /* slightly deeper cream panel */
-        --paper:        #F2E3D2;        /* lighter paper for chips/envelopes */
-        --paper-shadow: #E3CDB4;        /* panel / shadow */
-        --brown:        #4A2E1C;        /* body / heading ink (warm dark brown) */
-        --soft:         #5C3F2C;        /* softer ink */
-        --faint:        #8A6B52;        /* faint metadata ink (still readable on cream) */
-        --bord:         #B26B24;        /* primary — wax sienna red-brown */
-        --bord-deep:    #572007;        /* deep sienna — emphasis / dark */
-        --burgundy:     #B26B24;        /* same wax sienna for the live pulse */
-        --gold:         #E0A93E;        /* antique gold — accent / stars / hairlines */
-        --gold-bright:  #F0C04C;        /* bright gold highlight */
-        --gold-soft:    rgba(224, 169, 62, 0.34);
-        --border:       rgba(74, 46, 28, 0.18);
+        --t-h1:   clamp(1.7rem, 4vw, 3rem);
+        --t-h2:   clamp(1.3rem, 2.8vw, 2.2rem);
+        --py:     clamp(1rem, 3vh, 2rem);
+        --gap-xl: clamp(1rem, 2.5vh, 2rem);
+        --gap-lg: clamp(0.7rem, 1.8vh, 1.4rem);
+        --gap-md: clamp(0.5rem, 1.4vh, 1rem);
+      }
+      .phone-lg .phone-screen { width: clamp(120px, 17vw, 180px); }
+    }
+    @media (max-width: 640px) {
+      :root { --t-h1: clamp(2rem, 12vw, 3.5rem); }
+      .col-2   { flex-direction: column; gap: var(--gap-lg); }
+      .col-left { text-align: center; max-width: 90vw; }
+      .commandment-list { max-width: 90vw; }
+      #key-hint { display: none; }
+      .ghost-numeral { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #deck { transition-duration: 0.2s; }
+      .r, .r-slow { transition-duration: 0.2s !important; transform: none !important; }
+      .twinkle, .live-pip { animation: none !important; }
+      .slide.active .letter-ghost { animation: none !important; opacity: 0; }
+    }
+  </style>
+</head>
+<body>
 
-        --f-display: "Courier Prime", "Courier New", monospace;
-        --f-body:    "Courier Prime", "Courier New", monospace;
-        --f-mono:    "Courier Prime", "Courier New", monospace;
+<main id="deck" aria-label="Reunite pitch deck">
 
-        /* Courier Prime is noticeably wider than Cormorant — display/h1/huge
-           are dialed down a touch so headings don't wrap or overflow. */
-        --sz-display: clamp(2.4rem, 7vw, 5.6rem);
-        --sz-h1:      clamp(1.7rem, 4.4vw, 3.6rem);
-        --sz-h2:      clamp(1.35rem, 3.2vw, 2.5rem);
-        --sz-h3:      clamp(1.05rem, 2vw, 1.6rem);
-        --sz-lead:    clamp(0.98rem, 1.7vw, 1.4rem);
-        --sz-body:    clamp(0.9rem, 1.35vw, 1.12rem);
-        --sz-small:   clamp(0.74rem, 1vw, 0.92rem);
-        --sz-label:   clamp(0.6rem, 0.82vw, 0.78rem);
-        --sz-huge:    clamp(2.8rem, 9vw, 7rem);   /* the big numbers */
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 01 · COVER
+       Wax seal logo + wordmark + divider + tagline + event line
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s1" aria-label="Cover">
+    <div class="inner inner-narrow stagger" style="gap: 0;">
 
-        --pad-x: clamp(1.5rem, 7vw, 8rem);
-        --pad-y: clamp(1.5rem, 6vh, 5rem);
-        --gap-lg: clamp(1.4rem, 4vh, 3rem);
-        --gap-md: clamp(0.8rem, 2.2vh, 1.6rem);
-        --gap-sm: clamp(0.45rem, 1.2vh, 0.9rem);
+      <div class="r twinkle">
+        <img class="cover-logo" src="assets/logo.svg" alt="Reunite wax-seal logo" />
+      </div>
 
-        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-        --dur-slide: 0.9s;
-        --dur-enter: 1.1s;
-      }
+      <div class="r" style="margin-top: clamp(14px, 2vh, 24px);">
+        <img class="cover-wm" src="assets/word-mark.svg" alt="Reunite wordmark" />
+      </div>
 
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE B · ENGINE — horizontal film strip, each slide = 100dvh     ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      <div class="r" style="margin-top: var(--gap-md);">
+        <img class="divider" src="assets/divider-line.png" alt="" aria-hidden="true" />
+      </div>
 
-      html, body {
-        width: 100%; height: 100%;
-        overflow: hidden;
-        background: var(--ivory);
-        color: var(--brown);
-        -webkit-font-smoothing: antialiased;
-        text-rendering: optimizeLegibility;
-      }
-      body { font-family: var(--f-body); font-weight: 400; }
+      <p class="cover-tag r">Meet the person you used to be.</p>
 
-      #deck {
-        display: flex;
-        height: 100vh; height: 100dvh;
-        transition: transform var(--dur-slide) var(--ease-out);
-        will-change: transform;
-      }
-      .slide {
-        flex: 0 0 100vw; width: 100vw;
-        height: 100vh; height: 100dvh;
-        position: relative;
-        padding: var(--pad-y) var(--pad-x);
-        display: flex; flex-direction: column;
-        justify-content: center; align-items: center;
-        text-align: center; overflow: hidden;
-        background: var(--ivory);
-      }
-      .slide-content {
-        width: 100%;
-        max-width: min(1040px, 86vw);
-        max-height: 100%;
-        display: flex; flex-direction: column;
-        align-items: center; gap: var(--gap-md);
-        overflow: hidden;
-      }
+      <p class="cover-whisper r">
+        Encode Hackathon &nbsp;·&nbsp; 2026
+      </p>
 
-      /* barely-there paper grain */
-      .slide::before {
-        content: ""; position: absolute; inset: 0;
-        pointer-events: none; z-index: 0; opacity: 0.5;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23g)' opacity='0.035'/></svg>");
-      }
-      .slide-content, .slide-foot, .slide-num, .corner-mark { position: relative; z-index: 1; }
+    </div>
+  </section>
 
-      /* a quiet recurring wax-seal mark in the top corner of content slides */
-      .corner-mark {
-        position: absolute;
-        top: clamp(18px, 3.4vh, 38px);
-        left: 50%; transform: translateX(-50%);
-        opacity: 0.9;
-      }
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 02 · THE ACHE
+       The unguarded real moment — what we lose without Reunite
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s2" aria-label="The ache">
+    <div class="inner inner-narrow" style="gap: var(--gap-xl);">
 
-      /* ── nav chrome ─────────────────────────────────────────────────── */
-      #nav-dots {
-        position: fixed; bottom: 18px; left: 50%;
-        transform: translateX(-50%);
-        display: flex; gap: 8px; z-index: 100;
-      }
-      .nav-dot {
-        width: 6px; height: 6px; border-radius: 50%; border: none;
-        background: rgba(74, 46, 28, 0.24); cursor: pointer; padding: 0;
-        transition: background 0.4s var(--ease-out), transform 0.4s var(--ease-out);
-      }
-      .nav-dot:hover { background: rgba(74, 46, 28, 0.48); }
-      .nav-dot.is-active { background: var(--gold); transform: scale(1.5); }
-      .nav-dot:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+      <p class="t-kicker r-slow">The truth we don't talk about</p>
 
-      #slide-counter {
-        position: fixed; bottom: 14px; right: clamp(16px, 3vw, 40px);
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.16em; color: var(--faint);
-        z-index: 100; user-select: none;
-      }
-      #key-hint {
-        position: fixed; bottom: 14px; left: clamp(16px, 3vw, 40px);
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.14em; color: var(--faint);
-        z-index: 100; user-select: none; opacity: 0.7;
-        transition: opacity 1.2s ease;
-      }
-      #key-hint.hide { opacity: 0; }
+      <p class="s-quote r-slow" style="transition-delay: 0.2s;">
+        Who you are tonight becomes a stranger in ten&nbsp;years.
+      </p>
 
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE C · TYPOGRAPHY                                              ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      /* Hierarchy is built from WEIGHT (400/700), SIZE and letter-spacing —
-         a single family (Courier Prime) throughout, typewriter-letter feel. */
-      .display {
-        font-family: var(--f-display); font-weight: 700;
-        font-size: var(--sz-display); line-height: 1.04;
-        letter-spacing: -0.005em; color: var(--brown);
-      }
-      .h1 {
-        font-family: var(--f-display); font-weight: 700;
-        font-size: var(--sz-h1); line-height: 1.18;
-        letter-spacing: 0; color: var(--brown);
-      }
-      .h2 {
-        font-family: var(--f-display); font-weight: 700;
-        font-size: var(--sz-h2); line-height: 1.2; color: var(--brown);
-      }
-      .h3 {
-        font-family: var(--f-display); font-weight: 700;
-        font-size: var(--sz-h3); line-height: 1.3; color: var(--brown);
-      }
-      .lead {
-        font-family: var(--f-body); font-weight: 400;
-        font-size: var(--sz-lead); line-height: 1.7; color: var(--brown);
-      }
-      .body {
-        font-family: var(--f-body); font-weight: 400;
-        font-size: var(--sz-body); line-height: 1.7; color: var(--soft);
-      }
-      .small {
-        font-family: var(--f-body); font-weight: 400;
-        font-size: var(--sz-small); line-height: 1.6; color: var(--soft);
-      }
-      .label {
-        font-family: var(--f-mono); font-weight: 700;
-        font-size: var(--sz-label); letter-spacing: 0.22em;
-        text-transform: uppercase; color: var(--faint);
-      }
-      .huge {
-        font-family: var(--f-display); font-weight: 700;
-        font-size: var(--sz-huge); line-height: 0.95;
-        letter-spacing: -0.01em; color: var(--bord);
-      }
-      .italic { font-style: italic; }
-      .serif-em { font-style: italic; }
-      .em { color: var(--bord); }
-      .gold { color: var(--gold); }
+      <div class="rule-h r-slow" style="transition-delay: 0.4s;"></div>
 
-      .star {
-        font-family: var(--f-display); color: var(--gold);
-        line-height: 1; display: inline-block;
-      }
-      .star--sm { font-size: clamp(0.9rem, 1.4vw, 1.2rem); }
+      <p class="s-sub r-slow" style="transition-delay: 0.55s; max-width: 42ch;">
+        Reminder apps nag you about today.
+        Journals capture what you think.
+        Nothing preserves the <em style="color: var(--sienna); font-style: italic;">unguarded real moment</em>
+        — and lets it vanish, until it's ready to&nbsp;return.
+      </p>
 
-      .rule {
-        width: clamp(32px, 4vw, 60px); height: 1px;
-        background: var(--gold); opacity: 0.7; margin: var(--gap-sm) auto;
-      }
-      .kicker {
-        font-family: var(--f-mono); font-weight: 700;
-        font-size: var(--sz-label); letter-spacing: 0.24em;
-        text-transform: uppercase; color: var(--gold);
-        margin-bottom: var(--gap-sm);
-      }
+    </div>
+  </section>
 
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE D · THE LOGO — the REAL wax-seal + gold compass-star image   ║
-         ║  (assets/reunite-logo.png). The PNG already sits on a cream bg     ║
-         ║  matching the slide, so it blends. Sized per placement via the     ║
-         ║  data-seal attribute (the px size lives in the [data-seal] host).  ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      .seal { display: inline-block; line-height: 0; }
-      .seal img {
-        display: block;
-        width: 100%; height: 100%;
-        object-fit: contain;
-        /* lift the seal off the cream very subtly */
-        filter: drop-shadow(0 3px 7px rgba(87, 32, 7, 0.16));
-      }
-      /* the host span gets its box size from the data-seal px value (set by JS) */
-      [data-seal] { display: inline-block; line-height: 0; }
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 03 · WHAT REUNITE IS
+       One sentence. The full loop. The feeling.
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s3" aria-label="What Reunite is">
+    <div class="inner inner-narrow" style="gap: var(--gap-lg);">
 
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE E · ENTRANCE ANIMATIONS                                    ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      .reveal {
-        opacity: 0; transform: translateY(16px);
-        transition: opacity var(--dur-enter) var(--ease-out),
-                    transform var(--dur-enter) var(--ease-out);
-      }
-      .slide.is-active .reveal { opacity: 1; transform: translateY(0); }
-      .slide.is-active .reveal:nth-child(1) { transition-delay: 0.15s; }
-      .slide.is-active .reveal:nth-child(2) { transition-delay: 0.40s; }
-      .slide.is-active .reveal:nth-child(3) { transition-delay: 0.65s; }
-      .slide.is-active .reveal:nth-child(4) { transition-delay: 0.90s; }
-      .slide.is-active .reveal:nth-child(5) { transition-delay: 1.15s; }
-      .slide.is-active .reveal:nth-child(6) { transition-delay: 1.40s; }
+      <p class="t-kicker r" style="transition-delay: 0.05s;">What it is</p>
 
-      .reveal-slow {
-        opacity: 0; transform: translateY(22px);
-        transition: opacity 1.6s var(--ease-out), transform 1.6s var(--ease-out);
-      }
-      .slide.is-active .reveal-slow { opacity: 1; transform: translateY(0); }
+      <h2 class="t-h1 r" style="transition-delay: 0.2s; line-height: 1.18;">
+        Write a letter to your future self.<br />
+        Seal it. It vanishes.<br />
+        On a day far away —<br />
+        <em style="color: var(--sienna);">it finds you again.</em>
+      </h2>
 
-      @keyframes twinkle {
-        0%, 100% { opacity: 0.7; transform: scale(1); }
-        50%      { opacity: 1;   transform: scale(1.04); }
-      }
-      .twinkle { animation: twinkle 5.5s ease-in-out infinite; }
+      <div class="rule-h r" style="transition-delay: 0.45s;"></div>
 
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE F · GRAPHICS                                                ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
+      <p class="t-lead r" style="transition-delay: 0.6s; max-width: 40ch;">
+        A reunion across time. Not a reminder. Not a journal.
+        A time capsule delivered once, to your own inbox, on the day you&nbsp;chose.
+      </p>
 
-      /* cover / closing centred layout */
-      .cover-tag {
-        font-family: var(--f-display); font-style: italic; font-weight: 400;
-        font-size: var(--sz-h3); color: var(--soft); margin-top: var(--gap-sm);
-      }
-      .cover-foot {
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.18em; color: var(--faint);
-        margin-top: var(--gap-lg); line-height: 1.9;
-      }
+    </div>
+  </section>
 
-      /* one big statement, lots of air */
-      .statement .slide-content { max-width: min(960px, 84vw); gap: var(--gap-lg); }
-      .statement-sub {
-        font-family: var(--f-body); font-weight: 400;
-        font-size: var(--sz-lead); color: var(--soft);
-        line-height: 1.7; max-width: 44ch;
-      }
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 04 · THE ONE RULE
+       Sealing = Disappearing. The soul. Full weight.
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s4" aria-label="Sealing equals disappearing">
+    <span class="ghost-numeral" aria-hidden="true">I</span>
+    <div class="inner inner-narrow" style="gap: var(--gap-lg);">
 
-      .content .slide-content { gap: var(--gap-lg); max-width: min(900px, 84vw); }
-      .content .body, .content .lead { max-width: 52ch; }
+      <p class="t-kicker r" style="transition-delay: 0.1s;">The first commandment</p>
 
-      /* ── PAIN: a faint flood of photo rects vs ONE addressed envelope ── */
-      .pain-vis {
-        display: flex; align-items: center; justify-content: center;
-        gap: clamp(1.4rem, 5vw, 4rem); width: 100%; flex-wrap: wrap;
-      }
-      .photo-flood {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: clamp(5px, 0.7vw, 9px);
-        width: clamp(180px, 26vw, 300px);
-      }
-      .photo-flood span {
-        aspect-ratio: 4 / 3;
-        background: var(--paper-shadow);
-        border: 1px solid rgba(74,46,28,0.12);
-        opacity: 0.5;
-      }
-      .flood-label, .env-label {
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.16em; color: var(--faint);
-        margin-top: var(--gap-sm); text-transform: uppercase;
-      }
-      .pain-col { display: flex; flex-direction: column; align-items: center; }
-      .vs {
-        font-family: var(--f-display); font-style: italic;
-        font-size: var(--sz-h3); color: var(--faint);
-      }
-      .envelope {
-        width: clamp(120px, 16vw, 190px);
-        aspect-ratio: 3 / 2;
-        background: var(--paper);
-        border: 1.5px solid var(--bord);
-        position: relative;
-        box-shadow: 0 8px 24px rgba(87,32,7,0.12);
-      }
-      .envelope::before {  /* the flap */
-        content: ""; position: absolute; inset: 0;
-        border-bottom: 1.5px solid rgba(178, 107, 36,0.35);
-        clip-path: polygon(0 0, 50% 52%, 100% 0);
-        background: rgba(178, 107, 36,0.06);
-      }
-      .envelope .stamp {  /* a tiny wax seal pressed on it */
-        position: absolute; right: 12%; bottom: 14%;
-      }
-      .env-label { color: var(--bord); }
+      <h2 class="t-h1 r" style="transition-delay: 0.28s;">Sealing = disappearing.</h2>
 
-      /* ── INSIGHT: two curves — every app rises, Reunite goes quiet then returns ── */
-      .kpi-vis { width: 100%; max-width: min(720px, 80vw); }
-      .kpi-legend {
-        display: flex; gap: clamp(1.2rem, 4vw, 2.6rem);
-        justify-content: center; margin-top: var(--gap-md);
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.1em; color: var(--soft); flex-wrap: wrap;
-      }
-      .kpi-legend span { display: inline-flex; align-items: center; gap: 0.5em; }
-      .swatch { width: 18px; height: 2px; display: inline-block; }
-      @keyframes draw { to { stroke-dashoffset: 0; } }
-      .slide.is-active .kpi-line { animation: draw 2.2s var(--ease-out) 0.5s forwards; }
+      <div class="rule-h r" style="transition-delay: 0.44s;"></div>
 
-      /* ── stack of short lines (calmer than bullets) ── */
-      .lines {
-        list-style: none; display: flex; flex-direction: column;
-        gap: var(--gap-md); align-items: center;
-      }
-      .lines li {
-        font-family: var(--f-body); font-weight: 400;
-        font-size: var(--sz-lead); line-height: 1.5;
-        color: var(--brown); max-width: 48ch;
-      }
+      <!-- Letter text that dissolves when the slide activates -->
+      <p class="letter-ghost r" style="transition-delay: 0.6s;">
+        "Dear future me, tonight I'm afraid and in love and&nbsp;&hellip;"
+      </p>
 
-      /* ── flow pipeline: write → seal → email → reveal ── */
-      .flow {
-        display: flex; align-items: center; justify-content: center;
-        gap: clamp(0.5rem, 2vw, 1.4rem); width: 100%; flex-wrap: wrap;
-      }
-      .flow-step {
-        display: flex; flex-direction: column; align-items: center;
-        gap: 0.5em; min-width: clamp(56px, 9vw, 96px);
-      }
-      .flow-ico {
-        width: clamp(38px, 5vw, 54px); height: clamp(38px, 5vw, 54px);
-        border: 1.5px solid var(--border); border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        color: var(--bord);
-      }
-      .flow-step.is-seal .flow-ico { border-color: rgba(178, 107, 36,0.4); }
-      .flow-label {
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft);
-      }
-      .flow-arrow { color: var(--gold); font-size: clamp(1rem, 1.8vw, 1.4rem); }
+      <p class="t-lead r" style="transition-delay: 1.4s; max-width: 40ch;">
+        The instant you seal, it leaves your sight.<br />
+        No list. No inbox. No badge. No count.<br />
+        The app never shows you a letter you&nbsp;wrote.
+      </p>
 
-      /* ── five commandments: gold ✦ lines, NOT cards ── */
-      .commandments {
-        list-style: none; display: flex; flex-direction: column;
-        gap: var(--gap-md); width: 100%; max-width: 42ch; text-align: left;
-      }
-      .commandments li {
-        display: grid; grid-template-columns: 1.6em 1fr;
-        align-items: baseline; gap: 0.6em;
-        padding-bottom: var(--gap-md);
-        border-bottom: 1px solid var(--border);
-        font-family: var(--f-display); font-weight: 700;
-        font-size: var(--sz-h3); line-height: 1.3; color: var(--brown);
-      }
-      .commandments li:last-child { border-bottom: none; padding-bottom: 0; }
-      .commandments li .star { font-size: 0.85em; padding-top: 0.05em; }
+      <p class="t-small r" style="transition-delay: 1.6s; color: var(--sienna); letter-spacing: 0.1em;">
+        The world's only app whose KPI is being forgotten.
+      </p>
 
-      /* ── who it's for ── */
-      .moments {
-        list-style: none; display: flex; flex-direction: column;
-        gap: var(--gap-md); max-width: 46ch;
-      }
-      .moments li {
-        font-family: var(--f-display); font-style: italic; font-weight: 400;
-        font-size: var(--sz-h3); line-height: 1.4; color: var(--brown);
-      }
+    </div>
+  </section>
 
-      /* ── BUSINESS: cost vs revenue, aligned by design ── */
-      .econ {
-        display: flex; align-items: flex-end; justify-content: center;
-        gap: clamp(2rem, 8vw, 6rem); width: 100%;
-      }
-      .econ-col { display: flex; flex-direction: column; align-items: center; gap: var(--gap-sm); }
-      .econ-bar {
-        width: clamp(46px, 7vw, 88px);
-        background: var(--ivory-deep);
-        border: 1px solid var(--border);
-        display: flex; align-items: flex-start; justify-content: center;
-        position: relative;
-      }
-      .econ-bar.cost   { height: clamp(20px, 4vh, 34px); background: var(--paper-shadow); }
-      .econ-bar.rev    { height: clamp(150px, 30vh, 240px); background: rgba(178, 107, 36,0.12); border-color: rgba(178, 107, 36,0.32); }
-      .econ-num {
-        font-family: var(--f-display); font-weight: 700;
-        font-size: clamp(1.4rem, 3vw, 2.4rem); color: var(--brown);
-      }
-      .econ-num.rev { color: var(--bord); }
-      .econ-cap {
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
-        text-align: center; line-height: 1.5; max-width: 16ch;
-      }
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 05 · EXPERIENCE — WRITE
+       Real screenshots: splash.png + writing-letter.png
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s5" aria-label="The writing experience">
+    <div class="inner inner-wide" style="gap: var(--gap-xl);">
+      <div class="col-2">
 
-      /* ── almost-empty sealing slide: a letter that fades ── */
-      .empty .slide-content { gap: var(--gap-lg); }
-      .fading-letter {
-        font-family: var(--f-display); font-style: italic;
-        font-size: var(--sz-h3); color: var(--soft);
-        line-height: 1.6; max-width: 30ch;
-        -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
-                mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
-      }
-      .slide.is-active .fading-letter { animation: dissolve 3.4s var(--ease-out) 1s forwards; }
-      @keyframes dissolve {
-        0%   { opacity: 0.9; filter: blur(0); transform: translateY(0); }
-        100% { opacity: 0;   filter: blur(3px); transform: translateY(-10px); }
-      }
-
-      /* ── reunion: CSS polaroid + faux email chip (echoes web/reveal) ── */
-      .reunion .slide-content {
-        flex-direction: row; gap: clamp(1.5rem, 5vw, 4.5rem);
-        max-width: min(1080px, 90vw); flex-wrap: wrap;
-        justify-content: center; align-items: center;
-      }
-      .reunion-text {
-        flex: 1 1 320px; max-width: 44ch; text-align: left;
-        display: flex; flex-direction: column; gap: var(--gap-md);
-      }
-      .reunion-text .body { max-width: none; }
-      .mail-chip {
-        font-family: var(--f-mono); font-size: var(--sz-small);
-        line-height: 1.9; color: var(--soft);
-        border-left: 2px solid var(--gold); padding-left: 0.9em;
-      }
-      .mail-chip .from { color: var(--bord); font-weight: 700; }
-
-      .polaroid-stage {
-        flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
-        padding: clamp(0.5rem, 2vw, 1.5rem);
-      }
-      .polaroid {
-        position: relative; background: var(--paper);
-        padding: clamp(12px, 1.4vw, 20px) clamp(12px, 1.4vw, 20px) clamp(26px, 3vw, 40px);
-        box-shadow: 0 1px 2px rgba(87,32,7,0.10), 0 10px 26px rgba(87,32,7,0.13), 0 26px 52px rgba(87,32,7,0.10);
-        width: clamp(180px, 24vw, 270px); transform: rotate(-2deg);
-      }
-      .polaroid-tape {
-        position: absolute; top: -7px; left: 50%;
-        transform: translateX(-50%) rotate(-1.5deg);
-        width: clamp(48px, 6vw, 72px); height: 18px;
-        background: var(--gold-soft); border: 1px solid rgba(178, 107, 36,0.16);
-      }
-      .polaroid-window {
-        position: relative; width: 100%; aspect-ratio: 4 / 5; overflow: hidden;
-        background: radial-gradient(120% 90% at 50% 35%, #E3CDB4 0%, #D2B393 60%, #C29E78 100%);
-      }
-      .polaroid-window::before {
-        content: ""; position: absolute; left: 50%; bottom: -8%;
-        transform: translateX(-50%); width: 56%; height: 78%;
-        border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%;
-        background: rgba(74,46,28,0.20); filter: blur(1px);
-      }
-      .polaroid-window::after {
-        content: ""; position: absolute; inset: 0; pointer-events: none;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
-        mix-blend-mode: overlay; opacity: 0.22;
-      }
-      .polaroid-caption {
-        font-family: var(--f-mono); font-size: clamp(0.55rem, 0.9vw, 0.72rem);
-        letter-spacing: 0.1em; color: var(--faint);
-        text-align: center; margin-top: clamp(8px, 1.2vw, 14px);
-      }
-
-      /* ── multimedia: a small polaroid + media chips ── */
-      .media-row {
-        display: flex; align-items: center; justify-content: center;
-        gap: clamp(0.6rem, 2vw, 1.4rem); flex-wrap: wrap;
-      }
-      .media-chip {
-        display: inline-flex; align-items: center; gap: 0.55em;
-        font-family: var(--f-mono); font-size: var(--sz-small);
-        letter-spacing: 0.08em; color: var(--soft);
-        border: 1px solid var(--border); border-radius: 999px;
-        padding: 0.5em 1.1em; background: var(--paper);
-      }
-      .media-chip svg { color: var(--bord); }
-
-      /* ── proof / tech ── */
-      .tech-row {
-        font-family: var(--f-mono); font-size: var(--sz-small);
-        letter-spacing: 0.06em; color: var(--soft); line-height: 2; max-width: 60ch;
-      }
-      .tech-row .dot { color: var(--gold); margin: 0 0.45em; }
-      .live-pill {
-        display: inline-flex; align-items: center; gap: 0.6em;
-        font-family: var(--f-mono); font-size: var(--sz-small);
-        letter-spacing: 0.12em; color: var(--bord);
-        border: 1px solid rgba(178, 107, 36,0.32); border-radius: 999px;
-        padding: 0.5em 1.2em;
-      }
-      .live-pill::before {
-        content: ""; width: 8px; height: 8px; border-radius: 50%;
-        background: var(--burgundy); animation: pulse 2.4s ease-in-out infinite;
-      }
-      @keyframes pulse {
-        0%, 100% { opacity: 0.35; transform: scale(0.85); }
-        50%      { opacity: 1;    transform: scale(1); }
-      }
-
-      .slide-foot {
-        position: absolute; bottom: calc(var(--pad-y) * 0.55);
-        left: 50%; transform: translateX(-50%);
-        font-family: var(--f-mono); font-size: var(--sz-label);
-        letter-spacing: 0.14em; color: var(--faint);
-        max-width: 60ch; text-align: center;
-      }
-
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE G · RESPONSIVE — keep every slide inside the viewport       ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      @media (max-height: 720px) {
-        :root {
-          --pad-y: clamp(1rem, 4vh, 2.5rem);
-          --gap-lg: clamp(1rem, 3vh, 2rem);
-          --gap-md: clamp(0.6rem, 1.8vh, 1.2rem);
-        }
-        .econ-bar.rev { height: clamp(120px, 26vh, 200px); }
-      }
-      @media (max-height: 600px) {
-        :root {
-          --sz-display: clamp(2.2rem, 7vw, 4rem);
-          --sz-h1:      clamp(1.6rem, 4.4vw, 2.8rem);
-          --sz-huge:    clamp(2.6rem, 8vw, 5rem);
-          --sz-lead:    clamp(0.95rem, 1.6vw, 1.25rem);
-        }
-        #key-hint, .slide-foot, .corner-mark { display: none; }
-      }
-      @media (max-width: 600px) {
-        :root { --sz-display: clamp(2.4rem, 13vw, 4rem); }
-        .reunion .slide-content { flex-direction: column; }
-        .reunion-text { text-align: center; }
-        .mail-chip { border-left: none; padding-left: 0; }
-        .commandments, .moments { text-align: center; }
-        .commandments li { grid-template-columns: 1fr; gap: 0.2em; text-align: center; justify-items: center; }
-        .pain-vis { flex-direction: column; }
-      }
-
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE H · REDUCED MOTION                                          ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      @media (prefers-reduced-motion: reduce) {
-        #deck { transition-duration: 0.25s; }
-        .reveal, .reveal-slow {
-          transition-duration: 0.3s !important; transform: none !important;
-        }
-        .twinkle, .live-pill::before { animation: none; }
-        .slide.is-active .kpi-line { animation: none; stroke-dashoffset: 0; }
-        .slide.is-active .fading-letter { animation: none; opacity: 0.55; }
-      }
-    </style>
-  </head>
-
-  <body>
-    <!-- ════════════════════════════════════════════════════════════════════
-         THE LOGO is now the real image (assets/reunite-logo.png), injected
-         into every [data-seal] host by JS at the requested px size. The old
-         inline-SVG recreation template has been removed.
-         ════════════════════════════════════════════════════════════════════ -->
-
-    <!-- ════════════════════════════════════════════════════════════════════
-         THE DECK — 15 slides, each one full viewport.
-         ════════════════════════════════════════════════════════════════════ -->
-    <main id="deck" aria-label="Reunite pitch deck">
-
-      <!-- 1 · COVER ───────────────────────────────────────────────────── -->
-      <section class="slide" aria-label="Cover">
-        <div class="slide-content">
-          <div class="reveal" data-seal="120"></div>
-          <h1 class="display reveal" style="margin-top: var(--gap-sm);">Reunite</h1>
-          <p class="cover-tag reveal">Meet the person you used to be.</p>
-          <p class="cover-foot reveal">A time capsule for your future self &middot; Encode 2026</p>
+        <div class="col-left r" style="transition-delay: 0.1s;">
+          <p class="t-kicker">Step 01 — Write</p>
+          <h2 class="t-h2">A blank page.<br />A cursor, waiting.</h2>
+          <div class="rule-h" style="margin: 0;"></div>
+          <p class="t-lead" style="max-width: 34ch;">
+            No templates. No fonts to pick. Just you,
+            writing to yourself — the real you, right now.
+          </p>
+          <p class="t-body t-italic">"Dear future me&hellip;"</p>
         </div>
-      </section>
 
-      <!-- 2 · A QUIET TRUTH ───────────────────────────────────────────── -->
-      <section class="slide statement" aria-label="A quiet truth">
-        <div class="slide-content">
-          <p class="h1 reveal-slow">Who you are tonight<br />becomes a stranger in ten years.</p>
-          <p class="statement-sub reveal">And you'll have no way to meet them again.</p>
-        </div>
-      </section>
-
-      <!-- 3 · THE PAIN (visual) ───────────────────────────────────────── -->
-      <section class="slide content" aria-label="The pain">
-        <div class="corner-mark reveal" data-seal="26"></div>
-        <div class="slide-content">
-          <h2 class="h2 reveal">We record everything.<br />We remember nothing.</h2>
-          <div class="pain-vis reveal">
-            <div class="pain-col">
-              <div class="photo-flood" aria-hidden="true">
-                <span></span><span></span><span></span><span></span><span></span><span></span>
-                <span></span><span></span><span></span><span></span><span></span><span></span>
-                <span></span><span></span><span></span><span></span><span></span><span></span>
+        <div class="col-right r" style="transition-delay: 0.38s;">
+          <div style="display: flex; align-items: flex-end; gap: clamp(6px, 1vw, 14px);">
+            <div class="phone-wrap tilt-l">
+              <div class="phone phone-md">
+                <div class="phone-screen">
+                  <img src="assets/splash.png" alt="Reunite splash screen — logo on cream" loading="lazy" />
+                </div>
               </div>
-              <p class="flood-label">1.8 trillion photos / year</p>
+              <p class="phone-caption">Open</p>
             </div>
-            <span class="vs">vs</span>
-            <div class="pain-col">
-              <div class="envelope" aria-hidden="true">
-                <span class="stamp" data-seal="22"></span>
+            <div class="phone-wrap tilt-r" style="margin-bottom: clamp(12px, 2vh, 24px);">
+              <div class="phone phone-lg">
+                <div class="phone-screen">
+                  <img src="assets/writing-letter.png" alt="Writing a letter on the cream paper screen" loading="lazy" />
+                </div>
               </div>
-              <p class="env-label">one, addressed to the future</p>
+              <p class="phone-caption">Write</p>
             </div>
           </div>
-          <p class="small italic reveal">Nothing we capture is meant to come back.</p>
         </div>
-      </section>
 
-      <!-- 4 · THE MISFRAME ────────────────────────────────────────────── -->
-      <section class="slide statement" aria-label="The misframe">
-        <div class="slide-content">
-          <p class="h1 reveal-slow">A time capsule isn't a scheduled email.</p>
-          <p class="statement-sub reveal">
-            Reminder apps nag you about <span class="serif-em">today</span>.
-            None carry the <span class="serif-em em">real you</span> to a future day.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 06 · EXPERIENCE — CHOOSE THE DAY
+       Real screenshot: choose-time.png
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s6" aria-label="Choose the day">
+    <div class="inner inner-wide" style="gap: var(--gap-xl);">
+      <div class="col-2" style="flex-direction: row-reverse;">
+
+        <div class="col-left r" style="transition-delay: 0.1s;">
+          <p class="t-kicker">Step 02 — Choose</p>
+          <h2 class="t-h2">When should it<br />find you again?</h2>
+          <div class="rule-h" style="margin: 0;"></div>
+          <p class="t-lead" style="max-width: 34ch;">
+            A day at least 15 days out.
+            Far enough to surprise you. Close enough to mean&nbsp;something.
+          </p>
+          <p class="t-small" style="color: var(--sienna); letter-spacing: 0.1em;">
+            Once sealed, it leaves you — until the day.
           </p>
         </div>
-      </section>
 
-      <!-- 5 · THE INSIGHT (inverted KPI, visual) ──────────────────────── -->
-      <section class="slide content" aria-label="The insight">
-        <div class="slide-content">
-          <p class="kicker reveal">The inverted KPI</p>
-          <h2 class="h2 reveal">Every app screams <span class="italic">open me</span>.<br />Reunite wants to be forgotten.</h2>
-          <div class="kpi-vis reveal" aria-hidden="true">
-            <svg viewBox="0 0 600 200" width="100%" preserveAspectRatio="xMidYMid meet">
-              <!-- baseline -->
-              <line x1="20" y1="170" x2="580" y2="170" stroke="rgba(74,46,28,0.20)" stroke-width="1"/>
-              <!-- every app: ever-rising clamour -->
-              <path class="kpi-line" d="M20 165 C160 150 300 70 580 18"
-                    fill="none" stroke="#8A6B52" stroke-width="2.5"
-                    stroke-dasharray="900" stroke-dashoffset="900" stroke-linecap="round"/>
-              <!-- reunite: goes quiet, then one gentle return -->
-              <path class="kpi-line" d="M20 150 C150 178 360 182 470 175 C520 172 545 120 560 70"
-                    fill="none" stroke="#B26B24" stroke-width="2.5"
-                    stroke-dasharray="900" stroke-dashoffset="900" stroke-linecap="round"/>
-              <!-- the one gentle return: gold star where it comes back -->
-              <text x="560" y="62" font-family="Courier Prime, monospace" font-weight="700" font-size="26" fill="#E0A93E" text-anchor="middle">&#10022;</text>
-            </svg>
-            <div class="kpi-legend">
-              <span><i class="swatch" style="background:#8A6B52"></i> every other app</span>
-              <span><i class="swatch" style="background:#B26B24"></i> Reunite &mdash; until one day, it finds you</span>
+        <div class="col-right r" style="transition-delay: 0.38s;">
+          <div class="phone-wrap tilt-0">
+            <div class="phone phone-lg">
+              <div class="phone-screen">
+                <img src="assets/choose-time.png" alt="Date picker — choosing the delivery day" loading="lazy" />
+              </div>
             </div>
+            <p class="phone-caption">Choose the day</p>
           </div>
         </div>
-      </section>
 
-      <!-- 6 · WHAT REUNITE IS (flow pipeline) ─────────────────────────── -->
-      <section class="slide content" aria-label="What Reunite is">
-        <div class="corner-mark reveal" data-seal="26"></div>
-        <div class="slide-content">
-          <h2 class="h2 reveal">Write. Seal. Disappear. Reunite.</h2>
-          <div class="flow reveal" aria-label="write, seal, email, reveal">
-            <div class="flow-step">
-              <span class="flow-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z"/></svg></span>
-              <span class="flow-label">Write</span>
-            </div>
-            <span class="flow-arrow">&rarr;</span>
-            <div class="flow-step is-seal">
-              <span class="flow-ico" data-seal="34" style="border:none;"></span>
-              <span class="flow-label">Seal</span>
-            </div>
-            <span class="flow-arrow">&rarr;</span>
-            <div class="flow-step">
-              <span class="flow-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 7l9 6 9-6"/></svg></span>
-              <span class="flow-label">Email</span>
-            </div>
-            <span class="flow-arrow">&rarr;</span>
-            <div class="flow-step">
-              <span class="flow-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg></span>
-              <span class="flow-label">Reveal</span>
-            </div>
-          </div>
-          <p class="lead reveal">Choose a day at least <span class="serif-em em">15 days</span> out. Then let go.</p>
-        </div>
-      </section>
+      </div>
+    </div>
+  </section>
 
-      <!-- 7 · SEALING = DISAPPEARING (the letter fades) ───────────────── -->
-      <section class="slide empty" aria-label="Sealing is disappearing">
-        <div class="slide-content">
-          <p class="fading-letter reveal">Dear future me, tonight I'm afraid and in love and&hellip;</p>
-          <h2 class="h2 reveal">Sealing is disappearing.</h2>
-          <p class="lead reveal">No list. No inbox. No badge.<br />The app never shows you a letter you wrote.</p>
-        </div>
-      </section>
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 07 · EXPERIENCE — SEAL (it disappears)
+       Real screenshot: sealed.png
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s7" aria-label="The sealing ritual">
+    <div class="inner inner-wide" style="gap: var(--gap-xl);">
+      <div class="col-2">
 
-      <!-- 8 · NOT JUST WORDS (multimedia) ─────────────────────────────── -->
-      <section class="slide content" aria-label="More than words">
-        <div class="slide-content">
-          <p class="kicker reveal">Truth over polish</p>
-          <h2 class="h2 reveal">Now it keeps more than your words.</h2>
-          <div class="media-row reveal">
-            <figure class="polaroid" style="width: clamp(140px, 18vw, 190px); transform: rotate(-3deg);">
-              <div class="polaroid-tape"></div>
-              <div class="polaroid-window"></div>
-              <figcaption class="polaroid-caption">the unguarded you</figcaption>
-            </figure>
-            <div style="display:flex; flex-direction:column; gap:var(--gap-sm);">
-              <span class="media-chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.2"/></svg> up to 4 photos</span>
-              <span class="media-chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg> 1 short video</span>
-              <span class="media-chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 4h14v16l-7-3-7 3z"/></svg> your words</span>
-            </div>
-          </div>
-          <p class="body reveal">The trembling voice, the messy room behind you &mdash; <span class="serif-em em">who you were</span>, not just what you thought.</p>
-        </div>
-      </section>
-
-      <!-- 9 · THE REUNION (polaroid + email chip) ─────────────────────── -->
-      <section class="slide reunion" aria-label="The reunion">
-        <div class="slide-content">
-          <div class="reunion-text">
-            <h2 class="h2 reveal">On the day, it comes home.</h2>
-            <div class="mail-chip reveal">
-              From&nbsp; <span class="from">You, in 2026</span><br />
-              Subject&nbsp; A letter you sealed
-            </div>
-            <p class="body reveal">The wax cracks. Your photo emerges. Your words rise &mdash; one line at a time.</p>
-            <p class="small italic reveal">Slow, on purpose. The opposite of the world outside.</p>
-          </div>
-          <div class="polaroid-stage reveal">
-            <figure class="polaroid">
-              <div class="polaroid-tape"></div>
-              <div class="polaroid-window"></div>
-              <figcaption class="polaroid-caption">a memory, returning</figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <!-- 10 · IT MUST OUTLIVE US ─────────────────────────────────────── -->
-      <section class="slide statement" aria-label="It must outlive us">
-        <div class="slide-content">
-          <span class="star star--sm reveal">&#10022;</span>
-          <p class="h1 reveal-slow">It must outlive us.</p>
-          <p class="statement-sub reveal">
-            The full letter always lives in <span class="serif-em em">your own inbox</span> &mdash;
-            built to outlive even our servers. We don't hold your memory hostage; we help it set out.
+        <div class="col-left r" style="transition-delay: 0.1s;">
+          <p class="t-kicker">Step 03 — Seal</p>
+          <h2 class="t-h2">✦ Seal ✦</h2>
+          <div class="rule-h" style="margin: 0;"></div>
+          <p class="t-lead" style="max-width: 34ch;">
+            The wax presses down. The letter folds in.
+            The screen goes quiet. You can write&nbsp;another.
+          </p>
+          <p class="t-body t-italic">"Some things you keep by letting go."</p>
+          <p class="t-small" style="letter-spacing: 0.08em; line-height: 1.7;">
+            No list appeared.<br />No count went up.<br />
+            It just &hellip; left.
           </p>
         </div>
-      </section>
 
-      <!-- 11 · THE FIVE COMMANDMENTS ──────────────────────────────────── -->
-      <section class="slide content" aria-label="The five commandments">
-        <div class="corner-mark reveal" data-seal="26"></div>
-        <div class="slide-content">
-          <h2 class="h2 reveal">Five things we'll never break.</h2>
-          <ul class="commandments reveal">
-            <li><span class="star">&#10022;</span><span>Sealing = disappearing.</span></li>
-            <li><span class="star">&#10022;</span><span>Truth over polish.</span></li>
-            <li><span class="star">&#10022;</span><span>It must outlive us.</span></li>
-            <li><span class="star">&#10022;</span><span>Charge for the sacred moment, never for attention.</span></li>
-            <li><span class="star">&#10022;</span><span>Small and beautiful &mdash; by design.</span></li>
-          </ul>
-        </div>
-      </section>
-
-      <!-- 12 · WHO IT'S FOR ───────────────────────────────────────────── -->
-      <section class="slide content" aria-label="Who it is for">
-        <div class="slide-content">
-          <h2 class="h2 reveal">For the moments you know you'll lose.</h2>
-          <ul class="moments reveal">
-            <li>The first night home with a newborn.</li>
-            <li>The day you fell in love.</li>
-            <li>&ldquo;Open on your 30th birthday.&rdquo;</li>
-            <li>A letter to your child, for when they turn 18.</li>
-          </ul>
-          <p class="small italic reveal">Not a daily habit. A few sacred moments, kept perfectly.</p>
-        </div>
-      </section>
-
-      <!-- 13 · THE BUSINESS (cost vs revenue) ─────────────────────────── -->
-      <section class="slide content" aria-label="The business">
-        <div class="slide-content">
-          <h2 class="h2 reveal">Charge for the sacred moment.</h2>
-          <div class="econ reveal" aria-label="cost in cents versus a one-time charge in dollars">
-            <div class="econ-col">
-              <span class="econ-num">¢</span>
-              <div class="econ-bar cost"></div>
-              <span class="econ-cap">10 yrs of storage<br />costs cents</span>
+        <div class="col-right r" style="transition-delay: 0.38s;">
+          <div class="phone-wrap tilt-r">
+            <div class="phone phone-lg">
+              <div class="phone-screen">
+                <img src="assets/sealed.png" alt="Sealed confirmation screen — gone from sight" loading="lazy" />
+              </div>
             </div>
-            <div class="econ-col">
-              <span class="econ-num rev">$</span>
-              <div class="econ-bar rev"></div>
-              <span class="econ-cap">one charge at sealing<br />prepays it all</span>
+            <p class="phone-caption">Sealed — gone from sight</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 08 · EXPERIENCE — REUNION
+       Real screenshot: receive-letter.png (web reveal page)
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s8" aria-label="The reunion — the letter returns">
+    <div class="inner inner-wide" style="gap: var(--gap-xl);">
+      <div class="col-2" style="flex-direction: row-reverse; align-items: center;">
+
+        <div class="col-left r" style="transition-delay: 0.1s;">
+          <p class="t-kicker">Step 04 — Reunion</p>
+          <h2 class="t-h2">On the day,<br />it comes home.</h2>
+          <div class="email-chip" style="margin: var(--gap-sm) 0;">
+            From &nbsp;<span class="from">You, in 2026</span><br />
+            Subject &nbsp;A letter from you, 2026<br />
+            <span style="opacity: 0.6; font-size: 0.9em;">→ Open it</span>
+          </div>
+          <p class="t-lead" style="max-width: 34ch;">
+            The wax cracks. Words rise, line by line.
+            Slow — the opposite of everything outside.
+          </p>
+          <p class="t-small" style="color: var(--sienna); letter-spacing: 0.1em;">
+            Lives in your own inbox. Forever.
+          </p>
+        </div>
+
+        <div class="col-right r" style="transition-delay: 0.38s;">
+          <div class="browser-frame">
+            <div class="browser-bar">
+              <div class="browser-dot"></div>
+              <div class="browser-dot"></div>
+              <div class="browser-dot"></div>
+              <div class="browser-url"></div>
+            </div>
+            <div class="browser-screen">
+              <img src="assets/receive-letter.png" alt="The Reunite web reveal page — the letter returning" loading="lazy" />
             </div>
           </div>
-          <p class="body italic reveal">Revenue and cost aligned by design. No ads. No attention economy.</p>
+          <p class="phone-caption" style="margin-top: clamp(6px, 0.8vh, 10px);">The reveal page</p>
         </div>
-      </section>
 
-      <!-- 14 · BUILT IN TWO DAYS (proof) ──────────────────────────────── -->
-      <section class="slide content" aria-label="Where we are">
-        <div class="slide-content">
-          <p class="kicker reveal">Built in 2 days</p>
-          <h2 class="h2 reveal">Working end-to-end. Right now.</h2>
-          <div class="flow reveal" style="opacity:1;">
-            <span class="flow-label">write</span><span class="flow-arrow">&rarr;</span>
-            <span class="flow-label">seal</span><span class="flow-arrow">&rarr;</span>
-            <span class="flow-label">email</span><span class="flow-arrow">&rarr;</span>
-            <span class="flow-label">reveal</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 09 · THE FIVE COMMANDMENTS
+       Elegant single-column list — not a bullet dump
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s9" aria-label="The five commandments">
+    <div class="inner" style="gap: var(--gap-lg);">
+
+      <h2 class="t-h2 r" style="transition-delay: 0.05s;">Five things we will never break.</h2>
+
+      <img class="divider r" src="assets/divider-line.png" alt="" aria-hidden="true"
+           style="transition-delay: 0.2s; width: clamp(90px, 18vw, 180px);" />
+
+      <ul class="commandment-list r" style="transition-delay: 0.32s;">
+        <li class="commandment-item">
+          <span class="ci-star">✦</span>
+          <div class="commandment-inner">
+            <span>Sealing = disappearing.</span>
+            <span class="commandment-sub">No list. No inbox. No badge. Ever.</span>
           </div>
-          <p class="tech-row reveal">
-            Expo<span class="dot">&middot;</span>React Native<span class="dot">&middot;</span>Supabase<span class="dot">&middot;</span>Resend<span class="dot">&middot;</span>Vercel
-          </p>
-          <p class="reveal"><span class="live-pill">Live demo, right now</span></p>
-        </div>
-      </section>
+        </li>
+        <li class="commandment-item">
+          <span class="ci-star">✦</span>
+          <div class="commandment-inner">
+            <span>Truth over polish.</span>
+            <span class="commandment-sub">The trembling voice. The messy room. Who you were, not what you wish you were.</span>
+          </div>
+        </li>
+        <li class="commandment-item">
+          <span class="ci-star">✦</span>
+          <div class="commandment-inner">
+            <span>It must outlive us.</span>
+            <span class="commandment-sub">The letter always lives in your own inbox — not only on our servers.</span>
+          </div>
+        </li>
+        <li class="commandment-item">
+          <span class="ci-star">✦</span>
+          <div class="commandment-inner">
+            <span>Charge for the sacred moment, not for attention.</span>
+            <span class="commandment-sub">One charge at sealing. No ads. We never steal a second of your time.</span>
+          </div>
+        </li>
+        <li class="commandment-item">
+          <span class="ci-star">✦</span>
+          <div class="commandment-inner">
+            <span>Small and beautiful — by design.</span>
+            <span class="commandment-sub">A quiet thing, loved by a few, that pays for itself and lives long.</span>
+          </div>
+        </li>
+      </ul>
 
-      <!-- 15 · CLOSING ────────────────────────────────────────────────── -->
-      <section class="slide" aria-label="Closing">
-        <div class="slide-content">
-          <div class="reveal" data-seal="110"></div>
-          <p class="display italic reveal-slow" style="font-size: var(--sz-h1); margin-top: var(--gap-md);">
-            Some things you keep<br />by letting go.
-          </p>
-          <p class="cover-tag reveal">Reunite &mdash; Meet the person you used to be.</p>
-        </div>
-      </section>
+    </div>
+  </section>
 
-    </main>
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 10 · IT MUST OUTLIVE US
+       Durability promise — your inbox is the real archive
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s10" aria-label="It must outlive us">
+    <div class="inner inner-narrow" style="gap: var(--gap-xl);">
 
-    <!-- Navigation chrome -->
-    <nav id="nav-dots" aria-label="Slide navigation"></nav>
-    <div id="slide-counter" aria-hidden="true"></div>
-    <div id="key-hint" aria-hidden="true">&larr; &rarr; &nbsp;or&nbsp; space</div>
+      <p class="t-kicker r-slow">The third commandment</p>
 
-    <script>
-      /* Inject the REAL wax-seal logo image into every [data-seal] host at the
-         requested px size, and gently twinkle the big cover/closing marks. */
-      (function () {
-        document.querySelectorAll("[data-seal]").forEach(function (host) {
-          var size = parseInt(host.getAttribute("data-seal"), 10) || 48;
-          host.style.width = size + "px";
-          host.style.height = size + "px";
-          var span = document.createElement("span");
-          span.className = "seal";
-          span.setAttribute("aria-hidden", "true");
-          var img = document.createElement("img");
-          img.src = "assets/reunite-logo.png";
-          img.alt = "";
-          img.setAttribute("aria-hidden", "true");
-          span.appendChild(img);
-          if (size >= 90) span.classList.add("twinkle");
-          host.appendChild(span);
-        });
-      })();
+      <h2 class="t-h1 r-slow" style="transition-delay: 0.2s; line-height: 1.1;">
+        It must outlive us.
+      </h2>
 
-      /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  SLIDE CONTROLLER — keyboard / dots / wheel / swipe / #N links    ║
-         ╚══════════════════════════════════════════════════════════════════╝ */
-      (function () {
-        var deck = document.getElementById("deck");
-        var dotsNav = document.getElementById("nav-dots");
-        var counter = document.getElementById("slide-counter");
-        var keyHint = document.getElementById("key-hint");
-        var slides = Array.prototype.slice.call(deck.querySelectorAll(".slide"));
-        var total = slides.length;
-        var current = 0;
+      <div class="rule-h r-slow" style="transition-delay: 0.4s;"></div>
 
-        deck.style.width = "calc(" + total + " * 100vw)";
+      <p class="s-sub r-slow" style="transition-delay: 0.55s; max-width: 44ch;">
+        Companies fold. Servers die. Phones get lost.
+        So the letter's full text always lands in
+        <em style="color: var(--sienna);">your own inbox</em>
+        — a place that outlives our servers, our company, and any app.
+        We are not the archive. We are the&nbsp;messenger.
+      </p>
 
-        slides.forEach(function (_, i) {
-          var dot = document.createElement("button");
-          dot.className = "nav-dot";
-          dot.setAttribute("aria-label", "Go to slide " + (i + 1));
-          dot.addEventListener("click", function () { goTo(i); });
-          dotsNav.appendChild(dot);
-        });
+      <p class="t-small r-slow" style="transition-delay: 0.75s; color: var(--sienna); letter-spacing: 0.1em;">
+        The reveal page can disappear. Your email cannot.
+      </p>
 
-        function pad(n) { return String(n).padStart(2, "0"); }
+    </div>
+  </section>
 
-        function goTo(index, instant) {
-          if (index < 0 || index >= total) return;
-          if (instant) deck.style.transition = "none";
-          slides[current].classList.remove("is-active");
-          current = index;
-          slides[current].classList.add("is-active");
-          deck.style.transform = "translateX(calc(-" + current + " * 100vw))";
-          if (instant) requestAnimationFrame(function () { deck.style.transition = ""; });
-          dotsNav.querySelectorAll(".nav-dot").forEach(function (d, i) {
-            d.classList.toggle("is-active", i === current);
-          });
-          counter.textContent = pad(current + 1) + " / " + pad(total);
-          if (current > 0 && keyHint) keyHint.classList.add("hide");
-        }
+  <!-- ═══════════════════════════════════════════════════════════════
+       SLIDE 11 · CLOSE — BUILT IN 2 DAYS + VISION
+       End on the soul line + seal
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="slide" id="s11" aria-label="Working demo and vision">
+    <div class="inner inner-narrow stagger" style="gap: var(--gap-lg);">
 
-        document.addEventListener("keydown", function (e) {
-          if (e.key === "ArrowRight" || e.key === " " || e.key === "ArrowDown" || e.key === "PageDown") {
-            e.preventDefault(); goTo(current + 1);
-          } else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
-            e.preventDefault(); goTo(current - 1);
-          } else if (e.key === "Home") { e.preventDefault(); goTo(0); }
-          else if (e.key === "End") { e.preventDefault(); goTo(total - 1); }
-        });
+      <p class="t-kicker r">Built in 2 days · End-to-end, right now</p>
 
-        var touchStartX = 0;
-        document.addEventListener("touchstart", function (e) {
-          touchStartX = e.touches[0].clientX;
-        }, { passive: true });
-        document.addEventListener("touchend", function (e) {
-          var dx = e.changedTouches[0].clientX - touchStartX;
-          if (Math.abs(dx) > 45) goTo(current + (dx < 0 ? 1 : -1));
-        }, { passive: true });
+      <div class="r" style="display: flex; gap: clamp(0.6rem, 2vw, 1.4rem); align-items: center; justify-content: center; flex-wrap: wrap;">
+        <span class="t-label" style="color: var(--ink-soft);">Write</span>
+        <span style="color: var(--gold); font-family: var(--f-serif); font-size: 1.1em;">→</span>
+        <span class="t-label" style="color: var(--sienna);">Seal</span>
+        <span style="color: var(--gold); font-family: var(--f-serif); font-size: 1.1em;">→</span>
+        <span class="t-label" style="color: var(--ink-soft);">Email</span>
+        <span style="color: var(--gold); font-family: var(--f-serif); font-size: 1.1em;">→</span>
+        <span class="t-label" style="color: var(--ink-soft);">Reveal</span>
+      </div>
 
-        var wheelLocked = false;
-        document.addEventListener("wheel", function (e) {
-          if (wheelLocked) return;
-          var primary = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-          if (Math.abs(primary) < 8) return;
-          goTo(current + (primary > 0 ? 1 : -1));
-          wheelLocked = true;
-          setTimeout(function () { wheelLocked = false; }, 900);
-        }, { passive: true });
+      <p class="tech-stack r">
+        Expo · React Native
+        <span class="tech-dot">·</span>Supabase
+        <span class="tech-dot">·</span>Resend
+        <span class="tech-dot">·</span>Vercel
+      </p>
 
-        function goFromHash() {
-          var m = (location.hash || "").match(/^#(\d+)$/);
-          goTo(m ? parseInt(m[1], 10) - 1 : 0, true);
-        }
-        goFromHash();
-        window.addEventListener("hashchange", goFromHash);
-      })();
-    </script>
-  </body>
+      <span class="live-pill r"><span class="live-pip"></span>Live demo, right now</span>
+
+      <div class="rule-h r" style="width: clamp(60px, 10vw, 110px);"></div>
+
+      <p class="vision-quote r">
+        "A quiet thing, loved by a few,<br />
+        that pays for itself and lives long."
+      </p>
+
+      <div class="r twinkle" style="margin-top: var(--gap-md);">
+        <img style="width: clamp(62px, 9vw, 96px);" src="assets/logo.svg" alt="Reunite wax seal" />
+      </div>
+
+      <p class="r" style="
+        font-family: var(--f-serif);
+        font-style: italic;
+        font-weight: 400;
+        font-size: var(--t-h3);
+        color: var(--ink-soft);
+      ">
+        Reunite &mdash; Meet the person you used to be.
+      </p>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- Navigation chrome -->
+<nav id="nav-dots" aria-label="Slide navigation"></nav>
+<div id="slide-counter" aria-hidden="true"></div>
+<div id="key-hint" aria-hidden="true">← → or space</div>
+
+<button id="prev-btn" aria-label="Previous slide">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 18l-6-6 6-6"/>
+  </svg>
+</button>
+<button id="next-btn" aria-label="Next slide">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18l6-6-6-6"/>
+  </svg>
+</button>
+
+<script>
+(function () {
+  "use strict";
+
+  var deck    = document.getElementById("deck");
+  var dotsNav = document.getElementById("nav-dots");
+  var counter = document.getElementById("slide-counter");
+  var hint    = document.getElementById("key-hint");
+  var prevBtn = document.getElementById("prev-btn");
+  var nextBtn = document.getElementById("next-btn");
+  var slides  = Array.prototype.slice.call(deck.querySelectorAll(".slide"));
+  var total   = slides.length;
+  var cur     = 0;
+
+  /* Set the deck strip width so horizontal pan works */
+  deck.style.width = "calc(" + total + " * 100vw)";
+
+  /* Build dot nav */
+  slides.forEach(function (_, i) {
+    var dot = document.createElement("button");
+    dot.className = "nav-dot";
+    dot.setAttribute("aria-label", "Go to slide " + (i + 1));
+    dot.addEventListener("click", function () { goTo(i); });
+    dotsNav.appendChild(dot);
+  });
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function goTo(idx, instant) {
+    if (idx < 0 || idx >= total) return;
+
+    /* Deactivate old slide */
+    slides[cur].classList.remove("active");
+    cur = idx;
+    /* Activate new slide */
+    slides[cur].classList.add("active");
+
+    if (instant) {
+      deck.style.transition = "none";
+    }
+    deck.style.transform = "translateX(calc(-" + cur + " * 100vw))";
+    if (instant) {
+      requestAnimationFrame(function () {
+        deck.style.transition = "";
+      });
+    }
+
+    /* Dots */
+    dotsNav.querySelectorAll(".nav-dot").forEach(function (d, i) {
+      d.classList.toggle("on", i === cur);
+    });
+
+    /* Counter */
+    counter.textContent = pad(cur + 1) + " / " + pad(total);
+
+    /* Hint */
+    if (cur > 0 && hint) hint.classList.add("gone");
+
+    /* Prev / next visibility */
+    prevBtn.style.visibility = cur === 0         ? "hidden" : "visible";
+    nextBtn.style.visibility = cur === total - 1 ? "hidden" : "visible";
+  }
+
+  /* Keyboard */
+  document.addEventListener("keydown", function (e) {
+    switch (e.key) {
+      case "ArrowRight": case " ": case "ArrowDown": case "PageDown":
+        e.preventDefault(); goTo(cur + 1); break;
+      case "ArrowLeft": case "ArrowUp": case "PageUp":
+        e.preventDefault(); goTo(cur - 1); break;
+      case "Home": e.preventDefault(); goTo(0); break;
+      case "End":  e.preventDefault(); goTo(total - 1); break;
+    }
+  });
+
+  /* Prev / next buttons */
+  prevBtn.addEventListener("click", function () { goTo(cur - 1); });
+  nextBtn.addEventListener("click", function () { goTo(cur + 1); });
+
+  /* Touch swipe */
+  var touchX = 0;
+  document.addEventListener("touchstart", function (e) {
+    touchX = e.touches[0].clientX;
+  }, { passive: true });
+  document.addEventListener("touchend", function (e) {
+    var dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 44) goTo(cur + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+
+  /* Scroll wheel (throttled) */
+  var wheelLocked = false;
+  document.addEventListener("wheel", function (e) {
+    if (wheelLocked) return;
+    var primary = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (Math.abs(primary) < 8) return;
+    goTo(cur + (primary > 0 ? 1 : -1));
+    wheelLocked = true;
+    setTimeout(function () { wheelLocked = false; }, 950);
+  }, { passive: true });
+
+  /* Hash deep-link: #3 → slide 3 */
+  function applyHash() {
+    var m = (location.hash || "").match(/^#(\d+)$/);
+    goTo(m ? Math.max(0, parseInt(m[1], 10) - 1) : 0, true);
+  }
+  applyHash();
+  window.addEventListener("hashchange", applyHash);
+
+}());
+</script>
+</body>
 </html>
