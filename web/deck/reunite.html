@@ -5,50 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Reunite — Meet the person you used to be</title>
 
-    <!-- Fonts: Cormorant Garamond (display serif), Work Sans (body),
-         IBM Plex Mono (small metadata / labels / slide numbers only). -->
+    <!-- Fonts: Courier Prime (typewriter) — the dominant typeface for the
+         whole deck. Hierarchy comes from SIZE / WEIGHT (400/700) / spacing,
+         not from different families. Italic kept for editorial emphasis. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Work+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap"
       rel="stylesheet"
     />
 
     <style>
       /* ╔══════════════════════════════════════════════════════════════════╗
          ║  ZONE A · DESIGN TOKENS                                           ║
-         ║  Paper, not software. Warm ivory, brown ink, one bordeaux for     ║
-         ║  emphasis, one gold north-star as the only motif. From BRAND.md.  ║
+         ║  Paper, not software. Warm cream, wax-sienna red for emphasis,    ║
+         ║  one antique-gold north-star as the only motif. Palette sampled   ║
+         ║  from the real wax-seal logo.                                     ║
          ╚══════════════════════════════════════════════════════════════════╝ */
       :root {
-        --ivory:        #F4EEE4;
-        --ivory-deep:   #EFE8DB;
-        --paper:        #FBF8F1;
-        --paper-shadow: #EAE1D3;
-        --brown:        #5B4638;
-        --soft:         #6B5A4B;
-        --faint:        #9A8B79;
-        --bord:         #7A1E1E;
-        --bord-deep:    #5e1414;
-        --burgundy:     #A02C2C;
-        --gold:         #C8A463;        /* slightly deeper than #D6B26E so it reads on ivory */
-        --gold-bright:  #D6B26E;        /* the brand gold, used inside the wax seal */
-        --gold-soft:    rgba(200, 164, 99, 0.34);
-        --border:       rgba(91, 70, 56, 0.16);
+        --ivory:        #EDD8C3;        /* background cream (from the logo) */
+        --ivory-deep:   #E3CDB4;        /* slightly deeper cream panel */
+        --paper:        #F2E3D2;        /* lighter paper for chips/envelopes */
+        --paper-shadow: #E3CDB4;        /* panel / shadow */
+        --brown:        #4A2E1C;        /* body / heading ink (warm dark brown) */
+        --soft:         #5C3F2C;        /* softer ink */
+        --faint:        #8A6B52;        /* faint metadata ink (still readable on cream) */
+        --bord:         #B26B24;        /* primary — wax sienna red-brown */
+        --bord-deep:    #572007;        /* deep sienna — emphasis / dark */
+        --burgundy:     #B26B24;        /* same wax sienna for the live pulse */
+        --gold:         #E0A93E;        /* antique gold — accent / stars / hairlines */
+        --gold-bright:  #F0C04C;        /* bright gold highlight */
+        --gold-soft:    rgba(224, 169, 62, 0.34);
+        --border:       rgba(74, 46, 28, 0.18);
 
-        --f-display: "Cormorant Garamond", Georgia, serif;
-        --f-body:    "Work Sans", system-ui, sans-serif;
-        --f-mono:    "IBM Plex Mono", "Courier New", monospace;
+        --f-display: "Courier Prime", "Courier New", monospace;
+        --f-body:    "Courier Prime", "Courier New", monospace;
+        --f-mono:    "Courier Prime", "Courier New", monospace;
 
-        --sz-display: clamp(3rem, 9vw, 7.5rem);
-        --sz-h1:      clamp(2rem, 5.4vw, 4.6rem);
-        --sz-h2:      clamp(1.6rem, 4vw, 3.2rem);
-        --sz-h3:      clamp(1.15rem, 2.3vw, 1.9rem);
-        --sz-lead:    clamp(1.05rem, 1.9vw, 1.6rem);
-        --sz-body:    clamp(0.95rem, 1.45vw, 1.2rem);
-        --sz-small:   clamp(0.78rem, 1.05vw, 0.98rem);
-        --sz-label:   clamp(0.62rem, 0.86vw, 0.82rem);
-        --sz-huge:    clamp(3.4rem, 11vw, 9rem);   /* the big numbers */
+        /* Courier Prime is noticeably wider than Cormorant — display/h1/huge
+           are dialed down a touch so headings don't wrap or overflow. */
+        --sz-display: clamp(2.4rem, 7vw, 5.6rem);
+        --sz-h1:      clamp(1.7rem, 4.4vw, 3.6rem);
+        --sz-h2:      clamp(1.35rem, 3.2vw, 2.5rem);
+        --sz-h3:      clamp(1.05rem, 2vw, 1.6rem);
+        --sz-lead:    clamp(0.98rem, 1.7vw, 1.4rem);
+        --sz-body:    clamp(0.9rem, 1.35vw, 1.12rem);
+        --sz-small:   clamp(0.74rem, 1vw, 0.92rem);
+        --sz-label:   clamp(0.6rem, 0.82vw, 0.78rem);
+        --sz-huge:    clamp(2.8rem, 9vw, 7rem);   /* the big numbers */
 
         --pad-x: clamp(1.5rem, 7vw, 8rem);
         --pad-y: clamp(1.5rem, 6vh, 5rem);
@@ -74,7 +78,7 @@
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
       }
-      body { font-family: var(--f-body); font-weight: 300; }
+      body { font-family: var(--f-body); font-weight: 400; }
 
       #deck {
         display: flex;
@@ -125,10 +129,10 @@
       }
       .nav-dot {
         width: 6px; height: 6px; border-radius: 50%; border: none;
-        background: rgba(91, 70, 56, 0.22); cursor: pointer; padding: 0;
+        background: rgba(74, 46, 28, 0.24); cursor: pointer; padding: 0;
         transition: background 0.4s var(--ease-out), transform 0.4s var(--ease-out);
       }
-      .nav-dot:hover { background: rgba(91, 70, 56, 0.45); }
+      .nav-dot:hover { background: rgba(74, 46, 28, 0.48); }
       .nav-dot.is-active { background: var(--gold); transform: scale(1.5); }
       .nav-dot:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
@@ -150,45 +154,47 @@
       /* ╔══════════════════════════════════════════════════════════════════╗
          ║  ZONE C · TYPOGRAPHY                                              ║
          ╚══════════════════════════════════════════════════════════════════╝ */
+      /* Hierarchy is built from WEIGHT (400/700), SIZE and letter-spacing —
+         a single family (Courier Prime) throughout, typewriter-letter feel. */
       .display {
-        font-family: var(--f-display); font-weight: 600;
-        font-size: var(--sz-display); line-height: 0.98;
-        letter-spacing: -0.01em; color: var(--brown);
-      }
-      .h1 {
-        font-family: var(--f-display); font-weight: 500;
-        font-size: var(--sz-h1); line-height: 1.12;
+        font-family: var(--f-display); font-weight: 700;
+        font-size: var(--sz-display); line-height: 1.04;
         letter-spacing: -0.005em; color: var(--brown);
       }
+      .h1 {
+        font-family: var(--f-display); font-weight: 700;
+        font-size: var(--sz-h1); line-height: 1.18;
+        letter-spacing: 0; color: var(--brown);
+      }
       .h2 {
-        font-family: var(--f-display); font-weight: 600;
-        font-size: var(--sz-h2); line-height: 1.1; color: var(--brown);
+        font-family: var(--f-display); font-weight: 700;
+        font-size: var(--sz-h2); line-height: 1.2; color: var(--brown);
       }
       .h3 {
-        font-family: var(--f-display); font-weight: 500;
-        font-size: var(--sz-h3); line-height: 1.2; color: var(--brown);
+        font-family: var(--f-display); font-weight: 700;
+        font-size: var(--sz-h3); line-height: 1.3; color: var(--brown);
       }
       .lead {
-        font-family: var(--f-body); font-weight: 300;
+        font-family: var(--f-body); font-weight: 400;
         font-size: var(--sz-lead); line-height: 1.7; color: var(--brown);
       }
       .body {
-        font-family: var(--f-body); font-weight: 300;
+        font-family: var(--f-body); font-weight: 400;
         font-size: var(--sz-body); line-height: 1.7; color: var(--soft);
       }
       .small {
         font-family: var(--f-body); font-weight: 400;
-        font-size: var(--sz-small); line-height: 1.55; color: var(--soft);
+        font-size: var(--sz-small); line-height: 1.6; color: var(--soft);
       }
       .label {
-        font-family: var(--f-mono); font-weight: 500;
+        font-family: var(--f-mono); font-weight: 700;
         font-size: var(--sz-label); letter-spacing: 0.22em;
         text-transform: uppercase; color: var(--faint);
       }
       .huge {
-        font-family: var(--f-display); font-weight: 600;
-        font-size: var(--sz-huge); line-height: 0.9;
-        letter-spacing: -0.02em; color: var(--bord);
+        font-family: var(--f-display); font-weight: 700;
+        font-size: var(--sz-huge); line-height: 0.95;
+        letter-spacing: -0.01em; color: var(--bord);
       }
       .italic { font-style: italic; }
       .serif-em { font-style: italic; }
@@ -206,24 +212,28 @@
         background: var(--gold); opacity: 0.7; margin: var(--gap-sm) auto;
       }
       .kicker {
-        font-family: var(--f-mono); font-weight: 500;
+        font-family: var(--f-mono); font-weight: 700;
         font-size: var(--sz-label); letter-spacing: 0.24em;
         text-transform: uppercase; color: var(--gold);
         margin-bottom: var(--gap-sm);
       }
 
       /* ╔══════════════════════════════════════════════════════════════════╗
-         ║  ZONE D · THE LOGO — wax seal + gold north star (inline SVG)      ║
-         ║  HUMAN NOTE: this is an SVG recreation of the wax-seal/north-star  ║
-         ║  brand logo. Swap in the real PNG later if preferred.             ║
+         ║  ZONE D · THE LOGO — the REAL wax-seal + gold compass-star image   ║
+         ║  (assets/reunite-logo.png). The PNG already sits on a cream bg     ║
+         ║  matching the slide, so it blends. Sized per placement via the     ║
+         ║  data-seal attribute (the px size lives in the [data-seal] host).  ║
          ╚══════════════════════════════════════════════════════════════════╝ */
       .seal { display: inline-block; line-height: 0; }
-      .seal svg { display: block; overflow: visible; }
-      .seal-glint { animation: glint 5.5s ease-in-out infinite; transform-origin: center; }
-      @keyframes glint {
-        0%, 100% { opacity: 0.55; }
-        50%      { opacity: 1; }
+      .seal img {
+        display: block;
+        width: 100%; height: 100%;
+        object-fit: contain;
+        /* lift the seal off the cream very subtly */
+        filter: drop-shadow(0 3px 7px rgba(87, 32, 7, 0.16));
       }
+      /* the host span gets its box size from the data-seal px value (set by JS) */
+      [data-seal] { display: inline-block; line-height: 0; }
 
       /* ╔══════════════════════════════════════════════════════════════════╗
          ║  ZONE E · ENTRANCE ANIMATIONS                                    ║
@@ -259,7 +269,7 @@
 
       /* cover / closing centred layout */
       .cover-tag {
-        font-family: var(--f-display); font-style: italic; font-weight: 500;
+        font-family: var(--f-display); font-style: italic; font-weight: 400;
         font-size: var(--sz-h3); color: var(--soft); margin-top: var(--gap-sm);
       }
       .cover-foot {
@@ -271,7 +281,7 @@
       /* one big statement, lots of air */
       .statement .slide-content { max-width: min(960px, 84vw); gap: var(--gap-lg); }
       .statement-sub {
-        font-family: var(--f-body); font-weight: 300;
+        font-family: var(--f-body); font-weight: 400;
         font-size: var(--sz-lead); color: var(--soft);
         line-height: 1.7; max-width: 44ch;
       }
@@ -293,7 +303,7 @@
       .photo-flood span {
         aspect-ratio: 4 / 3;
         background: var(--paper-shadow);
-        border: 1px solid rgba(91,70,56,0.10);
+        border: 1px solid rgba(74,46,28,0.12);
         opacity: 0.5;
       }
       .flood-label, .env-label {
@@ -312,13 +322,13 @@
         background: var(--paper);
         border: 1.5px solid var(--bord);
         position: relative;
-        box-shadow: 0 8px 24px rgba(13,13,13,0.08);
+        box-shadow: 0 8px 24px rgba(87,32,7,0.12);
       }
       .envelope::before {  /* the flap */
         content: ""; position: absolute; inset: 0;
-        border-bottom: 1.5px solid rgba(122,30,30,0.35);
+        border-bottom: 1.5px solid rgba(178, 107, 36,0.35);
         clip-path: polygon(0 0, 50% 52%, 100% 0);
-        background: rgba(122,30,30,0.05);
+        background: rgba(178, 107, 36,0.06);
       }
       .envelope .stamp {  /* a tiny wax seal pressed on it */
         position: absolute; right: 12%; bottom: 14%;
@@ -344,7 +354,7 @@
         gap: var(--gap-md); align-items: center;
       }
       .lines li {
-        font-family: var(--f-body); font-weight: 300;
+        font-family: var(--f-body); font-weight: 400;
         font-size: var(--sz-lead); line-height: 1.5;
         color: var(--brown); max-width: 48ch;
       }
@@ -364,7 +374,7 @@
         display: flex; align-items: center; justify-content: center;
         color: var(--bord);
       }
-      .flow-step.is-seal .flow-ico { border-color: rgba(122,30,30,0.4); }
+      .flow-step.is-seal .flow-ico { border-color: rgba(178, 107, 36,0.4); }
       .flow-label {
         font-family: var(--f-mono); font-size: var(--sz-label);
         letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft);
@@ -381,8 +391,8 @@
         align-items: baseline; gap: 0.6em;
         padding-bottom: var(--gap-md);
         border-bottom: 1px solid var(--border);
-        font-family: var(--f-display); font-weight: 500;
-        font-size: var(--sz-h3); line-height: 1.2; color: var(--brown);
+        font-family: var(--f-display); font-weight: 700;
+        font-size: var(--sz-h3); line-height: 1.3; color: var(--brown);
       }
       .commandments li:last-child { border-bottom: none; padding-bottom: 0; }
       .commandments li .star { font-size: 0.85em; padding-top: 0.05em; }
@@ -393,8 +403,8 @@
         gap: var(--gap-md); max-width: 46ch;
       }
       .moments li {
-        font-family: var(--f-display); font-style: italic; font-weight: 500;
-        font-size: var(--sz-h3); line-height: 1.3; color: var(--brown);
+        font-family: var(--f-display); font-style: italic; font-weight: 400;
+        font-size: var(--sz-h3); line-height: 1.4; color: var(--brown);
       }
 
       /* ── BUSINESS: cost vs revenue, aligned by design ── */
@@ -411,9 +421,9 @@
         position: relative;
       }
       .econ-bar.cost   { height: clamp(20px, 4vh, 34px); background: var(--paper-shadow); }
-      .econ-bar.rev    { height: clamp(150px, 30vh, 240px); background: rgba(122,30,30,0.10); border-color: rgba(122,30,30,0.3); }
+      .econ-bar.rev    { height: clamp(150px, 30vh, 240px); background: rgba(178, 107, 36,0.12); border-color: rgba(178, 107, 36,0.32); }
       .econ-num {
-        font-family: var(--f-display); font-weight: 600;
+        font-family: var(--f-display); font-weight: 700;
         font-size: clamp(1.4rem, 3vw, 2.4rem); color: var(--brown);
       }
       .econ-num.rev { color: var(--bord); }
@@ -454,7 +464,7 @@
         line-height: 1.9; color: var(--soft);
         border-left: 2px solid var(--gold); padding-left: 0.9em;
       }
-      .mail-chip .from { color: var(--bord); font-weight: 500; }
+      .mail-chip .from { color: var(--bord); font-weight: 700; }
 
       .polaroid-stage {
         flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
@@ -463,24 +473,24 @@
       .polaroid {
         position: relative; background: var(--paper);
         padding: clamp(12px, 1.4vw, 20px) clamp(12px, 1.4vw, 20px) clamp(26px, 3vw, 40px);
-        box-shadow: 0 1px 2px rgba(13,13,13,0.07), 0 10px 26px rgba(13,13,13,0.10), 0 26px 52px rgba(13,13,13,0.07);
+        box-shadow: 0 1px 2px rgba(87,32,7,0.10), 0 10px 26px rgba(87,32,7,0.13), 0 26px 52px rgba(87,32,7,0.10);
         width: clamp(180px, 24vw, 270px); transform: rotate(-2deg);
       }
       .polaroid-tape {
         position: absolute; top: -7px; left: 50%;
         transform: translateX(-50%) rotate(-1.5deg);
         width: clamp(48px, 6vw, 72px); height: 18px;
-        background: var(--gold-soft); border: 1px solid rgba(140,94,16,0.14);
+        background: var(--gold-soft); border: 1px solid rgba(178, 107, 36,0.16);
       }
       .polaroid-window {
         position: relative; width: 100%; aspect-ratio: 4 / 5; overflow: hidden;
-        background: radial-gradient(120% 90% at 50% 35%, #DAD0C0 0%, #C9BDA9 60%, #BCAF98 100%);
+        background: radial-gradient(120% 90% at 50% 35%, #E3CDB4 0%, #D2B393 60%, #C29E78 100%);
       }
       .polaroid-window::before {
         content: ""; position: absolute; left: 50%; bottom: -8%;
         transform: translateX(-50%); width: 56%; height: 78%;
         border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%;
-        background: rgba(91,70,56,0.18); filter: blur(1px);
+        background: rgba(74,46,28,0.20); filter: blur(1px);
       }
       .polaroid-window::after {
         content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -517,7 +527,7 @@
         display: inline-flex; align-items: center; gap: 0.6em;
         font-family: var(--f-mono); font-size: var(--sz-small);
         letter-spacing: 0.12em; color: var(--bord);
-        border: 1px solid rgba(122,30,30,0.30); border-radius: 999px;
+        border: 1px solid rgba(178, 107, 36,0.32); border-radius: 999px;
         padding: 0.5em 1.2em;
       }
       .live-pill::before {
@@ -575,7 +585,7 @@
         .reveal, .reveal-slow {
           transition-duration: 0.3s !important; transform: none !important;
         }
-        .twinkle, .live-pill::before, .seal-glint { animation: none; }
+        .twinkle, .live-pill::before { animation: none; }
         .slide.is-active .kpi-line { animation: none; stroke-dashoffset: 0; }
         .slide.is-active .fading-letter { animation: none; opacity: 0.55; }
       }
@@ -584,58 +594,10 @@
 
   <body>
     <!-- ════════════════════════════════════════════════════════════════════
-         REUSABLE SVG LOGO TEMPLATE — wax seal (bordeaux) + gold north star.
-         HUMAN NOTE: this is an SVG recreation of the brand's wax-seal /
-         north-star logo. Swap in the real PNG later if you prefer.
-         Cloned into each placement by JS (so we author it once).
+         THE LOGO is now the real image (assets/reunite-logo.png), injected
+         into every [data-seal] host by JS at the requested px size. The old
+         inline-SVG recreation template has been removed.
          ════════════════════════════════════════════════════════════════════ -->
-    <template id="seal-tpl">
-      <span class="seal" aria-hidden="true">
-        <svg viewBox="0 0 100 100" width="100" height="100">
-          <defs>
-            <radialGradient id="wax" cx="42%" cy="36%" r="70%">
-              <stop offset="0%" stop-color="#8c2626"/>
-              <stop offset="55%" stop-color="#7A1E1E"/>
-              <stop offset="100%" stop-color="#5e1414"/>
-            </radialGradient>
-            <filter id="waxshadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="2.4" stdDeviation="3.2" flood-color="#3a0e0e" flood-opacity="0.32"/>
-            </filter>
-          </defs>
-          <!-- pressed-wax disc: a subtly irregular edge -->
-          <path filter="url(#waxshadow)" fill="url(#wax)" d="
-            M50 6
-            C62 6 70 9 78 16 C86 23 94 30 94 45
-            C94 58 92 66 85 76 C78 86 64 95 50 95
-            C37 95 24 88 16 78 C8 68 6 58 6 46
-            C6 32 12 24 21 16 C30 8 38 6 50 6 Z"/>
-          <!-- darker inner emboss ring -->
-          <circle cx="50" cy="50" r="34" fill="none" stroke="#5e1414" stroke-width="2.2" opacity="0.8"/>
-          <circle cx="50" cy="50" r="34" fill="none" stroke="#9a3a3a" stroke-width="0.7" opacity="0.45" transform="translate(0,-1)"/>
-          <!-- subtle orbital dots (BRAND.md) -->
-          <g fill="#D6B26E" opacity="0.55">
-            <circle cx="50" cy="18" r="1.05"/>
-            <circle cx="82" cy="50" r="1.05"/>
-            <circle cx="50" cy="82" r="1.05"/>
-            <circle cx="18" cy="50" r="1.05"/>
-          </g>
-          <!-- gold north star: elongated vertical+horizontal points, short diagonals -->
-          <path fill="#D6B26E" d="
-            M50 22
-            L54 46 L50 50 Z
-            M50 78 L46 54 L50 50 Z
-            M22 50 L46 46 L50 50 Z
-            M78 50 L54 54 L50 50 Z"/>
-          <path fill="#C8A463" opacity="0.85" d="
-            M50 50 L57 43 L52 49 Z
-            M50 50 L43 57 L49 52 Z
-            M50 50 L43 43 L49 49 Z
-            M50 50 L57 57 L52 52 Z"/>
-          <!-- tiny glint -->
-          <circle class="seal-glint" cx="44" cy="44" r="2.4" fill="#F4EEE4" opacity="0.85"/>
-        </svg>
-      </span>
-    </template>
 
     <!-- ════════════════════════════════════════════════════════════════════
          THE DECK — 15 slides, each one full viewport.
@@ -705,21 +667,21 @@
           <div class="kpi-vis reveal" aria-hidden="true">
             <svg viewBox="0 0 600 200" width="100%" preserveAspectRatio="xMidYMid meet">
               <!-- baseline -->
-              <line x1="20" y1="170" x2="580" y2="170" stroke="rgba(91,70,56,0.18)" stroke-width="1"/>
+              <line x1="20" y1="170" x2="580" y2="170" stroke="rgba(74,46,28,0.20)" stroke-width="1"/>
               <!-- every app: ever-rising clamour -->
               <path class="kpi-line" d="M20 165 C160 150 300 70 580 18"
-                    fill="none" stroke="#9A8B79" stroke-width="2.5"
+                    fill="none" stroke="#8A6B52" stroke-width="2.5"
                     stroke-dasharray="900" stroke-dashoffset="900" stroke-linecap="round"/>
               <!-- reunite: goes quiet, then one gentle return -->
               <path class="kpi-line" d="M20 150 C150 178 360 182 470 175 C520 172 545 120 560 70"
-                    fill="none" stroke="#7A1E1E" stroke-width="2.5"
+                    fill="none" stroke="#B26B24" stroke-width="2.5"
                     stroke-dasharray="900" stroke-dashoffset="900" stroke-linecap="round"/>
               <!-- the one gentle return: gold star where it comes back -->
-              <text x="560" y="62" font-family="Cormorant Garamond, serif" font-size="26" fill="#C8A463" text-anchor="middle">&#10022;</text>
+              <text x="560" y="62" font-family="Courier Prime, monospace" font-weight="700" font-size="26" fill="#E0A93E" text-anchor="middle">&#10022;</text>
             </svg>
             <div class="kpi-legend">
-              <span><i class="swatch" style="background:#9A8B79"></i> every other app</span>
-              <span><i class="swatch" style="background:#7A1E1E"></i> Reunite &mdash; until one day, it finds you</span>
+              <span><i class="swatch" style="background:#8A6B52"></i> every other app</span>
+              <span><i class="swatch" style="background:#B26B24"></i> Reunite &mdash; until one day, it finds you</span>
             </div>
           </div>
         </div>
@@ -905,18 +867,23 @@
     <div id="key-hint" aria-hidden="true">&larr; &rarr; &nbsp;or&nbsp; space</div>
 
     <script>
-      /* Clone the wax-seal SVG into every [data-seal] host at the given px size,
-         and twinkle the big cover/closing seals. Authored once in <template>. */
+      /* Inject the REAL wax-seal logo image into every [data-seal] host at the
+         requested px size, and gently twinkle the big cover/closing marks. */
       (function () {
-        var tpl = document.getElementById("seal-tpl");
         document.querySelectorAll("[data-seal]").forEach(function (host) {
           var size = parseInt(host.getAttribute("data-seal"), 10) || 48;
-          var node = tpl.content.firstElementChild.cloneNode(true);
-          var svg = node.querySelector("svg");
-          svg.setAttribute("width", size);
-          svg.setAttribute("height", size);
-          if (size >= 90) node.classList.add("twinkle");
-          host.appendChild(node);
+          host.style.width = size + "px";
+          host.style.height = size + "px";
+          var span = document.createElement("span");
+          span.className = "seal";
+          span.setAttribute("aria-hidden", "true");
+          var img = document.createElement("img");
+          img.src = "assets/reunite-logo.png";
+          img.alt = "";
+          img.setAttribute("aria-hidden", "true");
+          span.appendChild(img);
+          if (size >= 90) span.classList.add("twinkle");
+          host.appendChild(span);
         });
       })();
 

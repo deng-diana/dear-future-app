@@ -2,7 +2,7 @@
  * PaperBackground — 给整个屏幕一种真实纸张的质感包裹层
  *
  * 诚实说明:照片级棉纤维纹理需要真实图片素材,这里做的是代码近似版:
- *   1. 象牙白底色 (#F4EEE4)
+ *   1. 象牙白底色 (#EDD8C3)
  *   2. 极淡的暖色颗粒层 — 用 32 个随机定位的小圆点(opacity ≈ 0.018~0.025),
  *      模拟纸浆中细小杂质的感觉。视觉上 2–3% 的"颗粒感"。
  *   3. 边缘内晕(vignette) — 四条细线 semi-透明边框,模拟纸张边缘略暗的效果。
@@ -59,7 +59,7 @@ export default function PaperBackground({ children }: Props) {
             width: f.size,
             height: f.size,
             borderRadius: f.size,           // 圆点
-            backgroundColor: '#8B6F55',     // 暖棕色"杂质"
+            backgroundColor: '#5A3A24',     // 暖棕色"杂质"
             opacity: f.opacity,
           }}
         />
@@ -101,7 +101,7 @@ export default function PaperBackground({ children }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F4EEE4', // 象牙白底色
+    backgroundColor: '#EDD8C3', // 象牙白底色
   },
   // 内容容器:明确给 flex:1,保证 children(含 KAV flex:1)能正确拿到全部剩余高度。
   // 没有这层包裹时,Yoga 在 children 里同时有 absolute 子视图的情况下可能无法正确分配高度。
@@ -112,13 +112,13 @@ const styles = StyleSheet.create({
   // 外晕:极淡边框,四周 2px,颜色比纸面稍深一点
   vignetteOuter: {
     borderWidth: 6,
-    borderColor: 'rgba(91, 70, 56, 0.03)', // #5B4638 at 3%
+    borderColor: 'rgba(90, 58, 36, 0.03)', // #5A3A24 at 3%
     borderRadius: 0,
   },
   // 内晕:再叠一层,稍厚,更淡
   vignetteInner: {
     borderWidth: 14,
-    borderColor: 'rgba(91, 70, 56, 0.015)', // #5B4638 at 1.5%
+    borderColor: 'rgba(90, 58, 36, 0.015)', // #5A3A24 at 1.5%
     borderRadius: 0,
   },
 
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     bottom: -34,
     width: 66,
     height: 66,
-    backgroundColor: '#C4B4A0',   // 中间调暖褐,比纸面深
+    backgroundColor: '#C9B097',   // 中间调暖褐,比纸面深
     transform: [{ rotate: '45deg' }],
     opacity: 0.22,                 // 约等于 shadowOpacity 0.05 的视觉感
     // 注:RN 的 shadow* 属性只在 iOS 生效且只能用在有背景色的 View 上,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     bottom: -30,
     width: 60,
     height: 60,
-    backgroundColor: '#EDE3D4',   // 比正面 #F4EEE4 略深,像纸背面
+    backgroundColor: '#E3CDB4',   // 比正面 #EDD8C3 略深,像纸背面
     transform: [{ rotate: '45deg' }],
     shadowColor: '#000',
     shadowOpacity: 0.06,           // < 0.08,非常轻

@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#F4EEE4',
+    backgroundColor: '#EDD8C3',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
@@ -211,9 +211,9 @@ const styles = StyleSheet.create({
   paper: {
     width: PAPER_W,
     height: PAPER_H,
-    backgroundColor: '#FDFAF4',   // 比象牙背景再亮一点点,像真实纸张
+    backgroundColor: '#F4E7D6',   // 比象牙背景再亮一点点,像真实纸张
     borderRadius: 6,
-    shadowColor: '#8B6E52',
+    shadowColor: '#5A3A24',
     shadowOpacity: 0.18,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 6 },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#3A2A1A',
+    backgroundColor: '#3A2416',
     borderRadius: 6,
   },
 
@@ -245,10 +245,10 @@ const styles = StyleSheet.create({
     width: SEAL_SIZE,
     height: SEAL_SIZE,
     borderRadius: SEAL_SIZE / 2,
-    backgroundColor: '#7A1E1E',   // 品牌色:波尔多红
+    backgroundColor: '#9B3C10',   // 品牌色:波尔多红
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#4A0A0A',
+    shadowColor: '#572007',
     shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   // 金色北极星字形
   star: {
     fontSize: 28,
-    color: '#D6B26E',             // 品牌色:古金色
+    color: '#E0A93E',             // 品牌色:古金色
     lineHeight: 32,               // 让 ✦ 在圆圈里垂直居中
   },
 });

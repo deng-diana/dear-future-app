@@ -103,15 +103,22 @@ Together they symbolize: *“A moment preserved today, rediscovered tomorrow.”
 
 ## Brand Colors
 
+Derived from the real wax-seal logo — a sienna wax seal with a gold
+compass-star on warm cream. Sampled directly from that artwork.
+
 | Role | Name | Hex |
 |---|---|---|
-| Primary Background | Ivory | `#F4EEE4` |
-| Primary Text | Warm Brown | `#5B4638` |
-| Secondary Text | Soft Brown | `#6B5A4B` |
-| Primary Brand Color | Bordeaux Red | `#7A1E1E` |
-| Seal Highlight | Deep Burgundy | `#A02C2C` |
-| Accent | Antique Gold | `#D6B26E` |
-| Paper Shadow | — | `#EAE1D3` |
+| Primary Background | Cream | `#EDD8C3` |
+| Body Ink | Warm Dark Brown | `#4A2E1C` |
+| Secondary Text | Warm Brown | `#5A3A24` |
+| Primary Brand Color | Wax Red-Brown (Sienna) | `#9B3C10` |
+| Deep Emphasis | Deep Sienna | `#572007` |
+| Seal Highlight | Bright Sienna | `#B24A18` |
+| Accent | Antique Gold | `#E0A93E` |
+| Accent Highlight | Bright Gold | `#F0C04C` |
+| Cursor / Underline Gold | Soft Gold | `#C68A3A` |
+| Paper Shadow / Panel | Panel Cream | `#E3CDB4` |
+| Disabled / Muted | Warm Gray | `#B09A80` |
 
 ---
 

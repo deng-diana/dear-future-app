@@ -75,7 +75,7 @@ export default function Dateline() {
           autoFocus
           autoCapitalize="words"
           returnKeyType="done"
-          selectionColor="#B7864E"
+          selectionColor="#C68A3A"
           onBlur={commitEdit}
           onSubmitEditing={commitEdit}
         />
@@ -101,7 +101,7 @@ const lineBase = {
   fontFamily: 'CourierPrime_400Regular',
   fontSize: 14,
   lineHeight: 22,
-  color: '#6B5A4B',
+  color: '#B26B24',
   letterSpacing: 1.1,
 } as const;
 
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   cityText: {
     textDecorationLine: 'underline',
     textDecorationStyle: 'dotted',
-    textDecorationColor: '#C9B6A6',
+    textDecorationColor: '#C9B097',
   },
   // 城市编辑框:和 Text 行保持同等间距
   cityInput: {

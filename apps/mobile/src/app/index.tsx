@@ -213,7 +213,8 @@ export default function WriteScreen() {
   if (sealed) {
     return (
       <SafeAreaView style={styles.sealedScreen}>
-        <Text style={styles.sealedText}>🕯️ Sealed</Text>
+        <Image source={require('@/assets/images/reunite-logo.png')} style={styles.sealedLogo} resizeMode="contain" />
+        <Text style={styles.sealedText}>Sealed</Text>
         <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
         <Pressable onPress={writeAnother} style={styles.writeAnother} accessibilityRole="button">
           <Text style={styles.writeAnotherText}>Write another</Text>
@@ -255,8 +256,8 @@ export default function WriteScreen() {
           multiline
           autoFocus
           textAlignVertical="top"
-          selectionColor="#B7864E"
-          cursorColor="#B7864E"
+          selectionColor="#C68A3A"
+          cursorColor="#C68A3A"
         />
 
         {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,附件 + Finish 才出现。 */}
@@ -334,7 +335,7 @@ export default function WriteScreen() {
               value={effectiveDate}
               minimumDate={earliest}
               locale="en-US"
-              accentColor="#3a3a3a"
+              accentColor="#B26B24"
               onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
               style={styles.datePicker}
             />
@@ -350,7 +351,7 @@ export default function WriteScreen() {
               accessibilityRole="button"
               accessibilityState={{ disabled: busy }}>
               {busy ? (
-                <ActivityIndicator color="#D6B26E" />
+                <ActivityIndicator color="#E0A93E" />
               ) : (
                 <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
               )}
@@ -369,10 +370,10 @@ export default function WriteScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#F4EEE4' },
+  screen: { flex: 1, backgroundColor: '#EDD8C3' },
 
   // 背景呼吸层:一层极淡的暖色,铺满全屏(opacity 由动画控制)。
-  breath: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#E4D4B8' },
+  breath: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#E0C7A4' },
 
   // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
   // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。
@@ -384,13 +385,13 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime_400Regular',
     fontSize: 16,
     lineHeight: 26,
-    color: '#4A3D31',
+    color: '#67350F',
   },
 
   footer: { padding: 16, gap: 10 },
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
-  mediaAdd: { fontSize: 14, color: '#9a8b6c' }, // 未选:暖灰
-  mediaOn: { fontSize: 14, color: '#7A1E1E' }, // 已选:波尔多红(✕ 可移除)
+  mediaAdd: { fontSize: 14, color: '#9A7E5C' }, // 未选:暖灰
+  mediaOn: { fontSize: 14, color: '#B26B24' }, // 已选:波尔多红(✕ 可移除)
 
   // 已选照片的缩略图:像一排小相片。横向自动换行。
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 2 },
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
     borderRadius: 4, // 微圆角,像相片
     borderWidth: 1,
     borderColor: '#D6C7B2', // 暖灰边,像相纸边
-    backgroundColor: '#EAE1D3',
+    backgroundColor: '#E3CDB4',
   },
   // 右上角的小 ✕:单独删这一张。
   thumbRemove: {
@@ -411,21 +412,21 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#7A1E1E', // 波尔多红
+    backgroundColor: '#B26B24', // 波尔多红
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbRemoveText: { color: '#F4EEE4', fontSize: 10, lineHeight: 12 },
+  thumbRemoveText: { color: '#EDD8C3', fontSize: 10, lineHeight: 12 },
 
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dateLabel: { fontSize: 15, color: '#8a8175' },
+  dateLabel: { fontSize: 15, color: '#8A7256' },
   datePicker: { width: 140, height: 40 },
-  earliestHint: { fontSize: 12, color: '#b3a99a', textAlign: 'center' },
+  earliestHint: { fontSize: 12, color: '#B09A80', textAlign: 'center' },
 
   // 选日期弹层:暗色遮罩铺满,卡片居中。
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(20,14,10,0.55)', // 暖调的深色遮罩(不是死黑),压暗底下的写信纸
+    backgroundColor: 'rgba(45,22,8,0.5)', // 暖调的深色遮罩(不是死黑),压暗底下的写信纸
     alignItems: 'center',
     justifyContent: 'center',
     padding: 28,
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#F7F2E8',
+    backgroundColor: '#F4E7D6',
     borderRadius: 22,
     paddingVertical: 30,
     paddingHorizontal: 26,
@@ -450,34 +451,35 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime_400Regular',
     fontSize: 28,
     lineHeight: 34,
-    color: '#5B4638',
+    color: '#5A3A24',
     textAlign: 'center',
   },
-  reassurance: { fontSize: 14, color: '#8a8175', textAlign: 'center', marginTop: 6 },
+  reassurance: { fontSize: 14, color: '#8A7256', textAlign: 'center', marginTop: 6 },
   backLink: { marginTop: 14, paddingVertical: 8, paddingHorizontal: 16 },
-  backLinkText: { fontSize: 14, color: '#8a8175' },
+  backLinkText: { fontSize: 14, color: '#8A7256' },
 
   sealButton: {
-    backgroundColor: '#7A1E1E', // 品牌色:波尔多红
+    backgroundColor: '#B26B24', // 品牌色:波尔多红
     paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 14,
     alignItems: 'center',
     alignSelf: 'stretch', // 写信屏的 footer 里照样撑满
   },
-  sealButtonDisabled: { backgroundColor: '#C9B6A6' }, // 未激活:暖灰玫瑰(不满足条件)
-  sealButtonText: { color: '#D6B26E', fontSize: 17, fontWeight: '600', letterSpacing: 4 }, // 古金色文字
+  sealButtonDisabled: { backgroundColor: '#C9B097' }, // 未激活:暖灰玫瑰(不满足条件)
+  sealButtonText: { color: '#E0A93E', fontSize: 17, fontWeight: '600', letterSpacing: 4 }, // 古金色文字
 
   // 封存后那一屏
   sealedScreen: {
     flex: 1,
-    backgroundColor: '#F4EEE4',
+    backgroundColor: '#EDD8C3',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
   },
-  sealedText: { fontSize: 22, color: '#33302b' },
-  sealedHint: { fontSize: 15, color: '#8a8175', textAlign: 'center', paddingHorizontal: 32 },
+  sealedLogo: { width: 64, height: 64 }, // 真实蜡封 logo,替代原来的 🕯️ emoji
+  sealedText: { fontSize: 22, color: '#3A2416' },
+  sealedHint: { fontSize: 15, color: '#8A7256', textAlign: 'center', paddingHorizontal: 32 },
   writeAnother: { marginTop: 32, paddingVertical: 10, paddingHorizontal: 20 },
-  writeAnotherText: { fontSize: 15, color: '#8a8175', textDecorationLine: 'underline' },
+  writeAnotherText: { fontSize: 15, color: '#8A7256', textDecorationLine: 'underline' },
 });

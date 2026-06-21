@@ -59,7 +59,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor="#b3a99a"
+                placeholderTextColor="#B09A80"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -75,7 +75,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 value={code}
                 onChangeText={setCode}
                 placeholder="••••••"
-                placeholderTextColor="#b3a99a"
+                placeholderTextColor="#B09A80"
                 keyboardType="number-pad"
                 maxLength={10}
                 autoFocus
@@ -92,14 +92,14 @@ export default function SignIn({ onVerified, onCancel }: Props) {
               style={[styles.button, (busy || email.trim().length === 0) && styles.buttonDisabled]}
               onPress={sendCode}
               disabled={busy || email.trim().length === 0}>
-              {busy ? <ActivityIndicator color="#fbf6ec" /> : <Text style={styles.buttonText}>Send code</Text>}
+              {busy ? <ActivityIndicator color="#EDD8C3" /> : <Text style={styles.buttonText}>Send code</Text>}
             </Pressable>
           ) : (
             <Pressable
               style={[styles.button, (busy || code.trim().length < 6) && styles.buttonDisabled]}
               onPress={verifyCode}
               disabled={busy || code.trim().length < 6}>
-              {busy ? <ActivityIndicator color="#fbf6ec" /> : <Text style={styles.buttonText}>Verify</Text>}
+              {busy ? <ActivityIndicator color="#EDD8C3" /> : <Text style={styles.buttonText}>Verify</Text>}
             </Pressable>
           )}
 
@@ -114,30 +114,30 @@ export default function SignIn({ onVerified, onCancel }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#F4EEE4' },
+  screen: { flex: 1, backgroundColor: '#EDD8C3' },
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
-  title: { fontSize: 22, color: '#33302b', lineHeight: 30 },
-  hint: { fontSize: 14, color: '#8a8175', lineHeight: 20 },
+  title: { fontSize: 22, color: '#3A2416', lineHeight: 30 },
+  hint: { fontSize: 14, color: '#8A7256', lineHeight: 20 },
   input: {
     marginTop: 12,
     paddingVertical: 12,
     fontSize: 20,
-    color: '#33302b',
+    color: '#3A2416',
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd5c7',
+    borderBottomColor: '#C9B097',
   },
   codeInput: { fontSize: 26, letterSpacing: 6 },
-  error: { fontSize: 13, color: '#b4533a' },
+  error: { fontSize: 13, color: '#B24A18' },
 
   footer: { padding: 16, gap: 14, alignItems: 'center' },
   button: {
     width: '100%',
-    backgroundColor: '#3a3a3a',
+    backgroundColor: '#B26B24',
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
   },
-  buttonDisabled: { backgroundColor: '#ddd5c7' },
-  buttonText: { color: '#fbf6ec', fontSize: 17, fontWeight: '600', letterSpacing: 2 },
-  cancel: { fontSize: 15, color: '#8a8175' },
+  buttonDisabled: { backgroundColor: '#C9B097' },
+  buttonText: { color: '#EDD8C3', fontSize: 17, fontWeight: '600', letterSpacing: 2 },
+  cancel: { fontSize: 15, color: '#8A7256' },
 });
