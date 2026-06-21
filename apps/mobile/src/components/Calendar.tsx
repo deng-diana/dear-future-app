@@ -112,16 +112,11 @@ export default function Calendar({ value, minDate, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  // 浅色面板:奶油底 + 8 圆角 + 宽松内边距,居中,像贴在底单上的一张小日历。
-  // 表头行(weekRow)与日期网格(grid)同宽、同一套 cell 样式,7 列严格对齐。
+  // 无框日历:不要奶油盒子,直接裸在底单上,撑满内容宽度(与标题、Seal 按钮同宽)。
+  // 表头行(weekRow)与日期网格(grid)同宽、同一套 cell 样式,7 列严格对齐铺满。
   container: {
     width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-    backgroundColor: '#FFEFDF',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    alignSelf: 'stretch',
   },
 
   // 头部行:左右箭头 + 居中的"月 年"。
@@ -129,20 +124,20 @@ const styles = StyleSheet.create({
   chevronHit: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   chevron: { fontFamily: 'CourierPrime_400Regular', fontSize: 24, color: '#B26B24', lineHeight: 26 },
   chevronHidden: { opacity: 0 }, // 到下限月就藏起左箭头(占位不跳动)
-  monthLabel: { fontFamily: 'CourierPrime_400Regular', fontSize: 16, color: '#5A3A24' },
+  monthLabel: { fontFamily: 'CourierPrime_400Regular', fontSize: 18, color: '#5A3A24' },
 
   // 星期表头一行 7 列;width:100% 让它与下方网格容器同宽,列才会一一对齐。
   weekRow: { flexDirection: 'row', width: '100%', marginBottom: 4 },
-  weekday: { fontFamily: 'CourierPrime_400Regular', fontSize: 12, color: '#9A7E5C' },
+  weekday: { fontFamily: 'CourierPrime_400Regular', fontSize: 13, color: '#9A7E5C' },
 
   // 网格:横向换行,每格占 1/7 宽;与表头共用同一个 cell,保证列宽一致。
   grid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
-  cell: { width: `${100 / 7}%`, height: 42, alignItems: 'center', justifyContent: 'center' },
+  cell: { width: `${100 / 7}%`, height: 44, alignItems: 'center', justifyContent: 'center' },
 
   // 每天的数字外面一个透明圆;选中那天填成主题色实心圆。
-  dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  dayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   dayCircleSelected: { backgroundColor: '#B26B24' },
-  dayText: { fontFamily: 'CourierPrime_400Regular', fontSize: 15, color: '#67350F' },
+  dayText: { fontFamily: 'CourierPrime_400Regular', fontSize: 17, color: '#67350F' },
   dayTextDisabled: { color: '#B09A80' }, // 早于下限:灰
   dayTextSelected: { color: '#FAE6C9' }, // 选中:奶白字
 });

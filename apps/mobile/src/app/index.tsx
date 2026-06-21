@@ -201,7 +201,7 @@ export default function WriteScreen() {
   if (sealed) {
     return (
       <SafeAreaView style={styles.sealedScreen}>
-        <Image source={require('@/assets/images/reunite-logo.png')} style={styles.sealedLogo} resizeMode="contain" />
+        <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" />
         <Text style={styles.sealedText}>Sealed</Text>
         <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
         <Pressable onPress={writeAnother} style={styles.writeAnother} accessibilityRole="button">
@@ -306,7 +306,10 @@ export default function WriteScreen() {
         关闭 = 回去继续写(step → 'write');底单内部不会误关。
       */}
       <BottomSheet visible={step === 'date'} onClose={() => setStep('write')}>
-        <Text style={styles.dateHero}>When should it find you again?</Text>
+        <Text style={styles.dateHero}>When should this letter return to you?</Text>
+
+        {/* 标题下方一根浅浅的分割线(#EFDFC0),把标题和日历轻轻分开。 */}
+        <View style={styles.dateHeroDivider} />
 
         {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
         <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
@@ -392,6 +395,8 @@ const styles = StyleSheet.create({
     color: '#5A3A24',
     textAlign: 'center',
   },
+  // 标题下方的浅分割线:满宽、极细,暖浅金(#EFDFC0)。
+  dateHeroDivider: { alignSelf: 'stretch', height: 1, backgroundColor: '#EFDFC0' },
   backLink: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16 },
   backLinkText: { fontSize: 14, color: '#9A7E5C' },
 
@@ -416,9 +421,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
-  sealedLogo: { width: 64, height: 64 }, // 真实蜡封 logo,替代原来的 🕯️ emoji
-  sealedText: { fontSize: 22, color: '#3A2416' },
-  sealedHint: { fontSize: 15, color: '#8A7256', textAlign: 'center', paddingHorizontal: 32 },
+  sealedLogo: { width: 150, height: 99 }, // 蜡封信封图标(aspect 50/33)
+  // 标题:Courier Prime 粗体,深棕,收紧字距(用户规格)。
+  sealedText: {
+    fontFamily: 'CourierPrime_700Bold',
+    fontSize: 18,
+    color: '#84410F',
+    letterSpacing: -0.9,
+    marginTop: 4,
+  },
+  // 描述:Courier Prime 常规,赤陶色,居中,行高 20(用户规格)。
+  sealedHint: {
+    fontFamily: 'CourierPrime_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#B26B24',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
   writeAnother: { marginTop: 32, paddingVertical: 10, paddingHorizontal: 20 },
-  writeAnotherText: { fontSize: 15, color: '#8A7256', textDecorationLine: 'underline' },
+  writeAnotherText: { fontFamily: 'CourierPrime_400Regular', fontSize: 14, color: '#B26B24', textDecorationLine: 'underline' },
 });

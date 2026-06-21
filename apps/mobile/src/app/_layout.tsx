@@ -1,4 +1,4 @@
-import { CourierPrime_400Regular } from '@expo-google-fonts/courier-prime';
+import { CourierPrime_400Regular, CourierPrime_700Bold } from '@expo-google-fonts/courier-prime';
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
@@ -10,7 +10,7 @@ export default function RootLayout() {
 
   // 加载字体:Courier Prime(全站打字机字体)+ IBM Plex Mono(保留备用)。不阻塞渲染:
   // 字体没好就先用系统字体兜底,加载完成后自动替换 —— 避免白屏(Expo Go 里字体加载可能较慢)。
-  useFonts({ IBMPlexMono_500Medium, CourierPrime_400Regular });
+  useFonts({ IBMPlexMono_500Medium, CourierPrime_400Regular, CourierPrime_700Bold });
 
   return (
     // SafeAreaProvider:给整个 app 提供"刘海/状态栏有多高"的真实数值。

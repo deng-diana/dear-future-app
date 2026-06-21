@@ -82,13 +82,13 @@ export async function uploadMedia(media: PickedMedia, folder: string, index: num
       const blob = await (await fetch(media.uri)).blob();
       ({ error } = await supabase.storage
         .from('memories')
-        .upload(path, blob, { contentType, upsert: true }));
+        .upload(path, blob, { contentType, upsert: false }));
     } else {
       // 原生:读成 base64 再解码成字节(Expo Go 里最稳的上传方式,不依赖原生模块)。
       const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: 'base64' });
       ({ error } = await supabase.storage
         .from('memories')
-        .upload(path, decode(base64), { contentType, upsert: true }));
+        .upload(path, decode(base64), { contentType, upsert: false }));
     }
     if (error) {
       console.log('媒体上传失败:', error.message);

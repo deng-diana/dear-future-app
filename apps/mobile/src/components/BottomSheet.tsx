@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   // 升起的纸张底单:满宽、只圆上面两角、柔和投影。
   sheet: {
     width: '100%',
-    backgroundColor: '#FBF1DF',
+    backgroundColor: '#FBF1DF', // 暖奶油底单(恢复原样,不用纯白)
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 10,
