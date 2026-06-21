@@ -3,10 +3,10 @@
 // 背景是整张装饰图(纸+叶影+钢笔+怀表+信封),上面叠 logo / Reunite 切图 / 分隔线 / 标语 / 按钮。
 
 import { useRef } from 'react';
-import { Animated, Dimensions, Image, ImageBackground, Pressable, StyleSheet, Text } from 'react-native';
+import { Animated, Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { height: SH } = Dimensions.get('window');
+const { width: SW, height: SH } = Dimensions.get('window');
 
 type Props = {
   onStart: () => void; // 点 Start 后通知外面进入写信页
@@ -24,31 +24,34 @@ export default function Splash({ onStart }: Props) {
 
   return (
     <Animated.View style={[styles.root, { opacity: fade }]}>
-      <ImageBackground source={require('@/assets/images/splash-bg.png')} style={styles.bg} resizeMode="cover">
-        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-          {/* 上半部分:火漆 logo + Reunite 切图 + 金色分隔线 + 标语 */}
-          <Animated.View style={styles.top}>
-            <Image source={require('@/assets/images/seal-stamp.png')} style={styles.logo} resizeMode="contain" />
-            <Image source={require('@/assets/images/splash-wordmark.png')} style={styles.wordmark} resizeMode="contain" />
-            <Image source={require('@/assets/images/splash-divider.png')} style={styles.divider} resizeMode="contain" />
-            <Text style={styles.tagline}>Write to your future self.{'\n'}Meet the person you used to be.</Text>
-          </Animated.View>
+      {/* 背景图:绝对铺满整屏(显式 SW×SH),保证 cover 把整张图都盖住(含底部钢笔/怀表/信封),
+          不依赖 flex 在网页端能否撑满高度 —— 修复 web 上底部被裁掉的问题。 */}
+      <Image source={require('@/assets/images/splash-bg.png')} style={styles.bgImage} resizeMode="cover" />
 
-          {/* 底部:Start 按钮(与写信页同款实心主题色) */}
-          <Animated.View style={styles.footer}>
-            <Pressable style={styles.button} onPress={handleStart} accessibilityRole="button" accessibilityLabel="Start">
-              <Text style={styles.buttonText}>Start</Text>
-            </Pressable>
-          </Animated.View>
-        </SafeAreaView>
-      </ImageBackground>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        {/* 上半部分:火漆 logo + Reunite 切图 + 金色分隔线 + 标语 */}
+        <Animated.View style={styles.top}>
+          <Image source={require('@/assets/images/seal-stamp.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('@/assets/images/splash-wordmark.png')} style={styles.wordmark} resizeMode="contain" />
+          <Image source={require('@/assets/images/splash-divider.png')} style={styles.divider} resizeMode="contain" />
+          <Text style={styles.tagline}>Write to your future self.{'\n'}Meet the person you used to be.</Text>
+        </Animated.View>
+
+        {/* 底部:Start 按钮(与写信页同款实心主题色) */}
+        <Animated.View style={styles.footer}>
+          <Pressable style={styles.button} onPress={handleStart} accessibilityRole="button" accessibilityLabel="Start">
+            <Text style={styles.buttonText}>Start</Text>
+          </Pressable>
+        </Animated.View>
+      </SafeAreaView>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  bg: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#FAE6C9' },
+  // 背景图绝对铺满整屏(显式 SW×SH),网页端也不会塌高度
+  bgImage: { position: 'absolute', top: 0, left: 0, width: SW, height: SH },
   // 上下分布:内容靠上,按钮沉底(中间留白自动撑开)
   safe: { flex: 1, justifyContent: 'space-between' },
 
