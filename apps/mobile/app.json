@@ -8,9 +8,10 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.stillkindailab.reunite"
     },
     "android": {
+      "package": "com.stillkindailab.reunite",
       "adaptiveIcon": {
         "backgroundColor": "#EDD8C3",
         "foregroundImage": "./assets/images/reunite-icon.png",
@@ -34,6 +35,14 @@
             "image": "./assets/images/reunite-logo.png",
             "imageWidth": 200
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Reunite adds the photo you choose to this letter to your future self.",
+          "cameraPermission": "Reunite uses the camera to capture a photo or short video to seal inside your letter.",
+          "microphonePermission": "Reunite records sound for the short video you seal inside your letter."
         }
       ]
     ],
