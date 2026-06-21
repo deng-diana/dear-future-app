@@ -1,7 +1,7 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Alert, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
@@ -10,7 +10,7 @@ import PaperBackground from '@/components/PaperBackground';
 import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
-import { pickPhoto, pickVideo, randomFolder, uploadMedia, type PickedMedia } from '@/lib/media';
+import { pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 
 // 把日期"归零"到当天 00:00(本地时区)—— 我们按"整天"算,不掺时分秒。
@@ -40,10 +40,13 @@ export default function WriteScreen() {
   const [sealing, setSealing] = useState(false); // 正在播封存仪式动画?
   const [sealed, setSealed] = useState(false); // 封存了没?
 
-  // 可选附件:1 张照片 + 1 段短视频(封存时一起上传)。
-  const [photo, setPhoto] = useState<PickedMedia | null>(null);
+  // 可选附件:最多 4 张照片 + 1 段短视频(封存时一起上传)。
+  const [photos, setPhotos] = useState<PickedMedia[]>([]);
   const [video, setVideo] = useState<PickedMedia | null>(null);
   const [busy, setBusy] = useState(false); // 正在上传媒体 + 写库(按 Seal 后那一下)
+
+  // 写信流程的两步:'write' = 写信 + 选附件;'date' = 安静地只选送达日 + 封存。
+  const [step, setStep] = useState<'write' | 'date'>('write');
 
   // 登录状态:session = 当前登录的人(没登录就是 null)。
   const [session, setSession] = useState<Session | null>(null);
@@ -90,23 +93,34 @@ export default function WriteScreen() {
   async function doSeal() {
     setBusy(true); // 上传 + 写库期间,按钮转圈、防重复点
     // 先把照片 / 视频传到 memories 桶(同一个随机文件夹),拿到公开 URL。
-    let photoUrl: string | null = null;
-    let videoUrl: string | null = null;
-    if (photo || video) {
-      const folder = randomFolder();
-      if (photo) photoUrl = await uploadMedia(photo, folder);
-      if (video) videoUrl = await uploadMedia(video, folder);
+    const folder = randomFolder();
+    // 多张照片:逐张上传,带 index(文件名用得上);任一张失败就整体中止。
+    const photoUrls: string[] = [];
+    for (let i = 0; i < photos.length; i++) {
+      const u = await uploadMedia(photos[i], folder, i);
       // 上传失败 → 千万别封存。封存即消失,信一走用户永远发现不了图丢了。
-      if ((photo && !photoUrl) || (video && !videoUrl)) {
+      if (!u) {
         setBusy(false);
-        Alert.alert('Upload failed', "Your photo or video didn't upload. Please check your connection and try again.");
+        Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
+        return; // 信还在、可重试
+      }
+      photoUrls.push(u);
+    }
+    // 可选视频:单段;视频忽略 index。
+    let videoUrl: string | null = null;
+    if (video) {
+      videoUrl = await uploadMedia(video, folder, 0);
+      if (!videoUrl) {
+        setBusy(false);
+        Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
         return; // 信还在、可重试
       }
     }
     const { error } = await supabase.from('letters').insert({
       body: letter.trim(),
       deliver_on: toISODate(effectiveDate),
-      photo_url: photoUrl,
+      // 多张照片存成 JSON 数组字符串(没有就存 null);单段视频存它的 URL。
+      photo_url: photoUrls.length ? JSON.stringify(photoUrls) : null,
       video_url: videoUrl,
     });
     setBusy(false);
@@ -122,6 +136,13 @@ export default function WriteScreen() {
     setSealing(true); // 写库成功 → 先播封存仪式动画,动画结束再切"已封存"屏
   }
 
+  // 按「完成写信」:正在忙就忽略;信不能为空;然后进入"选日期"那一屏(这里不问登录)。
+  function handleFinish() {
+    if (busy) return;
+    if (!letter.trim()) return;
+    setStep('date');
+  }
+
   // 按「封存」:正在忙就忽略;没登录就先弹登录;已登录就直接封。
   function handleSeal() {
     if (busy) return;
@@ -132,10 +153,10 @@ export default function WriteScreen() {
     doSeal();
   }
 
-  // 选 1 张照片 / 1 段视频(从相册)。
-  async function addPhoto() {
-    const m = await pickPhoto();
-    if (m) setPhoto(m);
+  // 选照片(可多选,最多补到 4 张)/ 1 段视频(从相册)。
+  async function addPhotos() {
+    const picked = await pickPhotos(MAX_PHOTOS - photos.length);
+    if (picked.length) setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
   }
   async function addVideo() {
     const m = await pickVideo();
@@ -147,8 +168,9 @@ export default function WriteScreen() {
     setLetter('');
     setDeliverOn(null);
     setSealed(false);
-    setPhoto(null);
+    setPhotos([]);
     setVideo(null);
+    setStep('write');
   }
 
   // 登出 / 换邮箱:确认后退出登录。草稿保留,下次封存会重新问邮箱。
@@ -198,7 +220,65 @@ export default function WriteScreen() {
     );
   }
 
-  // 岔路口②:还没封存 → 照常写信 + 选日期 + 封存按钮。
+  // 把最早可选日格成「Jul 6」这样的短串,给"No sooner than … · 15 days out"提示用。
+  const earliestLabel = earliest.toLocaleDateString('en_US', { month: 'short', day: 'numeric' });
+
+  // 岔路口③:已写完信、正在选送达日 → 安静的单任务屏(只做一件事:挑日子 + 封存)。
+  if (step === 'date') {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+        <PaperBackground>
+          <Animated.View pointerEvents="none" style={[styles.breath, { opacity: breathOpacity }]} />
+          {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
+
+          {/* 顶部邮戳保留,让这屏仍是"同一张纸"。 */}
+          <Dateline />
+
+          {/* 居中的一块:一句话 → 选日期 → 安心话 → 封存 → 回去继续写。 */}
+          <View style={styles.dateScreen}>
+            <Text style={styles.dateHero}>When should it find you again?</Text>
+
+            {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
+            <DateTimePicker
+              mode="date"
+              display="compact"
+              presentation="inline"
+              value={effectiveDate}
+              minimumDate={earliest}
+              locale="en_US"
+              accentColor="#3a3a3a"
+              onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
+              style={styles.datePicker}
+            />
+            <Text style={styles.earliestHint}>No sooner than {earliestLabel} · 15 days out</Text>
+
+            {/* 一句安心话:封存即消失,直到那天。 */}
+            <Text style={styles.reassurance}>Once sealed, it leaves you — until the day.</Text>
+
+            <Pressable
+              style={[styles.sealButton, busy && styles.sealButtonDisabled]}
+              onPress={handleSeal}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy }}>
+              {busy ? (
+                <ActivityIndicator color="#D6B26E" />
+              ) : (
+                <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
+              )}
+            </Pressable>
+
+            {/* 想再改改信 → 回到写信屏(草稿与附件都还在)。 */}
+            <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
+              <Text style={styles.backLinkText}>← Keep writing</Text>
+            </Pressable>
+          </View>
+        </PaperBackground>
+      </SafeAreaView>
+    );
+  }
+
+  // 岔路口②:还没封存 → 写信 + 选附件 + 「Finish」(日期 / 封存挪到下一屏)。
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       {/* 纸张质感包裹层:象牙底 + 极淡颗粒 + 内晕 + 右下角翘角。 */}
@@ -233,23 +313,38 @@ export default function WriteScreen() {
           cursorColor="#B7864E"
         />
 
-        {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,日期 + 封存才出现。 */}
+        {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,附件 + Finish 才出现。 */}
         {canSeal ? (
           <View style={styles.footer}>
-            {/* 可选附件:1 张照片 + 1 段视频。安静一行,守"写信为主"。 */}
+            {/* 已选的照片:一排小"相片",每张右上角一个 ✕ 单独删。 */}
+            {photos.length ? (
+              <View style={styles.thumbs}>
+                {photos.map((p, idx) => (
+                  <View key={p.uri + idx} style={styles.thumbWrap}>
+                    <Image source={{ uri: p.uri }} style={styles.thumb} />
+                    <Pressable
+                      onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                      disabled={busy}
+                      hitSlop={8}
+                      style={styles.thumbRemove}
+                      accessibilityRole="button">
+                      <Text style={styles.thumbRemoveText}>✕</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* 可选附件:照片(可多选,最多 4 张)+ 1 段视频。安静一行,守"写信为主"。 */}
             <View style={styles.mediaRow}>
-              {photo ? (
-                <Pressable onPress={() => setPhoto(null)} disabled={busy} accessibilityRole="button">
-                  <Text style={styles.mediaOn}>📷 Photo  ✕</Text>
+              {photos.length < MAX_PHOTOS ? (
+                <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button">
+                  <Text style={styles.mediaAdd}>＋ Photos</Text>
                 </Pressable>
-              ) : (
-                <Pressable onPress={addPhoto} disabled={busy} accessibilityRole="button">
-                  <Text style={styles.mediaAdd}>＋ Photo</Text>
-                </Pressable>
-              )}
+              ) : null}
               {video ? (
                 <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button">
-                  <Text style={styles.mediaOn}>🎬 Video  ✕</Text>
+                  <Text style={styles.mediaOn}>🎬  ✕</Text>
                 </Pressable>
               ) : (
                 <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button">
@@ -258,33 +353,12 @@ export default function WriteScreen() {
               )}
             </View>
 
-            {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
-            <View style={styles.dateRow}>
-              <Text style={styles.dateLabel}>When should it find you again?</Text>
-              <DateTimePicker
-                mode="date"
-                display="compact"
-                presentation="inline"
-                value={effectiveDate}
-                minimumDate={earliest}
-                locale="en_US"
-                accentColor="#3a3a3a"
-                onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
-                style={styles.datePicker}
-              />
-            </View>
-
+            {/* 写完了 → 进入选日期那一屏(这里不封存、不问登录)。 */}
             <Pressable
-              style={[styles.sealButton, (!canSeal || busy) && styles.sealButtonDisabled]}
-              onPress={handleSeal}
-              disabled={!canSeal || busy}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !canSeal || busy }}>
-              {busy ? (
-                <ActivityIndicator color="#D6B26E" />
-              ) : (
-                <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
-              )}
+              style={styles.sealButton}
+              onPress={handleFinish}
+              accessibilityRole="button">
+              <Text style={styles.sealButtonText}>Finish</Text>
             </Pressable>
           </View>
         ) : null}
@@ -328,16 +402,57 @@ const styles = StyleSheet.create({
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
   mediaAdd: { fontSize: 14, color: '#9a8b6c' }, // 未选:暖灰
   mediaOn: { fontSize: 14, color: '#7A1E1E' }, // 已选:波尔多红(✕ 可移除)
+
+  // 已选照片的缩略图:像一排小相片。横向自动换行。
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 2 },
+  thumbWrap: { width: 52, height: 52 },
+  thumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 4, // 微圆角,像相片
+    borderWidth: 1,
+    borderColor: '#D6C7B2', // 暖灰边,像相纸边
+    backgroundColor: '#EAE1D3',
+  },
+  // 右上角的小 ✕:单独删这一张。
+  thumbRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#7A1E1E', // 波尔多红
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbRemoveText: { color: '#F4EEE4', fontSize: 10, lineHeight: 12 },
+
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dateLabel: { fontSize: 15, color: '#8a8175' },
   datePicker: { width: 140, height: 40 },
-  earliestHint: { fontSize: 12, color: '#b3a99a', textAlign: 'right' },
+  earliestHint: { fontSize: 12, color: '#b3a99a', textAlign: 'center' },
+
+  // 选日期那一屏:居中、留白多,一次只做一件事。
+  dateScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 18 },
+  dateHero: {
+    fontFamily: 'CormorantGaramond_600SemiBold',
+    fontSize: 28,
+    lineHeight: 34,
+    color: '#5B4638',
+    textAlign: 'center',
+  },
+  reassurance: { fontSize: 14, color: '#8a8175', textAlign: 'center', marginTop: 6 },
+  backLink: { marginTop: 14, paddingVertical: 8, paddingHorizontal: 16 },
+  backLinkText: { fontSize: 14, color: '#8a8175' },
 
   sealButton: {
     backgroundColor: '#7A1E1E', // 品牌色:波尔多红
     paddingVertical: 16,
+    paddingHorizontal: 40,
     borderRadius: 14,
     alignItems: 'center',
+    alignSelf: 'stretch', // 写信屏的 footer 里照样撑满
   },
   sealButtonDisabled: { backgroundColor: '#C9B6A6' }, // 未激活:暖灰玫瑰(不满足条件)
   sealButtonText: { color: '#D6B26E', fontSize: 17, fontWeight: '600', letterSpacing: 4 }, // 古金色文字

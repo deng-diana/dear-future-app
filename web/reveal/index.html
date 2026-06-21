@@ -25,9 +25,14 @@
   .reveal { opacity:0; transform:translateY(10px); animation:rise 2.6s cubic-bezier(.2,.6,.2,1) forwards; }
   .reveal.d1  { animation-delay:.2s; }
   .reveal.d1p { animation-delay:.7s; }
-  .reveal.d1v { animation-delay:1.3s; }
-  .reveal.d2  { animation-delay:2.2s; }
-  .reveal.d3  { animation-delay:3.1s; }
+  /* Each photo rises in a beat after the one before it. */
+  .reveal.p0  { animation-delay:.7s; }
+  .reveal.p1  { animation-delay:1.0s; }
+  .reveal.p2  { animation-delay:1.3s; }
+  .reveal.p3  { animation-delay:1.6s; }
+  .reveal.d1v { animation-delay:1.9s; }
+  .reveal.d2  { animation-delay:2.6s; }
+  .reveal.d3  { animation-delay:3.4s; }
   @keyframes rise { to { opacity:1; transform:translateY(0); } }
 
   /* ── Polaroid frame ── */
@@ -54,6 +59,12 @@
 
   .polaroid--photo { transform: rotate(-2deg); }
   .polaroid--video { transform: rotate(2deg); }
+
+  /* Scatter the photos so they feel hand-placed, not stamped. */
+  .polaroid--photo.r0 { transform: rotate(-3deg); }
+  .polaroid--photo.r1 { transform: rotate(2deg); }
+  .polaroid--photo.r2 { transform: rotate(-1.5deg); }
+  .polaroid--photo.r3 { transform: rotate(3deg); }
 
   /* Tape strip at the top */
   .polaroid-tape {
@@ -134,15 +145,42 @@
       catch (e) { return d; }
     }
 
+    // photo_url now holds a JSON array string of URLs (up to 4), e.g.
+    //   '["https://...photo-0.jpg","https://...photo-1.jpg"]'
+    // For backward-compat it might still be a single plain URL string, or null.
+    // Returns an array of URLs that pass the safeMediaUrl() storage-bucket guard,
+    // so XSS protection stays exactly as strong as before.
+    function parsePhotoUrls(value) {
+      if (!value) return [];
+      var list;
+      try {
+        var parsed = JSON.parse(value);
+        list = Array.isArray(parsed) ? parsed : [value];
+      } catch (e) {
+        // Not JSON — treat the raw value as one old-style single URL.
+        list = [value];
+      }
+      var out = [];
+      for (var i = 0; i < list.length; i++) {
+        var safe = safeMediaUrl(list[i]); // only our own Supabase storage links survive
+        if (safe) out.push(safe);
+      }
+      return out;
+    }
+
     // Build a Polaroid block for a photo URL.
+    // `index` scatters rotation + staggers the rise-in animation per photo.
     // Returns an HTML string, or '' if url is falsy.
-    function photoPolaroid(url) {
+    function photoPolaroid(url, index) {
       if (!url) return '';
+      var i = index || 0;
       // esc() the URL to prevent XSS via a malicious photo_url
       var safe = esc(url);
+      var rotClass = 'r' + (i % 4);   // r0..r3 — hand-placed scatter
+      var delayClass = 'p' + (i % 4); // p0..p3 — staggered reveal delay
       return (
-        '<div class="polaroid-wrap reveal d1p">' +
-          '<figure class="polaroid polaroid--photo">' +
+        '<div class="polaroid-wrap reveal ' + delayClass + '">' +
+          '<figure class="polaroid polaroid--photo ' + rotClass + '">' +
             '<div class="polaroid-tape"></div>' +
             '<div class="polaroid-window">' +
               '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" loading="lazy" />' +
@@ -189,8 +227,11 @@
         }
         const letter = rows[0];
 
-        // photo_url and video_url may be null/undefined — guard both.
-        const photoHtml = photoPolaroid(safeMediaUrl(letter.photo_url));
+        // photo_url may be a JSON array (up to 4), an old single URL, or null.
+        // parsePhotoUrls() already runs every URL through safeMediaUrl().
+        const photoUrls = parsePhotoUrls(letter.photo_url);
+        const photoHtml = photoUrls.map(function (u, i) { return photoPolaroid(u, i); }).join('');
+        // video_url stays a single URL — guard it the same as before.
         const videoHtml = videoPolaroid(safeMediaUrl(letter.video_url));
 
         root.innerHTML =
