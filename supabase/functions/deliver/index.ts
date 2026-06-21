@@ -58,15 +58,27 @@ Deno.serve(async () => {
       body: JSON.stringify({
         from: `You, in ${year} <letters@${FROM_DOMAIN}>`,
         to: email,
+        // 回复地址设成收信人本人 —— 这封信本就是「你写给你自己」,回信回到自己,
+        // 也是给 Gmail 的强信任信号(自我对话=真实邮件,不是群发垃圾)。
+        reply_to: email,
         subject: `A letter from you, ${year}`,
+        // List-Unsubscribe:Gmail/Yahoo 现在期望每封信都带「一键退订」头,
+        // 带上=加分,缺=扣分。⚠️ unsubscribe@dearfuture.space 必须是真实可收信的地址
+        // (在 Namecheap 给 dearfuture.space 配个转发到你 Gmail 即可)。
+        headers: {
+          'List-Unsubscribe': '<mailto:unsubscribe@dearfuture.space?subject=unsubscribe>',
+        },
         html:
           `<p>Some time ago, you sealed something for this exact day.</p>` +
           `<p><a href="${readUrl}">Open it &rarr;</a></p>` +
           `<hr>` +
-          `<pre style="white-space:pre-wrap;font-family:Georgia,serif;font-size:16px;color:#4A3D31">${escapeHtml(letter.body)}</pre>`,
+          `<pre style="white-space:pre-wrap;font-family:Georgia,serif;font-size:16px;color:#4A3D31">${escapeHtml(letter.body)}</pre>` +
+          // 落款:说明「你为什么收到这封信」,是正规发信人的合法性信号。
+          `<hr><p style="font-size:12px;color:#8A7B6B">You received this because you sealed a letter with Reunite for delivery on this day. Reunite &middot; dearfuture.space</p>`,
         text:
           `Some time ago, you sealed something for this exact day.\n\n` +
-          `Open it: ${readUrl}\n\n---\n\n${letter.body}`,
+          `Open it: ${readUrl}\n\n---\n\n${letter.body}\n\n` +
+          `---\nYou received this because you sealed a letter with Reunite for delivery on this day.\nReunite · dearfuture.space`,
       }),
     });
 
