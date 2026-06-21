@@ -398,8 +398,8 @@ const styles = StyleSheet.create({
     paddingTop: 0, // 上间距交给分割线(marginBottom 12),让分割线上下对称
     paddingBottom: 24,
     fontFamily: 'CourierPrime_400Regular',
-    fontSize: 18, // 正文字号 16→18(用户 +2)
-    lineHeight: 23, // 行/段落间距收紧(原 26);光标高度跟随行高,字大了相对更精致
+    fontSize: 16, // 正文字号恢复到 16(用户)
+    lineHeight: 23, // 行/段落间距收紧(原 26);光标高度跟随行高
     letterSpacing: -0.5, // 等宽字体唯一能收紧"词间距"的办法:整体微微收紧(字母几乎不变)
     color: '#67350F',
   },
