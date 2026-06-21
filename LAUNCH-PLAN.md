@@ -10,11 +10,16 @@
 
 - [x] **关闭 DEMO_MODE**（已完成 ✅）。`rules.ts` 和 `deliver/index.ts` 两处都改成 `false`，后端已重新部署。
   现在恢复产品核心：最短封存 15 天、信只在送达日才发。
-- [ ] 🔴 **账号删除功能（两个商店都强制要求）。** App 有账号（邮箱 OTP 登录）就必须给用户「删除账号」入口。
-  - iOS：App 内必须有删除按钮（Apple 5.1.1(v)）。
-  - Android：App 内 **+** 一个网页链接也能删（Google 双重要求，网页可挂在 Vercel，如 `…/delete-account`）。
-  - 做法：`AccountButton.tsx` 加「删除账号」→ 调一个 Supabase Edge Function（用 service_role 钥匙，在服务器端删 auth 用户 + 他的 letters）。
-  - ⚠️ 要明确告知：删账号会**取消所有还没送达的信**，它们永远不会到达。删除前必须弹醒目警告。
+- [x] **账号删除功能 —— iOS 部分已完成 ✅**（Apple 5.1.1(v) 必需）
+  - `AccountButton.tsx` 已加「Delete account」+ 两步破坏性确认弹窗（明确警告未送达的信会永久消失）。
+  - 新增 `supabase/functions/delete-account` Edge Function：只凭验证过的 JWT 取 uid（防 IDOR）、service_role 删信+删账号、405 拦非 POST。已部署。
+  - 通过对抗式安全审查：核心三项（只能删自己 / 拒未授权 / 钥匙不进 app）均安全。
+- [ ] 🟡 **账号删除 —— 待加固项**（上生产前，非阻塞）：
+  - 🔴 **轮换 service_role 钥匙**（之前在终端截图里露过一次）。
+  - 原子性：删信和删账号目前两步，中途失败会半删 → 改成一个 Postgres 事务/RPC。
+  - 给 delete-account 加限流（防被反复调用）。
+  - 用 checked-in 的 `config.toml` 固定该函数的 `verify_jwt`，别依赖面板配置。
+- [ ] 🔴 **账号删除 —— Android 部分**（做 Android 时再补）：除 App 内删除，Google 还要求一个**公开网页链接**也能删（挂 Vercel，如 `…/delete-account`，调同一个 Edge Function）。
 - [ ] 🔴 **修 app.json 里的几个坑**（专家在读代码时发现的真 bug）：
   - `ios.icon` 指向 `./assets/expo.icon`（这个文件不存在）→ **会让 iOS 构建失败**。改成真实图标。
   - Android adaptiveIcon 的前景图用了 `reunite-icon.png`，但有个专门的 `android-icon-foreground.png` 没用上 → 确认用对。
@@ -96,11 +101,15 @@
 
 ## 7. ⭐ 上量前最该验的一件事：收信邮件能进收件箱
 
-整个产品就是「那天信到你邮箱」。进了垃圾箱 = 承诺破产。放量前务必：
+整个产品就是「那天信到你邮箱」。进了垃圾箱 = 承诺破产。
 
-- [ ] 确认发信域名 **SPF / DKIM / DMARC** 三条 DNS 记录都齐（你之前域名已验证，重点确认 DMARC）。
-- [ ] 给 **Gmail / Outlook / Yahoo / iCloud** 各发一封真实「You, in {year}」收信邮件，逐个看**进收件箱还是垃圾箱**。
-- [ ] 真跑一遍 cron：封信 → 等当天 → 邮件进收件箱、带网页揭晓链接 + 底部纯文字保命副本。
+- [x] **DNS 健康 ✅**（dig 确认）：SPF（`send.mail.dearfuture.space`）、DKIM（`resend._domainkey.mail.dearfuture.space`）、DMARC 都在且对齐 → spf/dkim/dmarc 都会 pass。
+- [x] **邮件内容已优化并部署 ✅**：deliver 函数加了 `reply_to=收信人本人` + `List-Unsubscribe` 头 + 合法性落款。实测你 Gmail：OTP 进收件箱、收信邮件被标 IMPORTANT（好信号）。
+- [ ] 🟡 **你要做的 DNS 一步**：把 DMARC 从 `p=none;` 升级为带报告，主机 `_dmarc.dearfuture.space`、TXT：
+  `v=DMARC1; p=none; rua=mailto:dmarc@dearfuture.space; fo=1; adkim=r; aspf=r`
+  观察 1-2 周报告都 pass 后，再收紧到 `p=quarantine`。
+- [ ] 🟡 **配一个可收信的退订邮箱**：在 Namecheap 给 `dearfuture.space` 配免费转发，让 `unsubscribe@dearfuture.space`（和 `dmarc@`）转发到你 Gmail —— 否则 List-Unsubscribe 指向的地址会弹回。
+- [ ] 放量前做一次真实端到端发信测试：用 mail-tester.com（目标 9-10/10）+ 各发 Gmail/Outlook/Yahoo/iCloud，看落点 + Show original 里 spf=pass dkim=pass dmarc=pass。
 
 ---
 
