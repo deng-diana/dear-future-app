@@ -200,13 +200,20 @@ export default function WriteScreen() {
   // 岔路口①:已封存 → 写信的纸消失,只剩一句安静的话。
   if (sealed) {
     return (
-      <SafeAreaView style={styles.sealedScreen}>
-        <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" />
-        <Text style={styles.sealedText}>Sealed</Text>
-        <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
-        <Pressable onPress={writeAnother} style={styles.writeAnother} accessibilityRole="button">
-          <Text style={styles.writeAnotherText}>Write another</Text>
-        </Pressable>
+      <SafeAreaView style={styles.sealedScreen} edges={['top', 'bottom']}>
+        {/* 内容居中:信封 + 标题 + 描述(信封改小一些)。 */}
+        <View style={styles.sealedContent}>
+          <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" />
+          <Text style={styles.sealedText}>Sealed</Text>
+          <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
+        </View>
+
+        {/* 底部按钮:与写信页 Seal 按钮同款(实心主题色、直角、近白文字),但更窄更精致。 */}
+        <View style={styles.sealedFooter}>
+          <Pressable onPress={writeAnother} style={[styles.sealButton, styles.sealedButton]} accessibilityRole="button">
+            <Text style={styles.sealButtonText}>Write another letter</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
@@ -411,17 +418,20 @@ const styles = StyleSheet.create({
   // 在底单里:把 Seal 按钮往日历那边收紧一点(BottomSheet 子项默认 gap 18,这里抵消一截)。
   sealButtonInSheet: { marginTop: -8 },
   sealButtonDisabled: { backgroundColor: '#C9B097' }, // 未激活:暖灰玫瑰(不满足条件)
-  sealButtonText: { color: '#FBEFDB', fontSize: 17, fontWeight: '600', letterSpacing: 1.5 }, // 暖近白文字
+  sealButtonText: { fontFamily: 'CourierPrime_400Regular', color: '#FBEFDB', fontSize: 16, letterSpacing: 0.5 }, // Courier Prime 16,暖近白
 
-  // 封存后那一屏
+  // 封存后那一屏:内容居中 + 按钮沉底(对齐设计图)。
   sealedScreen: {
     flex: 1,
-    backgroundColor: '#EDD8C3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
+    backgroundColor: '#FAE6C9', // 与首页一致的干净奶油底
   },
-  sealedLogo: { width: 150, height: 99 }, // 蜡封信封图标(aspect 50/33)
+  // 信封 + 标题 + 描述:占满按钮以上的空间并居中;底部留白把整组上移一些(对齐设计图)。
+  sealedContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 160 },
+  // 底部按钮容器:略离底部(上移一些),按钮在内居中。
+  sealedFooter: { paddingHorizontal: 32, paddingBottom: 40, alignItems: 'center' },
+  // 这一屏的按钮更窄更精致:不再满宽,居中并限定最大宽度。
+  sealedButton: { alignSelf: 'center', width: '100%', maxWidth: 296 },
+  sealedLogo: { width: 120, height: 79 }, // 蜡封信封图标(改小,aspect 50/33)
   // 标题:Courier Prime 粗体,深棕,收紧字距(用户规格)。
   sealedText: {
     fontFamily: 'CourierPrime_700Bold',
@@ -439,6 +449,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 32,
   },
-  writeAnother: { marginTop: 32, paddingVertical: 10, paddingHorizontal: 20 },
-  writeAnotherText: { fontFamily: 'CourierPrime_400Regular', fontSize: 14, color: '#B26B24', textDecorationLine: 'underline' },
 });
