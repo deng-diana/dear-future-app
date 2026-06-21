@@ -137,7 +137,11 @@
     /* Negative margin creates the overlap — adjacent photos tuck under each other */
     margin-left: -34px;
     transform-origin: bottom center;
+    /* 关键:照片入场只淡入,不要用 .reveal 那个会动 transform 的 rise 动画 ——
+       否则动画把 transform 归零,扇形旋转/上抬就被盖掉了。 */
+    animation-name: photoFadeIn;
   }
+  @keyframes photoFadeIn { from { opacity: 0; } to { opacity: 1; } }
   /* First photo has no left overlap */
   .polaroid--photo:first-child { margin-left: 0; }
 
