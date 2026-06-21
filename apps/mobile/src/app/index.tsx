@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FAE6C9' }, // 干净纯色底(用户指定)
 
   // 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星,与正文同样 32 页边距。
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 32, marginTop: 12, marginBottom: 4, gap: 12 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 32, marginTop: 12, marginBottom: 12, gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E0A93E' },
   dividerStar: { color: '#E0A93E', fontSize: 13, marginTop: -2 },
 
@@ -395,11 +395,12 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 28,
+    paddingTop: 0, // 上间距交给分割线(marginBottom 12),让分割线上下对称
     paddingBottom: 24,
     fontFamily: 'CourierPrime_400Regular',
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 18, // 正文字号 16→18(用户 +2)
+    lineHeight: 23, // 行/段落间距收紧(原 26);光标高度跟随行高,字大了相对更精致
+    letterSpacing: -0.5, // 等宽字体唯一能收紧"词间距"的办法:整体微微收紧(字母几乎不变)
     color: '#67350F',
   },
 
