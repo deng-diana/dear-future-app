@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
@@ -10,7 +10,6 @@ type Props = {
 export default function AccountButton({ email, onSignOut }: Props) {
   const [open, setOpen] = useState(false); // 卡片开着没
   const insets = useSafeAreaInsets(); // 安全区(避开刘海)
-  const initial = email.trim().charAt(0).toUpperCase() || '·'; // 默认头像 = 邮箱首字母
 
   // 卡片顶部:优先用真实刘海高度;若 insets 还没测到(返回 0),
   // 回退到 iOS 标准状态栏高度 44,保证卡片不会躲进状态栏下面。
@@ -19,26 +18,25 @@ export default function AccountButton({ email, onSignOut }: Props) {
   return (
     <>
       {/*
-        头像行:普通 flex 流(不再 position: absolute)。
-        index.tsx 把它渲染在 SafeAreaView 顶部,
-        SafeAreaView 的 padding 已经把内容推到刘海下方 —— 这个机制已被证明有效。
-        头像靠右:用 alignItems: 'flex-end' + 固定高度实现"安静的右上角"效果。
+        头像:绝对定位浮在右上角,与顶部邮戳(日期/城市/时间)顶对齐 ——
+        不再单独占一整行、留一大片空白。它落在 SafeAreaView 安全区内,
+        top 与 Dateline 的 paddingTop(16)对齐,自然和"日期那行"平齐。
+        默认头像换成蜡封人像图(avatar-default.png),不再用邮箱首字母。
       */}
-      <View style={styles.headerRow}>
-        <Pressable
-          style={styles.avatar}
-          onPress={() => setOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Account">
-          <Text style={styles.initial}>{initial}</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        style={styles.avatar}
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Account"
+        hitSlop={8}>
+        <Image source={require('@/assets/images/avatar-default.png')} style={styles.avatarImg} resizeMode="contain" />
+      </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         {/* 半透明背景:点空白处关掉 */}
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           {/* 卡片本身:吸收点击,不让它穿透去关掉 */}
-          <Pressable style={[styles.card, { top: cardTop + 46 }]} onPress={() => {}}>
+          <Pressable style={[styles.card, { top: cardTop + 48 }]} onPress={() => {}}>
             <Text style={styles.label}>Your letters return to</Text>
             <Text style={styles.email} numberOfLines={1}>
               {email}
@@ -60,22 +58,17 @@ export default function AccountButton({ email, onSignOut }: Props) {
 }
 
 const styles = StyleSheet.create({
-  // 头像所在的行:撑满横向宽度,头像贴右边,高度给够 avatar 尺寸 + 上下留白。
-  headerRow: {
-    height: 54,
-    paddingHorizontal: 16,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
+  // 头像:绝对定位的右上角,与顶部日期那行平齐。不占流式空间,所以邮戳会自然上移到最顶。
+  // top:14 ≈ Dateline 的 paddingTop(16),让蜡封顶端与"日期"那一行对齐。
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#E3CDB4',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute',
+    top: 14,
+    right: 24,
+    width: 44,
+    height: 44,
+    zIndex: 10,
   },
-  initial: { fontSize: 16, fontWeight: '600', color: '#5A3A24' },
+  avatarImg: { width: 44, height: 44 },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(40,36,30,0.12)' },
   card: {
