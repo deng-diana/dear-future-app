@@ -9,6 +9,7 @@ import Calendar from '@/components/Calendar';
 import Dateline from '@/components/Dateline';
 import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
+import Splash from '@/components/Splash';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
 import { pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +45,9 @@ export default function WriteScreen() {
   const [photos, setPhotos] = useState<PickedMedia[]>([]);
   const [video, setVideo] = useState<PickedMedia | null>(null);
   const [busy, setBusy] = useState(false); // 正在上传媒体 + 写库(按 Seal 后那一下)
+
+  // 开场页:启动时先显示 Splash,点 Start 才进入写信页(只此一条出场路径,绝不自动跳转)。
+  const [showSplash, setShowSplash] = useState(true);
 
   // 写信流程的两步:'write' = 写信 + 选附件;'date' = 安静地只选送达日 + 封存。
   const [step, setStep] = useState<'write' | 'date'>('write');
@@ -169,6 +173,11 @@ export default function WriteScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() },
     ]);
+  }
+
+  // 岔路口⓪⁻:开场页 —— 启动先显示 Splash,只有点 Start 才进入(无自动跳转)。
+  if (showSplash) {
+    return <Splash onStart={() => setShowSplash(false)} />;
   }
 
   // 岔路口⓪:正在登录 → 显示登录界面(输邮箱 → 收码 → 验证)。
