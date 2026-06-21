@@ -1,6 +1,6 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -309,17 +309,42 @@ export default function WriteScreen() {
             <Text style={styles.dateHero}>When should it find you again?</Text>
 
             {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
-            <DateTimePicker
-              mode="date"
-              display="compact"
-              presentation="inline"
-              value={effectiveDate}
-              minimumDate={earliest}
-              locale="en-US"
-              accentColor="#B26B24"
-              onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
-              style={styles.datePicker}
-            />
+            {Platform.OS === 'web' ? (
+              // Web:@expo/ui 的选择器在 web 上是空壳(返回 null),改用浏览器原生
+              // <input type="date">,接到同一套状态上。react-native-web 会原样透传小写 DOM 标签。
+              React.createElement('input', {
+                type: 'date',
+                value: toISODate(effectiveDate),
+                min: toISODate(earliest),
+                onChange: (e: any) => {
+                  const v = e.target.value;
+                  if (v) setDeliverOn(startOfDay(new Date(v + 'T00:00:00')));
+                },
+                style: {
+                  fontFamily: 'CourierPrime_400Regular, monospace',
+                  fontSize: 16,
+                  color: '#5A3A24',
+                  backgroundColor: '#FAE6C9',
+                  border: '1px solid #D6C7B2',
+                  borderRadius: 0, // 直角,跟品牌一致
+                  padding: '10px 12px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                },
+              })
+            ) : (
+              <DateTimePicker
+                mode="date"
+                display="compact"
+                presentation="inline"
+                value={effectiveDate}
+                minimumDate={earliest}
+                locale="en-US"
+                accentColor="#B26B24"
+                onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
+                style={styles.datePicker}
+              />
+            )}
             <Text style={styles.earliestHint}>No sooner than {earliestLabel} · 15 days out</Text>
 
             {/* 一句安心话:封存即消失,直到那天。 */}

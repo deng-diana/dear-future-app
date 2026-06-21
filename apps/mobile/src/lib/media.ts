@@ -3,7 +3,7 @@
 import { decode } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import { supabase } from './supabase';
 
@@ -75,11 +75,21 @@ export async function uploadMedia(media: PickedMedia, folder: string, index: num
     const isPhoto = media.kind === 'photo';
     const path = isPhoto ? `${folder}/photo-${index}.jpg` : `${folder}/video.mp4`;
     const contentType = isPhoto ? 'image/jpeg' : 'video/mp4';
-    // 读成 base64 再解码成字节(Expo Go 里最稳的上传方式,不依赖原生模块)。
-    const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: 'base64' });
-    const { error } = await supabase.storage
-      .from('memories')
-      .upload(path, decode(base64), { contentType, upsert: true });
+    let error;
+    if (Platform.OS === 'web') {
+      // Web:expo-file-system 的 readAsStringAsync 在浏览器里会抛错。
+      // 改用浏览器:把选到的文件 fetch 成 blob(二进制块),直接上传这个 blob。
+      const blob = await (await fetch(media.uri)).blob();
+      ({ error } = await supabase.storage
+        .from('memories')
+        .upload(path, blob, { contentType, upsert: true }));
+    } else {
+      // 原生:读成 base64 再解码成字节(Expo Go 里最稳的上传方式,不依赖原生模块)。
+      const base64 = await FileSystem.readAsStringAsync(media.uri, { encoding: 'base64' });
+      ({ error } = await supabase.storage
+        .from('memories')
+        .upload(path, decode(base64), { contentType, upsert: true }));
+    }
     if (error) {
       console.log('媒体上传失败:', error.message);
       return null;
