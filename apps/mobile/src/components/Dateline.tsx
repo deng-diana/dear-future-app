@@ -98,7 +98,7 @@ export default function Dateline() {
 }
 
 const lineBase = {
-  fontFamily: 'IBMPlexMono_500Medium',
+  fontFamily: 'CourierPrime_400Regular',
   fontSize: 14,
   lineHeight: 22,
   color: '#6B5A4B',

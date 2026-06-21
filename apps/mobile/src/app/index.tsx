@@ -36,7 +36,7 @@ function toISODate(d: Date): string {
 }
 
 export default function WriteScreen() {
-  const [letter, setLetter] = useState(''); // 信里写了什么
+  const [letter, setLetter] = useState('Dear future me,\n\n'); // 信里写了什么(开屏即预填称呼,可编辑)
   const [sealing, setSealing] = useState(false); // 正在播封存仪式动画?
   const [sealed, setSealed] = useState(false); // 封存了没?
 
@@ -71,7 +71,8 @@ export default function WriteScreen() {
   const effectiveDate = deliverOn && deliverOn.getTime() >= earliest.getTime() ? deliverOn : earliest;
 
   // 日期已被 earliest + 选择器 minimumDate 夹在合法范围内,所以只剩"信不能为空"这一道闸。
-  const canSeal = letter.trim().length > 0;
+  // 只有"称呼"还不算写了信 —— 要等用户在称呼之外真的写了字,底部才出现。
+  const canSeal = letter.trim().length > 0 && letter.trim() !== 'Dear future me,';
 
   // 背景"呼吸":一层极淡的暖色,缓缓在 0 ↔ 0.05 之间起伏(约 9 秒一轮),
   // 让纸面像活着、有温度,但几乎察觉不到。用内置 Animated(零配置,稳)。
@@ -166,7 +167,7 @@ export default function WriteScreen() {
 
   // 封存之后想再写一封:清空内容 + 清掉附件,回到全新写信屏(但仍保持登录)。
   function writeAnother() {
-    setLetter('');
+    setLetter('Dear future me,\n\n');
     setDeliverOn(null);
     setSealed(false);
     setPhotos([]);
@@ -246,10 +247,7 @@ export default function WriteScreen() {
           {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。 */}
           <Dateline />
 
-          {/* 永久题头:衬线大字,信纸的"称呼"。 */}
-          <Text style={styles.title}>Dear future me,</Text>
-
-        {/* 正文:在题头下面写;光标是暖金棕色。 */}
+        {/* 整封信(含称呼)都在这一个输入框里写,同一字体同一字号;光标是暖金棕色。 */}
         <TextInput
           style={styles.input}
           value={letter}
@@ -376,22 +374,12 @@ const styles = StyleSheet.create({
   // 背景呼吸层:一层极淡的暖色,铺满全屏(opacity 由动画控制)。
   breath: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#E4D4B8' },
 
-  // 衬线题头「Dear future me,」。
-  title: {
-    fontFamily: 'CormorantGaramond_600SemiBold',
-    fontSize: 36,
-    lineHeight: 43,
-    color: '#5B4638',
-    paddingHorizontal: 24,
-    marginTop: 18,
-    marginBottom: 2,
-  },
-
-  // 正文:打字机字体 Courier Prime,暖色墨,左缘与题头对齐。
+  // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
+  // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。
   input: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 6,
+    paddingTop: 24,
     paddingBottom: 24,
     fontFamily: 'CourierPrime_400Regular',
     fontSize: 16,
@@ -459,7 +447,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   dateHero: {
-    fontFamily: 'CormorantGaramond_600SemiBold',
+    fontFamily: 'CourierPrime_400Regular',
     fontSize: 28,
     lineHeight: 34,
     color: '#5B4638',
