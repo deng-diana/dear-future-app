@@ -1,10 +1,10 @@
-import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import type { Session } from '@supabase/supabase-js';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
+import Calendar from '@/components/Calendar';
 import Dateline from '@/components/Dateline';
 import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
@@ -207,10 +207,7 @@ export default function WriteScreen() {
     );
   }
 
-  // 把最早可选日格成「Jul 6」这样的短串,给"No sooner than … · 15 days out"提示用。
-  const earliestLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-  // 选送达日不再单独占一屏 —— 改成下方的暗色遮罩弹层(step==='date' 时浮在写信纸之上)。
+  // 选送达日不再单独占一屏 —— 改成从底部滑上来的纸张底单(step==='date' 时浮在写信纸之上)。
 
   // 岔路口②:还没封存 → 写信 + 选附件 + 「Finish」(日期 / 封存以弹层形式出现)。
   return (
@@ -301,76 +298,41 @@ export default function WriteScreen() {
       </View>
 
       {/*
-        选送达日弹层:暗色遮罩浮在写信纸之上(写信内容仍在底下,只是被压暗)。
-        点遮罩空白处 = 回去继续写;点卡片里不会误关。
+        选送达日:从底部滑上来的纸张底单(bottom sheet)。暗色遮罩浮在写信纸之上。
+        点遮罩空白处 = 回去继续写;点底单里不会误关。
       */}
       <Modal
         visible={step === 'date'}
         transparent
-        animationType="fade"
+        animationType="slide"
         statusBarTranslucent
         onRequestClose={() => setStep('write')}>
-        <Pressable style={styles.modalOverlay} onPress={() => setStep('write')}>
-          {/* 卡片本身吞掉点击,免得点卡片内部空白也把弹层关了。 */}
-          <Pressable style={styles.modalCard} onPress={() => {}}>
+        <Pressable style={styles.sheetOverlay} onPress={() => setStep('write')}>
+          {/* 底单本身吞掉点击,免得点底单内部空白也把它关了。 */}
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            {/* 顶部一道小抓手,暗示可下滑/这是一张底单。 */}
+            <View style={styles.grabHandle} />
+
             <Text style={styles.dateHero}>When should it find you again?</Text>
 
-            {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
-            {Platform.OS === 'web' ? (
-              // Web:@expo/ui 的选择器在 web 上是空壳(返回 null),改用浏览器原生
-              // <input type="date">,接到同一套状态上。react-native-web 会原样透传小写 DOM 标签。
-              React.createElement('input', {
-                type: 'date',
-                value: toISODate(effectiveDate),
-                min: toISODate(earliest),
-                onChange: (e: any) => {
-                  const v = e.target.value;
-                  if (v) setDeliverOn(startOfDay(new Date(v + 'T00:00:00')));
-                },
-                style: {
-                  fontFamily: 'CourierPrime_400Regular, monospace',
-                  fontSize: 16,
-                  color: '#5A3A24',
-                  backgroundColor: '#FAE6C9',
-                  border: '1px solid #D6C7B2',
-                  borderRadius: 0, // 直角,跟品牌一致
-                  padding: '10px 12px',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                },
-              })
-            ) : (
-              <DateTimePicker
-                mode="date"
-                display="compact"
-                presentation="inline"
-                value={effectiveDate}
-                minimumDate={earliest}
-                locale="en-US"
-                accentColor="#B26B24"
-                onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
-                style={styles.datePicker}
-              />
-            )}
-            <Text style={styles.earliestHint}>No sooner than {earliestLabel} · 15 days out</Text>
+            {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
+            <Calendar value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
 
-            {/* 一句安心话:封存即消失,直到那天。 */}
-            <Text style={styles.reassurance}>Once sealed, it leaves you — until the day.</Text>
-
+            {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
             <Pressable
-              style={[styles.sealButton, busy && styles.sealButtonDisabled]}
+              style={[styles.sealButton, (!deliverOn || busy) && styles.sealButtonDisabled]}
               onPress={handleSeal}
-              disabled={busy}
+              disabled={!deliverOn || busy}
               accessibilityRole="button"
-              accessibilityState={{ disabled: busy }}>
+              accessibilityState={{ disabled: !deliverOn || busy }}>
               {busy ? (
-                <ActivityIndicator color="#E0A93E" />
+                <ActivityIndicator color="#FBEFDB" />
               ) : (
-                <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
+                <Text style={styles.sealButtonText}>Seal</Text>
               )}
             </Pressable>
 
-            {/* 想再改改信 → 关弹层回到写信屏(草稿与附件都还在)。 */}
+            {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
             <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
               <Text style={styles.backLinkText}>← Keep writing</Text>
             </Pressable>
@@ -434,45 +396,41 @@ const styles = StyleSheet.create({
   },
   thumbRemoveText: { color: '#EDD8C3', fontSize: 10, lineHeight: 12 },
 
-  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dateLabel: { fontSize: 15, color: '#8A7256' },
-  datePicker: { width: 140, height: 40 },
-  earliestHint: { fontSize: 12, color: '#B09A80', textAlign: 'center' },
-
-  // 选日期弹层:暗色遮罩铺满,卡片居中。
-  modalOverlay: {
+  // 选日期底单:暗色遮罩铺满,底单从底部滑上来贴在屏幕底缘。
+  sheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(45,22,8,0.5)', // 暖调的深色遮罩(不是死黑),压暗底下的写信纸
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 28,
+    justifyContent: 'flex-end', // 底单坐在最底部
   },
-  // 浮起来的纸卡:比底纸亮一点点,圆角 + 柔和投影,像一张更近的纸。
-  modalCard: {
+  // 从底部升起的纸张底单:满宽、只圆上面两角、柔和投影,像一张升上来的纸。
+  sheet: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#F4E7D6',
-    borderRadius: 22,
-    paddingVertical: 30,
+    backgroundColor: '#FBF1DF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingBottom: 36, // 给底部留出"安全区"般的宽松呼吸
     paddingHorizontal: 26,
     alignItems: 'center',
-    gap: 16,
+    gap: 18,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 30,
-    shadowOffset: { width: 0, height: 16 },
+    shadowOffset: { width: 0, height: -8 },
     elevation: 12,
   },
+  // 顶部居中的小抓手条。
+  grabHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#C9B097', marginBottom: 2 },
   dateHero: {
     fontFamily: 'CourierPrime_400Regular',
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 19,
+    lineHeight: 25,
+    letterSpacing: -0.3,
     color: '#5A3A24',
     textAlign: 'center',
   },
-  reassurance: { fontSize: 14, color: '#8A7256', textAlign: 'center', marginTop: 6 },
-  backLink: { marginTop: 14, paddingVertical: 8, paddingHorizontal: 16 },
-  backLinkText: { fontSize: 14, color: '#8A7256' },
+  backLink: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16 },
+  backLinkText: { fontSize: 14, color: '#9A7E5C' },
 
   sealButton: {
     backgroundColor: '#B26B24', // 品牌主题色
@@ -483,7 +441,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch', // 写信屏的 footer 里照样撑满
   },
   sealButtonDisabled: { backgroundColor: '#C9B097' }, // 未激活:暖灰玫瑰(不满足条件)
-  sealButtonText: { color: '#E0A93E', fontSize: 17, fontWeight: '600', letterSpacing: 4 }, // 古金色文字
+  sealButtonText: { color: '#FBEFDB', fontSize: 17, fontWeight: '600', letterSpacing: 1.5 }, // 暖近白文字
 
   // 封存后那一屏
   sealedScreen: {

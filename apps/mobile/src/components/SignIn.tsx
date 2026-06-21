@@ -138,6 +138,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonDisabled: { backgroundColor: '#C9B097' },
-  buttonText: { color: '#EDD8C3', fontSize: 17, fontWeight: '600', letterSpacing: 2 },
+  buttonText: { color: '#FBEFDB', fontSize: 17, fontWeight: '600', letterSpacing: 2 },
   cancel: { fontSize: 15, color: '#8A7256' },
 });
