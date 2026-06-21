@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   // 上半组:居中,距顶约 12% 屏高
   top: { alignItems: 'center', paddingTop: SH * 0.12 },
   logo: { width: 108, height: 162 },          // 透明火漆(稍微大一点点;原图 2:3,内含上下留白)
-  wordmark: { width: 168, height: 49, marginTop: -22 }, // Reunite 切图(缩小 + 上移靠近 logo)
+  wordmark: { width: 138, height: 40, marginTop: -20 }, // Reunite 切图(再缩小 + 上移靠近 logo)
   divider: { width: 188, height: 11, marginTop: 12 },   // 金色分隔线(227×13)
   tagline: {
     fontFamily: 'CourierPrime_400Regular',
