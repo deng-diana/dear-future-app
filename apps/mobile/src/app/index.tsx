@@ -1,7 +1,7 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Alert, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
@@ -140,6 +140,7 @@ export default function WriteScreen() {
   function handleFinish() {
     if (busy) return;
     if (!letter.trim()) return;
+    Keyboard.dismiss(); // 先收键盘,免得它和弹层抢空间
     setStep('date');
   }
 
@@ -221,64 +222,11 @@ export default function WriteScreen() {
   }
 
   // 把最早可选日格成「Jul 6」这样的短串,给"No sooner than … · 15 days out"提示用。
-  const earliestLabel = earliest.toLocaleDateString('en_US', { month: 'short', day: 'numeric' });
+  const earliestLabel = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  // 岔路口③:已写完信、正在选送达日 → 安静的单任务屏(只做一件事:挑日子 + 封存)。
-  if (step === 'date') {
-    return (
-      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-        <PaperBackground>
-          <Animated.View pointerEvents="none" style={[styles.breath, { opacity: breathOpacity }]} />
-          {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
+  // 选送达日不再单独占一屏 —— 改成下方的暗色遮罩弹层(step==='date' 时浮在写信纸之上)。
 
-          {/* 顶部邮戳保留,让这屏仍是"同一张纸"。 */}
-          <Dateline />
-
-          {/* 居中的一块:一句话 → 选日期 → 安心话 → 封存 → 回去继续写。 */}
-          <View style={styles.dateScreen}>
-            <Text style={styles.dateHero}>When should it find you again?</Text>
-
-            {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
-            <DateTimePicker
-              mode="date"
-              display="compact"
-              presentation="inline"
-              value={effectiveDate}
-              minimumDate={earliest}
-              locale="en_US"
-              accentColor="#3a3a3a"
-              onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
-              style={styles.datePicker}
-            />
-            <Text style={styles.earliestHint}>No sooner than {earliestLabel} · 15 days out</Text>
-
-            {/* 一句安心话:封存即消失,直到那天。 */}
-            <Text style={styles.reassurance}>Once sealed, it leaves you — until the day.</Text>
-
-            <Pressable
-              style={[styles.sealButton, busy && styles.sealButtonDisabled]}
-              onPress={handleSeal}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: busy }}>
-              {busy ? (
-                <ActivityIndicator color="#D6B26E" />
-              ) : (
-                <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
-              )}
-            </Pressable>
-
-            {/* 想再改改信 → 回到写信屏(草稿与附件都还在)。 */}
-            <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
-              <Text style={styles.backLinkText}>← Keep writing</Text>
-            </Pressable>
-          </View>
-        </PaperBackground>
-      </SafeAreaView>
-    );
-  }
-
-  // 岔路口②:还没封存 → 写信 + 选附件 + 「Finish」(日期 / 封存挪到下一屏)。
+  // 岔路口②:还没封存 → 写信 + 选附件 + 「Finish」(日期 / 封存以弹层形式出现)。
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       {/* 纸张质感包裹层:象牙底 + 极淡颗粒 + 内晕 + 右下角翘角。 */}
@@ -364,6 +312,59 @@ export default function WriteScreen() {
         ) : null}
         </KeyboardAvoidingView>
       </PaperBackground>
+
+      {/*
+        选送达日弹层:暗色遮罩浮在写信纸之上(写信内容仍在底下,只是被压暗)。
+        点遮罩空白处 = 回去继续写;点卡片里不会误关。
+      */}
+      <Modal
+        visible={step === 'date'}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setStep('write')}>
+        <Pressable style={styles.modalOverlay} onPress={() => setStep('write')}>
+          {/* 卡片本身吞掉点击,免得点卡片内部空白也把弹层关了。 */}
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.dateHero}>When should it find you again?</Text>
+
+            {/* 选送达日期。minimumDate 让比 15 天更近的日子根本选不了。 */}
+            <DateTimePicker
+              mode="date"
+              display="compact"
+              presentation="inline"
+              value={effectiveDate}
+              minimumDate={earliest}
+              locale="en-US"
+              accentColor="#3a3a3a"
+              onValueChange={(_event, date) => setDeliverOn(startOfDay(date))}
+              style={styles.datePicker}
+            />
+            <Text style={styles.earliestHint}>No sooner than {earliestLabel} · 15 days out</Text>
+
+            {/* 一句安心话:封存即消失,直到那天。 */}
+            <Text style={styles.reassurance}>Once sealed, it leaves you — until the day.</Text>
+
+            <Pressable
+              style={[styles.sealButton, busy && styles.sealButtonDisabled]}
+              onPress={handleSeal}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy }}>
+              {busy ? (
+                <ActivityIndicator color="#D6B26E" />
+              ) : (
+                <Text style={styles.sealButtonText}>✦ Seal ✦</Text>
+              )}
+            </Pressable>
+
+            {/* 想再改改信 → 关弹层回到写信屏(草稿与附件都还在)。 */}
+            <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
+              <Text style={styles.backLinkText}>← Keep writing</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,8 +434,30 @@ const styles = StyleSheet.create({
   datePicker: { width: 140, height: 40 },
   earliestHint: { fontSize: 12, color: '#b3a99a', textAlign: 'center' },
 
-  // 选日期那一屏:居中、留白多,一次只做一件事。
-  dateScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 18 },
+  // 选日期弹层:暗色遮罩铺满,卡片居中。
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20,14,10,0.55)', // 暖调的深色遮罩(不是死黑),压暗底下的写信纸
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 28,
+  },
+  // 浮起来的纸卡:比底纸亮一点点,圆角 + 柔和投影,像一张更近的纸。
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#F7F2E8',
+    borderRadius: 22,
+    paddingVertical: 30,
+    paddingHorizontal: 26,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 12,
+  },
   dateHero: {
     fontFamily: 'CormorantGaramond_600SemiBold',
     fontSize: 28,
