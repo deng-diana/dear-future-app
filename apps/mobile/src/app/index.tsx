@@ -1,9 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
+import BottomSheet from '@/components/BottomSheet';
 import Calendar from '@/components/Calendar';
 import Dateline from '@/components/Dateline';
 import SealCeremony from '@/components/SealCeremony';
@@ -301,47 +302,30 @@ export default function WriteScreen() {
       </View>
 
       {/*
-        选送达日:从底部滑上来的纸张底单(bottom sheet)。暗色遮罩浮在写信纸之上。
-        点遮罩空白处 = 回去继续写;点底单里不会误关。
+        选送达日:从底部滑上来的纸张底单(BottomSheet)。可点遮罩、也可下拉关闭。
+        关闭 = 回去继续写(step → 'write');底单内部不会误关。
       */}
-      <Modal
-        visible={step === 'date'}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setStep('write')}>
-        <Pressable style={styles.sheetOverlay} onPress={() => setStep('write')}>
-          {/* 底单本身吞掉点击,免得点底单内部空白也把它关了。 */}
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            {/* 顶部一道小抓手,暗示可下滑/这是一张底单。 */}
-            <View style={styles.grabHandle} />
+      <BottomSheet visible={step === 'date'} onClose={() => setStep('write')}>
+        <Text style={styles.dateHero}>When should it find you again?</Text>
 
-            <Text style={styles.dateHero}>When should it find you again?</Text>
+        {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
+        <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
 
-            {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
-            <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
-
-            {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
-            <Pressable
-              style={[styles.sealButton, (!deliverOn || busy) && styles.sealButtonDisabled]}
-              onPress={handleSeal}
-              disabled={!deliverOn || busy}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !deliverOn || busy }}>
-              {busy ? (
-                <ActivityIndicator color="#FBEFDB" />
-              ) : (
-                <Text style={styles.sealButtonText}>Seal</Text>
-              )}
-            </Pressable>
-
-            {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
-            <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
-              <Text style={styles.backLinkText}>← Keep writing</Text>
-            </Pressable>
-          </Pressable>
+        {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
+        <Pressable
+          style={[styles.sealButton, styles.sealButtonInSheet, (!deliverOn || busy) && styles.sealButtonDisabled]}
+          onPress={handleSeal}
+          disabled={!deliverOn || busy}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !deliverOn || busy }}>
+          {busy ? <ActivityIndicator color="#FBEFDB" /> : <Text style={styles.sealButtonText}>Seal</Text>}
         </Pressable>
-      </Modal>
+
+        {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
+        <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
+          <Text style={styles.backLinkText}>← Keep writing</Text>
+        </Pressable>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -399,31 +383,7 @@ const styles = StyleSheet.create({
   },
   thumbRemoveText: { color: '#EDD8C3', fontSize: 10, lineHeight: 12 },
 
-  // 选日期底单:暗色遮罩铺满,底单从底部滑上来贴在屏幕底缘。
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(45,22,8,0.5)', // 暖调的深色遮罩(不是死黑),压暗底下的写信纸
-    justifyContent: 'flex-end', // 底单坐在最底部
-  },
-  // 从底部升起的纸张底单:满宽、只圆上面两角、柔和投影,像一张升上来的纸。
-  sheet: {
-    width: '100%',
-    backgroundColor: '#FBF1DF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 12,
-    paddingBottom: 36, // 给底部留出"安全区"般的宽松呼吸
-    paddingHorizontal: 26,
-    alignItems: 'center',
-    gap: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: -8 },
-    elevation: 12,
-  },
-  // 顶部居中的小抓手条。
-  grabHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#C9B097', marginBottom: 2 },
+  // 底单(遮罩 / 圆角 / 抓手 / 滑入+下拉手势)已收进 BottomSheet 组件,这里只留内容样式。
   dateHero: {
     fontFamily: 'CourierPrime_400Regular',
     fontSize: 19,
@@ -443,6 +403,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'stretch', // 写信屏的 footer 里照样撑满
   },
+  // 在底单里:把 Seal 按钮往日历那边收紧一点(BottomSheet 子项默认 gap 18,这里抵消一截)。
+  sealButtonInSheet: { marginTop: -8 },
   sealButtonDisabled: { backgroundColor: '#C9B097' }, // 未激活:暖灰玫瑰(不满足条件)
   sealButtonText: { color: '#FBEFDB', fontSize: 17, fontWeight: '600', letterSpacing: 1.5 }, // 暖近白文字
 

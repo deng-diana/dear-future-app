@@ -112,7 +112,17 @@ export default function Calendar({ value, minDate, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { width: '100%', maxWidth: 320, alignSelf: 'center' },
+  // 浅色面板:奶油底 + 8 圆角 + 宽松内边距,居中,像贴在底单上的一张小日历。
+  // 表头行(weekRow)与日期网格(grid)同宽、同一套 cell 样式,7 列严格对齐。
+  container: {
+    width: '100%',
+    maxWidth: 320,
+    alignSelf: 'center',
+    backgroundColor: '#FFEFDF',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
 
   // 头部行:左右箭头 + 居中的"月 年"。
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
@@ -121,12 +131,12 @@ const styles = StyleSheet.create({
   chevronHidden: { opacity: 0 }, // 到下限月就藏起左箭头(占位不跳动)
   monthLabel: { fontFamily: 'CourierPrime_400Regular', fontSize: 16, color: '#5A3A24' },
 
-  // 星期表头一行 7 列。
-  weekRow: { flexDirection: 'row', marginBottom: 4 },
+  // 星期表头一行 7 列;width:100% 让它与下方网格容器同宽,列才会一一对齐。
+  weekRow: { flexDirection: 'row', width: '100%', marginBottom: 4 },
   weekday: { fontFamily: 'CourierPrime_400Regular', fontSize: 12, color: '#9A7E5C' },
 
-  // 网格:横向换行,每格占 1/7 宽。
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  // 网格:横向换行,每格占 1/7 宽;与表头共用同一个 cell,保证列宽一致。
+  grid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
   cell: { width: `${100 / 7}%`, height: 42, alignItems: 'center', justifyContent: 'center' },
 
   // 每天的数字外面一个透明圆;选中那天填成主题色实心圆。
