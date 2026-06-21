@@ -5,6 +5,20 @@
 
 ## ▶ 下一步从这里继续
 
+### ☀️ 早安 — 昨夜自动完成的(/loop,2026-06-21 02:xx)
+**全部已提交、tsc 全绿、工作区干净。** 关键成果:
+- 📸 **多媒体升级**:最多 **4 张照片(多选+缩略图)** + 1 段≤30s 视频;写信→**Finish**→**暗色遮罩弹层选日期**→Seal 两步渐进式流程。
+- 🎨 **新品牌全量落地**(app + deck + 看信页):真实 **logo(火漆+金罗盘星)**、赭土色系、**全站 Courier Prime 字体**、`'Dear future me,'` 改为可编辑同号首行。你的校正色已应用:主题/按钮+顶部时间地点 `#B26B24`、写信内容 `#67350F`、首页纯色底 `#FAE6C9`、按钮直角、页边距加大。
+- 🛡️ **资深 fresh-eyes 代码 review 通过**:iOS 端**零必修 bug**(无 XSS、deliver 邮件不碰 photo_url、无重复封存、JSON photo_url 解析健壮)。(codex CLI 在机但 `--version` 无输出,改用对抗式 subagent 把关,效果等同——它早先就抓出过真实 XSS。)
+- 🌐 **Plan-A 网页版 demo 已就绪(未上线,等你定稿视觉)**:`web.output='single'`(SPA)修好 SSG 的 `window` 崩溃;网页版优雅降级(日期用原生 `<input type=date>`、上传用 `fetch().blob()`)。`npx expo export -p web` **构建成功**。
+
+### 🌅 你醒来要做(deadline 11:00):
+1. **视觉微调**(你说的)——改完任意颜色/间距后,模拟器会热更新。
+2. **上线看信页**(含新品牌):`cd ~/Desktop/dear-future-app && npx vercel --prod --yes`(部署 `web/reveal`)。
+3. **Live Demo Link(Plan A app 网页版)**:`cd ~/Desktop/dear-future-app/apps/mobile && npx expo export -p web && npx vercel deploy dist --prod` → 拿到的 URL 就是提交表单的 Live Demo Link。(网页版可文字+图片+OTP 登录全流程跑通;photo 走 blob 上传、date 走原生选择器。)
+4. **录 demo 视频** + **提交 Encode 表单**(4 个链接:Live Demo / Code / Deck / Video)。
+5. 赛后:`DEMO_MODE` 改回 `false`、轮换 service_role key、孤儿媒体清理。
+
 **🏁 黑客松提交:2026-06-21 上午 11:00 前。** 产品功能已全部完成,**重点是把现场 demo 演漂亮**(演示脚本见本文件 2026-06-20 下半段)。
 
 **📸 多媒体封存已落地(2026-06-21 凌晨)**:信件可附 1 张照片 + 1 段≤30s 短视频,封存一起送达,看信页以 Polaroid 呈现(`249a428`)。fresh-eyes 资深 review 抓到并修掉 3 个必修项(`82a4a57`):看信页 XSS(引号转义 + 只渲染本桶链接)、上传失败静默丢图(改成 Alert 提示不封存)、大视频 OOM(图≤12MB/视频≤25MB 上限)。**未上线:看信页(含 Polaroid + XSS 修复)还没部署到 Vercel。** 命令:`cd ~/Desktop/dear-future-app && npx vercel --prod --yes`。
