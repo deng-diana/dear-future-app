@@ -53,21 +53,21 @@ const styles = StyleSheet.create({
   safe: { flex: 1, justifyContent: 'space-between' },
 
   // 上半组:居中,距顶约 12% 屏高
-  top: { alignItems: 'center', paddingTop: SH * 0.12, gap: 6 },
-  logo: { width: 96, height: 144 },           // 透明火漆(原图 2:3,内含上下留白)
-  wordmark: { width: 196, height: 57, marginTop: 2 }, // Reunite 切图(900×260)
-  divider: { width: 200, height: 12, marginTop: 8 },  // 金色分隔线(227×13)
+  top: { alignItems: 'center', paddingTop: SH * 0.12 },
+  logo: { width: 108, height: 162 },          // 透明火漆(稍微大一点点;原图 2:3,内含上下留白)
+  wordmark: { width: 168, height: 49, marginTop: -22 }, // Reunite 切图(缩小 + 上移靠近 logo)
+  divider: { width: 188, height: 11, marginTop: 12 },   // 金色分隔线(227×13)
   tagline: {
     fontFamily: 'CourierPrime_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: '#B26B24',
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 14,
   },
 
-  // 底部按钮容器:左右页边距,离底一点
-  footer: { paddingHorizontal: 40, paddingBottom: 56 },
+  // 底部按钮容器:左右页边距更大 → 按钮更窄;离底一点
+  footer: { paddingHorizontal: 64, paddingBottom: 56 },
   button: {
     backgroundColor: '#B26B24',
     paddingVertical: 16,

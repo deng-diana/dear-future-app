@@ -8,6 +8,11 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 const CITY_KEY = 'reunite.city';
 
+// 可选:演示用隐藏手势 —— 长按日期那行回到开场页(用户看不见,演示者知道)。
+type Props = {
+  onLongPress?: () => void;
+};
+
 // 从时区字符串推断城市名:取最后一段,下划线换空格。
 // 例:America/New_York → New York,Asia/Shanghai → Shanghai
 function cityFromTimezone(): string {
@@ -15,7 +20,7 @@ function cityFromTimezone(): string {
   return tz.split('/').pop()?.replace(/_/g, ' ') ?? '';
 }
 
-export default function Dateline() {
+export default function Dateline({ onLongPress }: Props) {
   // 进屏时算一次邮戳快照,之后不再变(像写信那一刻钉住的时间)
   const stamp = useMemo(() => {
     const now = new Date();
@@ -58,8 +63,10 @@ export default function Dateline() {
 
   return (
     <View style={styles.container}>
-      {/* 第一行:日期(只读) */}
-      <Text style={styles.line}>{stamp.date}</Text>
+      {/* 第一行:日期(只读)。长按 = 演示用隐藏手势,回到开场页。 */}
+      <Text style={styles.line} onLongPress={onLongPress} suppressHighlighting>
+        {stamp.date}
+      </Text>
 
       {/* 第二行:城市(可编辑)
           不在编辑时:看起来和日期行一模一样,只有极淡的点线下划线暗示"可点"

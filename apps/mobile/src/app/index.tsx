@@ -243,8 +243,8 @@ export default function WriteScreen() {
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。 */}
-          <Dateline />
+          {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。长按日期 = 演示用回到开场页。 */}
+          <Dateline onLongPress={() => setShowSplash(true)} />
 
           {/* 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星(代码画,稳定渲染)。 */}
           <View style={styles.dividerRow}>
