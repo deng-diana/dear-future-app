@@ -46,6 +46,8 @@ export default function WriteScreen() {
 
   // 写信流程的两步:'write' = 写信 + 选附件;'date' = 安静地只选送达日 + 封存。
   const [step, setStep] = useState<'write' | 'date'>('write');
+  // 每次打开选日期弹层就 +1 —— 用作日历的 key,强制重新挂载,月份回到当前月(RN Modal 关闭不卸载子组件,会残留旧月份)。
+  const [pickerKey, setPickerKey] = useState(0);
 
   // 登录状态:session = 当前登录的人(没登录就是 null)。
   const [session, setSession] = useState<Session | null>(null);
@@ -126,6 +128,7 @@ export default function WriteScreen() {
     if (busy) return;
     if (!letter.trim()) return;
     Keyboard.dismiss(); // 先收键盘,免得它和弹层抢空间
+    setPickerKey((k) => k + 1); // 让日历重新挂载,月份回到当前月
     setStep('date');
   }
 
@@ -316,7 +319,7 @@ export default function WriteScreen() {
             <Text style={styles.dateHero}>When should it find you again?</Text>
 
             {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
-            <Calendar value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
+            <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
 
             {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
             <Pressable
