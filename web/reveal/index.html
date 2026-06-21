@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --ivory:#FAE6C9; --ink:#67350F; --brown:#572007; --soft:#8A7256; --faint:#8A7256; --gold:#E0A93E; --wax:#B26B24;
+    --ivory:#FAE6C9; --ink:#995A2A; --brown:#572007; --soft:#995A2A; --faint:#995A2A; --gold:#E0A93E; --wax:#B26B24;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { background:var(--ivory); color:var(--ink); }
@@ -242,7 +242,6 @@
           '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +
           photoHtml +
           videoHtml +
-          '<div class="salutation reveal d2">Dear future me,</div>' +
           '<div class="body reveal d3">' + esc(letter.body) + '</div>' +
           '<div class="star reveal d3">&#10022;</div>';
       } catch (e) {
