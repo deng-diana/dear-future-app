@@ -6,23 +6,26 @@
 <title>Reunite</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Courier+Prime&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --ivory:#F4EEE4; --ink:#4A3D31; --brown:#5B4638; --soft:#6B5A4B; --faint:#A0907A; --gold:#B7864E;
+    --ivory:#FAE6C9; --ink:#67350F; --brown:#572007; --soft:#8A7256; --faint:#8A7256; --gold:#E0A93E; --wax:#B26B24;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { background:var(--ivory); color:var(--ink); }
   body { min-height:100vh; display:flex; justify-content:center; -webkit-font-smoothing:antialiased; }
   .wrap { width:100%; max-width:620px; padding:14vh 28px 18vh; }
-  .meta { font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:.08em; line-height:1.9; color:var(--soft); }
-  .salutation { font-family:'Cormorant Garamond',serif; font-weight:600; font-size:34px; line-height:1.2; color:var(--brown); margin:28px 0 18px; }
+  .seal { text-align:center; margin:0 0 8px; }
+  .seal img { width:68px; height:auto; display:inline-block; filter:drop-shadow(0 2px 6px rgba(87,32,7,.10)); }
+  .meta { font-family:'Courier Prime',monospace; font-size:13px; letter-spacing:.08em; line-height:1.9; color:var(--soft); }
+  .salutation { font-family:'Courier Prime',monospace; font-weight:700; font-size:30px; line-height:1.25; color:var(--brown); margin:28px 0 18px; }
   .body { font-family:'Courier Prime',monospace; font-size:16px; line-height:1.95; white-space:pre-wrap; color:var(--ink); }
   .star { margin-top:64px; text-align:center; color:var(--gold); font-size:20px; }
-  .state { font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:.06em; color:var(--faint); }
+  .state { font-family:'Courier Prime',monospace; font-size:13px; letter-spacing:.06em; color:var(--faint); }
 
   /* 缓缓浮现:一段段慢慢升起、淡入 —— 这一页的灵魂是"慢"。 */
   .reveal { opacity:0; transform:translateY(10px); animation:rise 2.6s cubic-bezier(.2,.6,.2,1) forwards; }
+  .reveal.s0  { animation-delay:0s; }
   .reveal.d1  { animation-delay:.2s; }
   .reveal.d1p { animation-delay:.7s; }
   /* Each photo rises in a beat after the one before it. */
@@ -44,7 +47,7 @@
   }
 
   .polaroid {
-    --paper-bg: #FBF8F1;
+    --paper-bg: #FBF1DF;
     --paper-shadow:
       0 1px 2px rgba(13,13,13,.06),
       0 8px 24px rgba(13,13,13,.08),
@@ -74,8 +77,8 @@
     transform: translateX(-50%) rotate(-1deg);
     width: 64px;
     height: 18px;
-    background: rgba(255,199,82,.32);
-    border: 1px solid rgba(140,94,16,.12);
+    background: rgba(224,169,62,.30);
+    border: 1px solid rgba(178,107,36,.16);
   }
 
   /* The photo/video window — 4:5 aspect ratio */
@@ -84,7 +87,7 @@
     width: 100%;
     aspect-ratio: 4 / 5;
     overflow: hidden;
-    background: #E8E0D4;
+    background: #E3CDB4;
   }
 
   /* Film-grain overlay via inline SVG fractalNoise */
@@ -235,6 +238,7 @@
         const videoHtml = videoPolaroid(safeMediaUrl(letter.video_url));
 
         root.innerHTML =
+          '<div class="seal reveal s0"><img src="assets/reunite-logo.png" alt="Reunite" width="68" /></div>' +
           '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +
           photoHtml +
           videoHtml +
