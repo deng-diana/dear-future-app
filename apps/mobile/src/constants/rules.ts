@@ -7,7 +7,7 @@
  * false = 正式:最短封存 15 天。
  * 演示结束后改回 false 即恢复真实规则。
  */
-export const DEMO_MODE = true;
+export const DEMO_MODE = false;
 
 /**
  * 封存的最短跨度(天)。送达日期必须 ≥ 今天 + MIN_SEAL_DAYS。

@@ -12,18 +12,23 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 const FROM_DOMAIN = 'mail.dearfuture.space';
 const READ_BASE = 'https://dear-future-app.vercel.app';
 
+// 演示/测试模式:为 true 时,不管送达日是哪天,只要没送过就立刻发(封存即送达)。
+// ⚠️ 比赛结束后改回 false —— 否则未来的信会被立即发出,破坏产品核心逻辑。
+const DEMO_MODE = false;
+
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   // 今天(UTC)的日期,'YYYY-MM-DD'。
   const today = new Date().toISOString().slice(0, 10);
 
-  // 查"送达日 <= 今天 且 还没送过"的信。
-  const { data: letters, error } = await supabase
+  // 查"还没送过"的信;非演示模式才额外要求"送达日 <= 今天"。
+  let q = supabase
     .from('letters')
     .select('id, owner_id, body, deliver_on, reveal_token')
-    .lte('deliver_on', today)
     .is('delivered_at', null);
+  if (!DEMO_MODE) q = q.lte('deliver_on', today);
+  const { data: letters, error } = await q;
 
   if (error) {
     return json({ error: error.message }, 500);
