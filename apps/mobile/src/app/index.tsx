@@ -229,6 +229,9 @@ export default function WriteScreen() {
           {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。 */}
           <Dateline />
 
+          {/* 顶部邮戳与信之间的金色分割线(用户素材 devider.svg → PNG)。 */}
+          <Image source={require('@/assets/images/divider.png')} style={styles.divider} resizeMode="contain" />
+
         {/* 整封信(含称呼)都在这一个输入框里写,同一字体同一字号;光标是暖金棕色。 */}
         <TextInput
           style={styles.input}
@@ -377,6 +380,9 @@ export default function WriteScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: '#FAE6C9' }, // 干净纯色底(用户指定)
+
+  // 顶部邮戳与信之间的金色分割线:与正文同样 32 页边距,细细一条。
+  divider: { alignSelf: 'stretch', height: 14, marginHorizontal: 32, marginTop: 8, marginBottom: 2 },
 
   // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
   // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。

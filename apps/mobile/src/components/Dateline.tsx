@@ -107,8 +107,8 @@ const lineBase = {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 24,
-    paddingTop: 4,
+    paddingHorizontal: 32, // 与信正文左对齐(右移一点)
+    paddingTop: 16,        // 向下一点,保持同样的页边距
   },
   line: lineBase,
   // 城市文字:和其他行完全一样,只加一条极淡的点线下划线作为"可编辑"暗示
