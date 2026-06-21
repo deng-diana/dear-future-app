@@ -16,7 +16,7 @@
   body { min-height:100vh; display:flex; justify-content:center; -webkit-font-smoothing:antialiased; }
   .wrap { width:100%; max-width:620px; padding:14vh 28px 18vh; }
   .seal { text-align:center; margin:0 0 8px; }
-  .seal img { width:68px; height:auto; display:inline-block; filter:drop-shadow(0 2px 6px rgba(87,32,7,.10)); }
+  .seal img { width:auto; height:80px; display:inline-block; filter:drop-shadow(0 2px 8px rgba(87,32,7,.18)); }
   .meta { font-family:'Courier Prime',monospace; font-size:13px; letter-spacing:.08em; line-height:1.9; color:var(--soft); }
   .salutation { font-family:'Courier Prime',monospace; font-weight:700; font-size:30px; line-height:1.25; color:var(--brown); margin:28px 0 18px; }
   .body { font-family:'Courier Prime',monospace; font-size:16px; line-height:1.95; white-space:pre-wrap; color:var(--ink); }
@@ -38,6 +38,20 @@
   .reveal.d3  { animation-delay:3.4s; }
   @keyframes rise { to { opacity:1; transform:translateY(0); } }
 
+  /* ── Photo strip: all photos side-by-side in one horizontal row ── */
+  .photo-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    margin: 24px 0 0;
+  }
+
+  /* Each photo polaroid inside the strip is smaller so 2–4 fit in a row */
+  .photo-strip .polaroid-wrap {
+    margin: 0;
+  }
+
   /* ── Polaroid frame ── */
   .polaroid-wrap {
     /* Center inside the max-width column */
@@ -54,13 +68,18 @@
       0 24px 48px rgba(13,13,13,.06);
     position: relative;
     background: var(--paper-bg);
-    padding: 22px 22px 36px;
+    padding: 14px 14px 28px;
     box-shadow: var(--paper-shadow);
-    /* Width: fits comfortably in 620px column with room to breathe */
+    /* Default (video) size — comfortably wide */
     width: min(320px, 88vw);
   }
 
-  .polaroid--photo { transform: rotate(-2deg); }
+  /* Photo polaroids are smaller so 2–4 fit in the strip row */
+  .polaroid--photo {
+    width: min(128px, 40vw);
+    padding: 10px 10px 22px;
+  }
+
   .polaroid--video { transform: rotate(2deg); }
 
   /* Scatter the photos so they feel hand-placed, not stamped. */
@@ -180,9 +199,10 @@
       // esc() the URL to prevent XSS via a malicious photo_url
       var safe = esc(url);
       var rotClass = 'r' + (i % 4);   // r0..r3 — hand-placed scatter
-      var delayClass = 'p' + (i % 4); // p0..p3 — staggered reveal delay
+      // The whole photo-strip wrapper gets a single reveal animation, so
+      // individual polaroids don't need their own reveal/delay classes.
       return (
-        '<div class="polaroid-wrap reveal ' + delayClass + '">' +
+        '<div class="polaroid-wrap">' +
           '<figure class="polaroid polaroid--photo ' + rotClass + '">' +
             '<div class="polaroid-tape"></div>' +
             '<div class="polaroid-window">' +
@@ -233,12 +253,15 @@
         // photo_url may be a JSON array (up to 4), an old single URL, or null.
         // parsePhotoUrls() already runs every URL through safeMediaUrl().
         const photoUrls = parsePhotoUrls(letter.photo_url);
-        const photoHtml = photoUrls.map(function (u, i) { return photoPolaroid(u, i); }).join('');
+        // Wrap all photo polaroids in a single flex strip so they sit side by side.
+        const photoHtml = photoUrls.length > 0
+          ? '<div class="photo-strip reveal d1p">' + photoUrls.map(function (u, i) { return photoPolaroid(u, i); }).join('') + '</div>'
+          : '';
         // video_url stays a single URL — guard it the same as before.
         const videoHtml = videoPolaroid(safeMediaUrl(letter.video_url));
 
         root.innerHTML =
-          '<div class="seal reveal s0"><img src="assets/reunite-logo.png" alt="Reunite" width="68" /></div>' +
+          '<div class="seal reveal s0"><img src="assets/seal-stamp.png" alt="Reunite" /></div>' +
           '<div class="meta reveal d1">' + fmtDate(letter.deliver_on) + '<br>You sealed this, and asked it to find you today.</div>' +
           photoHtml +
           videoHtml +
