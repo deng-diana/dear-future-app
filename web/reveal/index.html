@@ -227,12 +227,69 @@
     .photo-strip { flex-wrap: wrap; gap: 12px; }
     .polaroid--photo { margin-left: 0; }
   }
+
+  /* ── Ambient music toggle (opt-in) ──
+     浏览器禁止自动出声,所以做成一个安静的小按钮:点一下才播放。
+     默认隐藏,信加载成功后由 JS 显示;音乐文件缺失则保持隐藏(不留破图)。 */
+  .music-toggle {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(87,32,7,.22);
+    background: #FFFDF8;
+    color: var(--wax);
+    display: none;                      /* JS 加 .show 才出现 */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 50;
+    box-shadow: 0 2px 10px rgba(87,32,7,.14);
+    -webkit-tap-highlight-color: transparent;  /* 手机点击不闪灰块 */
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .music-toggle.show { display: flex; }
+  .music-toggle:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(87,32,7,.18); }
+  /* 还没点过时,温柔呼吸一下作邀请;点一次后移除 */
+  .music-toggle.hint { animation: musicPulse 2.6s ease-in-out infinite; }
+  @keyframes musicPulse {
+    0%, 100% { box-shadow: 0 2px 10px rgba(87,32,7,.14); }
+    50%      { box-shadow: 0 2px 10px rgba(87,32,7,.14), 0 0 0 8px rgba(178,107,36,.10); }
+  }
+  .music-toggle svg { width: 20px; height: 20px; display: block; }
+  /* 暂停时显示音符(邀请);播放时显示声波 */
+  .music-toggle .ico-on  { display: none; }
+  .music-toggle.playing .ico-on  { display: block; }
+  .music-toggle.playing .ico-off { display: none; }
 </style>
 </head>
 <body>
   <main class="wrap" id="root">
     <p class="state" id="state">Opening…</p>
   </main>
+
+  <!-- 环境配乐:故意做成"点一下才放"——手机和电脑的浏览器都禁止网页自动出声。
+       audio 放在 #root 外面,所以 main() 重写 #root.innerHTML 时不会被清掉。
+       loop = 循环;preload="auto" = 提前下好,点了就立刻响。 -->
+  <audio id="music" loop preload="auto">
+    <source src="assets/music.mp3" type="audio/mpeg" />
+  </audio>
+  <button class="music-toggle" id="musicBtn" type="button" aria-label="Play ambient music">
+    <!-- 暂停时:音符(邀请点击) -->
+    <svg class="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 18V5l11-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="17" cy="16" r="3" />
+    </svg>
+    <!-- 播放时:声波 -->
+    <svg class="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" />
+    </svg>
+  </button>
 
   <script>
     // 这两个都是公开值(anon key 本就随 app 公开),放这里安全。
@@ -336,6 +393,59 @@
       );
     }
 
+    // 环境配乐:点一下播放/暂停,带温柔的音量淡入淡出。
+    // 信加载成功后才调用(见 main 末尾),所以按钮只在能读到信时才出现。
+    function initMusic() {
+      var audio = document.getElementById('music');
+      var btn = document.getElementById('musicBtn');
+      if (!audio || !btn) return;
+
+      // 音乐文件加载失败(没放 music.mp3 / 路径错)→ 永远不显示这个按钮,不留破图。
+      audio.addEventListener('error', function () { btn.classList.remove('show', 'hint'); });
+
+      var targetVol = 0.55;   // 轻柔,绝不吵
+      var fadeTimer = null;
+
+      // ⚠️ iOS(含 iPhone 上的 Chrome —— 内核都是 Safari/WebKit)会忽略对 audio.volume 的写入,
+      // 音量永远锁在 1。所以淡入只是"锦上添花",绝不能让"暂停/播放"去依赖音量到没到位。
+      // 否则 iOS 上淡出永远到不了 0,pause() 永远不执行 = 卡在播放、点了没反应(就是这个 bug)。
+      // 修复:① 暂停立刻执行,不等淡出;② 淡入按"固定步数"结束,改不动音量也能自然收尾。
+      function fadeIn() {
+        if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+        var steps = 16, i = 0;
+        audio.volume = 0;                 // 能改动的平台:从 0 渐起;iOS:忽略(锁 1),照样能播
+        fadeTimer = setInterval(function () {
+          i++;
+          var v = targetVol * (i / steps);
+          audio.volume = v > 1 ? 1 : v;   // iOS 忽略写入,但无害
+          if (i >= steps) { clearInterval(fadeTimer); fadeTimer = null; }
+        }, 45);
+      }
+
+      btn.classList.add('show', 'hint');
+
+      btn.addEventListener('click', function () {
+        btn.classList.remove('hint');   // 点过一次就不再呼吸提示
+        if (audio.paused) {
+          // ── 播放 ──(play() 同步把 paused 置 false,所以连点也能正确切换)
+          var p = audio.play();
+          // play() 返回 Promise;手机上若手势/加载有问题会 reject,catch 掉回到暂停外观。
+          if (p && p.catch) {
+            p.catch(function () { btn.classList.remove('playing'); });
+          }
+          btn.classList.add('playing');
+          btn.setAttribute('aria-label', 'Pause ambient music');
+          fadeIn();
+        } else {
+          // ── 暂停:立刻停,不依赖淡出回调(保证 iOS 也能停) ──
+          if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+          audio.pause();
+          btn.classList.remove('playing');
+          btn.setAttribute('aria-label', 'Play ambient music');
+        }
+      });
+    }
+
     async function main() {
       const token = getToken();
       const root = document.getElementById('root');
@@ -391,6 +501,9 @@
           // ── Letter body ──
           '<div class="body reveal d3">' + esc(letter.body) + '</div>' +
           '<div class="star reveal d3">&#10022;</div>';
+
+        // 信显示成功 → 亮出音乐按钮(温柔邀请)。
+        initMusic();
 
       } catch (e) {
         state.textContent = 'Something went wrong opening this letter.';

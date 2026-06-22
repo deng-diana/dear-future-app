@@ -28,6 +28,7 @@
 4. ⬜ **上线前**:移除 `ALLOW_SANDBOX_PURCHASES`、升 Supabase Pro(永不暂停+大存储)
 5. ⬜ App Store 那两个媒体商品显示名改 Photos & Short Video / Photos & Long Video
 6. ⬜ DMARC 加 rua、配 `unsubscribe@`/`privacy@` 转发、账号删除网页 URL(Android)
+7. ⬜ **DMARC 收严收尾(约 2026-07-06,即观察 ~2 周后)**:DMARC 记录已是 `p=none`(收严第一步已完成 ✅,2026-06-22 dig 确认 `p=none; rua=...; fo=1; adkim=r; aspf=r`)。Namecheap 一键邮件转发因发信走 Resend 显示 "using other email service",**这是预期、无害,先放着**。最后一步:把 `p=none → p=quarantine`(也是以后 BIMI logo 头像的硬前提)。`unsubscribe@`/`privacy@` 真实转发到上线前再配(届时改 Advanced DNS → Mail Settings,**小心别删 Resend 的 mail. 子域发信记录**)。
 
 **🔐 进行中(用户最高优先):端到端/静态加密** —— 信件正文当前在 DB 是明文,要加密。方向待定(见对话:静态加密 A / 时间锁 B / 真E2EE C)。定向后:详细计划→资深 review→/loop。
 
