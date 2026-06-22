@@ -25,7 +25,7 @@ Deno.serve(async () => {
   // 查"还没送过"的信;非演示模式才额外要求"送达日 <= 今天"。
   let q = supabase
     .from('letters')
-    .select('id, owner_id, body, deliver_on, reveal_token')
+    .select('id, owner_id, body, deliver_on, reveal_token, sealed_at')
     .is('delivered_at', null);
   if (!DEMO_MODE) q = q.lte('deliver_on', today);
   const { data: letters, error } = await q;
@@ -47,6 +47,17 @@ Deno.serve(async () => {
 
     const year = new Date(letter.deliver_on).getFullYear();
     const readUrl = `${READ_BASE}/?token=${letter.reveal_token}`;
+    // 写信那天(从 sealed_at 取);用于主题与正文「the you of {日期}」。老数据若无 sealed_at 则降级。
+    const writtenDate = letter.sealed_at
+      ? new Date(letter.sealed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      : null;
+    const subject = writtenDate ? `A letter from the you of ${writtenDate}` : 'A letter you left for yourself';
+    const wroteLine = writtenDate
+      ? `Some time ago — on <strong>${writtenDate}</strong> — you sat down and wrote a letter.`
+      : `Some time ago, you sat down and wrote a letter.`;
+    const wroteLineText = writtenDate
+      ? `Some time ago — on ${writtenDate} — you sat down and wrote a letter.`
+      : `Some time ago, you sat down and wrote a letter.`;
 
     // 发邮件:发件人显示名「You, in 20XX」,带看信链接 + 底部夹纯文字全文(保命副本)。
     const emailRes = await fetch('https://api.resend.com/emails', {
@@ -61,24 +72,42 @@ Deno.serve(async () => {
         // 回复地址设成收信人本人 —— 这封信本就是「你写给你自己」,回信回到自己,
         // 也是给 Gmail 的强信任信号(自我对话=真实邮件,不是群发垃圾)。
         reply_to: email,
-        subject: `A letter from you, ${year}`,
+        subject,
         // List-Unsubscribe:Gmail/Yahoo 现在期望每封信都带「一键退订」头,
         // 带上=加分,缺=扣分。⚠️ unsubscribe@dearfuture.space 必须是真实可收信的地址
         // (在 Namecheap 给 dearfuture.space 配个转发到你 Gmail 即可)。
         headers: {
           'List-Unsubscribe': '<mailto:unsubscribe@dearfuture.space?subject=unsubscribe>',
         },
+        // 邮件 = 温暖的「邀请」(不再把全文糊在上面);真正的揭晓在网页揭晓页(慢拆封 + 媒体 + 音乐)。
+        // 最底部仍夹一段安静的全文「保命副本」—— manifesto 第3戒:信永远活在你自己邮箱,公司没了也在。
         html:
-          `<p>Some time ago, you sealed something for this exact day.</p>` +
-          `<p><a href="${readUrl}">Open it &rarr;</a></p>` +
-          `<hr>` +
-          `<pre style="white-space:pre-wrap;font-family:Georgia,serif;font-size:16px;color:#4A3D31">${escapeHtml(letter.body)}</pre>` +
-          // 落款:说明「你为什么收到这封信」,是正规发信人的合法性信号。
-          `<hr><p style="font-size:12px;color:#8A7B6B">You received this because you sealed a letter with Reunite for delivery on this day. Reunite &middot; dearfuture.space</p>`,
+          // 预览行(preheader):Gmail 主题后那行灰字;隐藏的一行温柔铺垫。
+          `<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Some time ago you asked us to keep this safe until today. It's time.</span>` +
+          `<div style="background:#F4EEE4;padding:40px 16px;font-family:Georgia,serif;">` +
+            `<div style="max-width:520px;margin:0 auto;color:#4A3D31;font-size:17px;line-height:1.7;">` +
+              `<p style="margin:0 0 1.1em;">${wroteLine}</p>` +
+              `<p style="margin:0 0 1.1em;">Not to anyone else. To you, today.</p>` +
+              `<p style="margin:0 0 1.1em;">You asked for it to find you on this exact day. So here it is.</p>` +
+              `<p style="margin:0 0 1.8em;">Take a quiet moment. Then, when you're ready, meet the person you used to be.</p>` +
+              `<p style="margin:0 0 0.6em;text-align:center;"><a href="${readUrl}" style="display:inline-block;background:#B26B24;color:#FBEFDB;text-decoration:none;padding:14px 34px;font-size:16px;">Open your letter</a></p>` +
+              `<p style="margin:0 0 2em;text-align:center;font-size:13px;color:#8A7B6B;font-style:italic;">It opens slowly, the way it was sealed.</p>` +
+              `<p style="margin:0;font-size:13px;color:#8A7B6B;">You're seeing this because you wrote this letter with Reunite and chose today as the day it would return. No one else has read it. No one else ever will.</p>` +
+              `<hr style="border:none;border-top:1px solid #EFDFC0;margin:2em 0;">` +
+              `<p style="margin:0 0 1em;font-size:12px;color:#9A8B79;font-style:italic;">Your own words, kept here for safekeeping — no link, no app, nothing to open. They are simply yours, for as long as this inbox lasts.</p>` +
+              `<pre style="white-space:pre-wrap;font-family:Georgia,serif;font-size:15px;color:#6B5A4B;margin:0;">${escapeHtml(letter.body)}</pre>` +
+            `</div>` +
+          `</div>`,
         text:
-          `Some time ago, you sealed something for this exact day.\n\n` +
-          `Open it: ${readUrl}\n\n---\n\n${letter.body}\n\n` +
-          `---\nYou received this because you sealed a letter with Reunite for delivery on this day.\nReunite · dearfuture.space`,
+          `${wroteLineText}\n\n` +
+          `Not to anyone else. To you, today.\n\n` +
+          `You asked for it to find you on this exact day. So here it is.\n\n` +
+          `Take a quiet moment. Then, when you're ready, meet the person you used to be.\n\n` +
+          `Open your letter: ${readUrl}\n\n` +
+          `You're seeing this because you wrote this letter with Reunite and chose today as the day it would return. No one else has read it. No one else ever will.\n\n` +
+          `──────────\n` +
+          `Your own words, kept here for safekeeping — no link, no app, nothing to open. They are simply yours, for as long as this inbox lasts.\n\n` +
+          `${letter.body}`,
       }),
     });
 
