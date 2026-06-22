@@ -69,7 +69,7 @@ function devWarnOnce(): void {
 // SealTier = 封存档位。每个档位对应一个一次性消耗品(Consumable,买了就用掉)。
 // "消耗品"跟订阅不同:买了不能用来判断用户状态——
 // 实际福利由服务器端在收到购买凭证后授予(见 TODO d)。
-export type SealTier = 'letter' | 'keepsake' | 'heirloom';
+export type SealTier = 'words' | 'photos' | 'video';
 
 export interface TierDefinition {
   // RevenueCat Offering(产品目录)里对应的 Package Identifier(套餐标识符)。
@@ -85,25 +85,26 @@ export interface TierDefinition {
 }
 
 // TIERS = 所有档位的常量表。
-// 档位从低到高:letter(纯文字)→ keepsake(文字+照片+视频)→ heirloom(更丰富媒体)。
+// 档位从低到高:words(纯文字)→ photos(文字+照片+视频)→ video(更丰富媒体)。
+// 名字用大白话、自带说明,对非英语母语者友好(用户在付款弹窗看到的就是这些)。
 export const TIERS: Record<SealTier, TierDefinition> = {
-  letter: {
-    packageId: '$rc_letter',       // 在 RevenueCat 控制台里配置成同名 Package
-    label: 'Letter',
+  words: {
+    packageId: '$rc_words',       // 在 RevenueCat 控制台里配置成同名 Package
+    label: 'Words',
     priceHint: '$2.99',
-    description: 'A text letter sealed in time.',
+    description: 'Your letter, sealed in time.',
   },
-  keepsake: {
-    packageId: '$rc_keepsake',
-    label: 'Keepsake',
+  photos: {
+    packageId: '$rc_photos',
+    label: 'Words & Photos',
     priceHint: '$4.99',
-    description: 'Text + up to 4 photos + 1 video.',
+    description: 'Add up to 4 photos and a short video.',
   },
-  heirloom: {
-    packageId: '$rc_heirloom',
-    label: 'Heirloom',
+  video: {
+    packageId: '$rc_video',
+    label: 'Words, Photos & Video',
     priceHint: '$9.99',
-    description: 'Richer media — the fullest time capsule.',
+    description: 'More photos and a longer, sharper video.',
   },
 };
 
