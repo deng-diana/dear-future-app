@@ -25,6 +25,12 @@ const CORS_HEADERS = {
 const MIN_SEAL_DAYS = 15;
 // FREE_HORIZON_DAYS:免费封存允许的最长时间跨度(天)= 1 年。
 const FREE_HORIZON_DAYS = 365;
+// MAX_SEAL_DAYS:封存最长跨度(天)≈ 25 年。防止把信定到不合理的遥远未来(存储成本/异常日期)。
+const MAX_SEAL_DAYS = 25 * 366;
+// ALLOW_SANDBOX:是否允许 Sandbox(沙盒/测试)购买通过验证。
+// 默认 false(生产安全):拒绝 is_sandbox 交易,否则任何 TestFlight/沙盒账号可 $0 封付费信。
+// 测试期在 Supabase secrets 设 ALLOW_SANDBOX_PURCHASES=true;⚠️ 上线前务必移除。
+const ALLOW_SANDBOX = Deno.env.get('ALLOW_SANDBOX_PURCHASES') === 'true';
 // 信件正文最大字符数(防止恶意超大请求打爆数据库)。
 const MAX_BODY_LENGTH = 100_000;
 
@@ -128,6 +134,11 @@ Deno.serve(async (req: Request) => {
       error: `deliver_on must be at least ${MIN_SEAL_DAYS} days from today (min: ${minDate})`,
     }, 400);
   }
+  // 最长上限:不允许把信定到 ~25 年以后(免费/付费两路都适用)。
+  const maxDate = addDaysToDateStr(todayUTC, MAX_SEAL_DAYS);
+  if (deliver_on > maxDate) {
+    return json({ error: `deliver_on must be within about 25 years (max: ${maxDate})` }, 400);
+  }
 
   // 媒体与档位一致性检查:
   //   - 有媒体 → tier 必须是 'photos' 或 'video'。
@@ -202,6 +213,14 @@ Deno.serve(async (req: Request) => {
       });
 
     if (insertErr) {
+      // 唯一索引(letters owner_id where seal_tier='free')冲突 = 并发/重复免费封存 → 已用过。
+      // 这是数据库层堵住"刷免费信"竞态的最后一道关。
+      if (insertErr.code === '23505') {
+        return json({
+          error: 'free_seal_already_used',
+          message: 'Your free seal has already been used. Please choose a paid tier.',
+        }, 402);
+      }
       console.error('[seal-letter] insert error (free):', insertErr.message);
       return json({ error: 'Failed to seal letter. Please try again.' }, 500);
     }
@@ -258,13 +277,16 @@ Deno.serve(async (req: Request) => {
     // store_transaction_id = App Store 或 Google Play 返回的原始交易 ID。
     const rcData = await rcRes.json() as {
       subscriber?: {
-        non_subscriptions?: Record<string, Array<{ store_transaction_id: string }>>;
+        non_subscriptions?: Record<string, Array<{ store_transaction_id: string; is_sandbox?: boolean }>>;
       };
     };
 
     const entries = rcData?.subscriber?.non_subscriptions?.[productId] ?? [];
-    // 在该产品的购买记录里,找到 store_transaction_id 与我们收到的 transactionId 匹配的条目。
-    rcVerified = entries.some((e) => e.store_transaction_id === txId);
+    // 找到 store_transaction_id 匹配的条目;且(生产)拒绝沙盒交易——
+    // is_sandbox=true 是免费的测试购买,绝不能用来封真付费信。
+    rcVerified = entries.some(
+      (e) => e.store_transaction_id === txId && (ALLOW_SANDBOX || e.is_sandbox !== true),
+    );
   } catch (fetchErr) {
     // 网络故障 → 拒绝(不允许在无法验证时插入付款信件)。
     console.error('[seal-letter] RevenueCat fetch failed:', fetchErr);
@@ -330,10 +352,11 @@ Deno.serve(async (req: Request) => {
     // 极端情况:这次请求失败了,transactionId 被锁定,用户再试会拿到 409。
     // 处理:我们把 used_transactions 的记录删掉,让用户可以重试。
     // 这不会引入双花风险:用户的购买凭证在 RevenueCat 那边是真实的,他只是换一次重试。
-    await adminClient
+    const { error: rbErr } = await adminClient
       .from('used_transactions')
       .delete()
       .eq('transaction_id', txId);
+    if (rbErr) console.error('[seal-letter] rollback delete failed (txId 仍被锁,需人工处理):', rbErr.message);
 
     console.error('[seal-letter] letter insert error:', insertErr.message);
     return json({ error: 'Failed to seal letter. Please try again.' }, 500);

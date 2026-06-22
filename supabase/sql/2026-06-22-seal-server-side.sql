@@ -23,6 +23,14 @@
 alter table public.letters
   add column if not exists seal_tier text;
 
+-- ── 1b. 唯一约束:每个账号最多 1 封免费封存 ──
+-- 部分唯一索引(partial unique index):只对 seal_tier='free' 的行生效。
+-- 数据库层强制"一个账号只能有一封免费信"——即使并发请求同时通过应用层的次数检查,
+-- 第二个 INSERT 也会因唯一冲突(23505)失败。这堵住了"刷免费信"的竞态漏洞。
+create unique index if not exists letters_one_free_per_owner
+  on public.letters (owner_id)
+  where seal_tier = 'free';
+
 -- ── 2. used_transactions 表:防重放攻击(Replay Attack / 双花攻击) ──
 -- 每当一笔付款被成功消耗,就在这里留下记录。
 -- PRIMARY KEY = transaction_id:如果同一个 transactionId 被第二次提交,
