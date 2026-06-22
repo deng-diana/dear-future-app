@@ -2,11 +2,20 @@ import { CourierPrime_400Regular, CourierPrime_700Bold } from '@expo-google-font
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { configurePurchases } from '@/lib/purchases';
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // RevenueCat SDK 初始化:app 一启动就配置好购买管道。
+  // configurePurchases() 在 web / 无密钥时是 no-op(什么都不做,不报错)。
+  useEffect(() => {
+    configurePurchases();
+  }, []);
 
   // 加载字体:Courier Prime(全站打字机字体)+ IBM Plex Mono(保留备用)。
   // 字体没加载完之前先显示一块干净的奶油色底(不白屏),加载好再渲染界面 ——

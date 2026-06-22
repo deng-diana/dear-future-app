@@ -7,14 +7,19 @@ import { Alert, Platform } from 'react-native';
 
 import { supabase } from './supabase';
 
-export type PickedMedia = { uri: string; kind: 'photo' | 'video' };
+// durationSec = 视频时长(秒),从 ImagePicker asset.duration(毫秒)四舍五入而来。
+// 供 tierFor() 判断定价档位用——如果 picker 没有返回时长,则为 undefined。
+export type PickedMedia = { uri: string; kind: 'photo' | 'video'; durationSec?: number };
 
-// 一封信最多放 4 张照片(视频仍只允许 1 段)。
-export const MAX_PHOTOS = 4;
+// 一封信最多放 10 张照片(视频仍只允许 1 段,最长 60 秒)。
+// 4→10:Photos & Long Video 档位允许最多 10 张。
+export const MAX_PHOTOS = 10;
 
 // 体积上限:我们把整个文件读进内存再上传,太大手机会崩溃,所以先拦住。
 const MAX_PHOTO_BYTES = 12 * 1024 * 1024; // 12 MB
-const MAX_VIDEO_BYTES = 25 * 1024 * 1024; // 25 MB
+// 60 秒视频体积上限提高到 50 MB。
+// TODO: 上线前确认 Supabase memories 桶的单文件上传上限 ≥ 50 MB(控制台 Storage → Policies 里可查)。
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
 
 // 太大就提示并拒绝;拿不到大小(undefined)就放行。
 function tooBig(size: number | undefined, max: number, label: string): boolean {
@@ -51,16 +56,22 @@ export async function pickPhotos(remaining: number): Promise<PickedMedia[]> {
   return kept.slice(0, Math.max(0, remaining));
 }
 
-// 选 1 段视频,最长 30 秒(PRD 限制)。
+// 选 1 段视频,最长 60 秒(Photos & Long Video 档位上限)。
+// asset.duration 是 ImagePicker 返回的视频时长,单位是毫秒,四舍五入成秒存入 durationSec。
 export async function pickVideo(): Promise<PickedMedia | null> {
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['videos'],
     allowsEditing: true,
-    videoMaxDuration: 30,
+    videoMaxDuration: 60,
   });
   if (res.canceled || !res.assets?.[0]) return null;
   if (tooBig(res.assets[0].fileSize, MAX_VIDEO_BYTES, 'Video')) return null;
-  return { uri: res.assets[0].uri, kind: 'video' };
+  // asset.duration 单位是毫秒(ms);换算成秒并四舍五入。
+  const durationSec =
+    typeof res.assets[0].duration === 'number'
+      ? Math.round(res.assets[0].duration / 1000)
+      : undefined;
+  return { uri: res.assets[0].uri, kind: 'video', durationSec };
 }
 
 // 生成一个猜不到的文件夹名(媒体路径用)。

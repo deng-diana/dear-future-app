@@ -15,3 +15,10 @@ export const DEMO_MODE = false;
  * 演示模式下为 0(可选今天)。
  */
 export const MIN_SEAL_DAYS = DEMO_MODE ? 0 : 15;
+
+/**
+ * 免费档位的最长时间跨度(天)= 1 年(365 天)。
+ * 超过这个天数(或免费次数已用完)就需要购买 Words 档位($2.99)。
+ * 与 MIN_SEAL_DAYS 放在一起,是这条规则的唯一定义处。
+ */
+export const FREE_HORIZON_DAYS = 365;

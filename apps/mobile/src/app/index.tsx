@@ -1,3 +1,6 @@
+// TODO (next task, high-risk): server-side purchase verification before honoring a paid seal
+// — needs RevenueCat secret key. Client-side ok:true is not proof of payment on the server.
+
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -12,7 +15,9 @@ import SignIn from '@/components/SignIn';
 import Splash from '@/components/Splash';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
 import { pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
+import { purchaseTier } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
+import { tierFor } from '@/lib/tiers';
 
 // 把日期"归零"到当天 00:00(本地时区)—— 我们按"整天"算,不掺时分秒。
 function startOfDay(base: Date): Date {
@@ -36,12 +41,30 @@ function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// 把 Date 格式化成 'Mon D, YYYY'(例如 'Jun 22, 2027')给 SealSheet 展示。
+function formatDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// 把秒数格式化成 'm:ss'(例如 18 秒 → '0:18',75 秒 → '1:15')。
+function formatDuration(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// 两个日期之间相差多少天(按"整天",不管时分秒)。
+function daysBetween(a: Date, b: Date): number {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.round((b.getTime() - a.getTime()) / msPerDay);
+}
+
 export default function WriteScreen() {
   const [letter, setLetter] = useState('Dear future me,\n\n'); // 信里写了什么(开屏即预填称呼,可编辑)
   const [sealing, setSealing] = useState(false); // 正在播封存仪式动画?
   const [sealed, setSealed] = useState(false); // 封存了没?
 
-  // 可选附件:最多 4 张照片 + 1 段短视频(封存时一起上传)。
+  // 可选附件:最多 10 张照片 + 1 段视频(封存时一起上传)。
   const [photos, setPhotos] = useState<PickedMedia[]>([]);
   const [video, setVideo] = useState<PickedMedia | null>(null);
   const [busy, setBusy] = useState(false); // 正在上传媒体 + 写库(按 Seal 后那一下)
@@ -50,7 +73,7 @@ export default function WriteScreen() {
   const [showSplash, setShowSplash] = useState(true);
 
   // 写信流程的两步:'write' = 写信 + 选附件;'date' = 安静地只选送达日 + 封存。
-  const [step, setStep] = useState<'write' | 'date'>('write');
+  const [step, setStep] = useState<'write' | 'date' | 'seal'>('write');
   // 每次打开选日期弹层就 +1 —— 用作日历的 key,强制重新挂载,月份回到当前月(RN Modal 关闭不卸载子组件,会残留旧月份)。
   const [pickerKey, setPickerKey] = useState(0);
 
@@ -80,16 +103,54 @@ export default function WriteScreen() {
   // 只有"称呼"还不算写了信 —— 要等用户在称呼之外真的写了字,底部才出现。
   const canSeal = letter.trim().length > 0 && letter.trim() !== 'Dear future me,';
 
-  // 真正把信写进 Supabase 的 letters 表。
-  // 只送"信的内容 + 送达日";主人(owner_id)由数据库按当前登录的人自动填。
-  async function doSeal() {
+  // 视频时长(秒),没有视频就是 0。
+  const videoSeconds = video?.durationSec ?? 0;
+
+  // 根据当前草稿内容计算定价档位(纯计算,实时响应)。
+  const horizonDays = daysBetween(startOfDay(new Date(todayStamp)), effectiveDate);
+  const tierResult = useMemo(
+    () =>
+      tierFor({
+        photoCount: photos.length,
+        videoSeconds,
+        horizonDays,
+        // TODO: server-authoritative freeSealUsed — v1 固定传 false,
+        // 等 Edge Function 接好后改从服务器读取。
+        freeSealUsed: false,
+      }),
+    [photos.length, videoSeconds, horizonDays],
+  );
+
+  // 去掉媒体后的"纯文字"档位(用于判断要不要显示"Seal as words only"选项)。
+  const wordsOnlyTier = useMemo(
+    () =>
+      tierFor({
+        photoCount: 0,
+        videoSeconds: 0,
+        horizonDays,
+        freeSealUsed: false,
+      }),
+    [horizonDays],
+  );
+  // 只有当前有媒体(有更贵的档位)时,才显示"Seal as words only"备选。
+  const showWordsOnlyEscape = (photos.length > 0 || video !== null) && !tierResult.isFree;
+
+  // ── 核心封存逻辑(已确认付款或免费时才调) ──
+  // 顺序:先上传媒体 → 再封存写库(一旦写库成功就播动画)。
+  // 注意:客户端顺序是"先传媒体再收费"——实际上收费在 handleSealSheet 里调 purchaseTier,
+  // 媒体上传在这函数里。真正权威的顺序(upload → charge → insert)应由服务器端 Edge Function
+  // 保障(见顶部 TODO)。
+  async function doSeal(overridePhotos?: PickedMedia[], overrideVideo?: PickedMedia | null) {
+    const effectivePhotos = overridePhotos ?? photos;
+    const effectiveVideo = overrideVideo !== undefined ? overrideVideo : video;
+
     setBusy(true); // 上传 + 写库期间,按钮转圈、防重复点
     // 先把照片 / 视频传到 memories 桶(同一个随机文件夹),拿到公开 URL。
     const folder = randomFolder();
     // 多张照片:逐张上传,带 index(文件名用得上);任一张失败就整体中止。
     const photoUrls: string[] = [];
-    for (let i = 0; i < photos.length; i++) {
-      const u = await uploadMedia(photos[i], folder, i);
+    for (let i = 0; i < effectivePhotos.length; i++) {
+      const u = await uploadMedia(effectivePhotos[i], folder, i);
       // 上传失败 → 千万别封存。封存即消失,信一走用户永远发现不了图丢了。
       if (!u) {
         setBusy(false);
@@ -100,8 +161,8 @@ export default function WriteScreen() {
     }
     // 可选视频:单段;视频忽略 index。
     let videoUrl: string | null = null;
-    if (video) {
-      videoUrl = await uploadMedia(video, folder, 0);
+    if (effectiveVideo) {
+      videoUrl = await uploadMedia(effectiveVideo, folder, 0);
       if (!videoUrl) {
         setBusy(false);
         Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
@@ -137,17 +198,85 @@ export default function WriteScreen() {
     setStep('date');
   }
 
-  // 按「封存」:正在忙就忽略;没登录就先弹登录;已登录就直接封。
+  // 按「封存」:正在忙就忽略;没登录就先弹登录;已登录就打开付款底单。
   function handleSeal() {
     if (busy) return;
     if (!session) {
       setShowSignIn(true);
       return;
     }
-    doSeal();
+    // 打开 SealSheet(付款 + 确认底单)。
+    setStep('seal');
   }
 
-  // 选照片(可多选,最多补到 4 张)/ 1 段视频(从相册)。
+  // SealSheet 里按下主按钮「Seal · {price}」时的逻辑。
+  async function handleSealSheet() {
+    if (busy) return;
+
+    if (tierResult.isFree) {
+      // 免费:直接封存,不弹付款。
+      await doSeal();
+      return;
+    }
+
+    // DEMO FALLBACK:购买功能在 web / 无密钥时被禁用。
+    // 为了让 /app 演示页和 Expo Go 体验能正常封存,遇到 'purchases disabled' 就跳过付款,
+    // 直接封存。真实 App Store 构建有密钥时不会走这条路。
+    if (Platform.OS === 'web') {
+      // web 演示:跳过付款,直接封存(Demo fallback — real builds have purchases enabled)。
+      await doSeal();
+      return;
+    }
+
+    // 原生:先触发购买弹窗。
+    // 注意顺序:先上传媒体在 doSeal 里做;这里先走付款再进 doSeal。
+    // 权威顺序(upload → charge → insert)由服务器端 Edge Function 保障(见顶部 TODO)。
+    const tier = tierResult.tier!;
+    const result = await purchaseTier(tier);
+
+    if (result.ok) {
+      // 付款成功 → 封存。
+      await doSeal();
+    } else if (result.cancelled) {
+      // 用户取消付款 → 留在底单,什么都不做。
+      return;
+    } else if (result.error === 'purchases disabled') {
+      // Demo fallback:购买模块未启用(无密钥的测试构建)→ 直接封存。
+      // Demo fallback — real App Store builds have purchases enabled.
+      await doSeal();
+    } else {
+      // 其他错误(网络失败、App Store 异常等) → 温和提示,留在底单。
+      Alert.alert(
+        'Something went wrong',
+        result.error ?? 'The purchase could not be completed. Please try again.',
+        [{ text: 'OK' }],
+      );
+    }
+  }
+
+  // 「Seal as words only」:去掉媒体后用纯文字档位封存。
+  function handleWordsOnly() {
+    Alert.alert(
+      'Seal your words only?',
+      "Your photos and video won't travel with this capsule. They stay safe in your phone's library — nothing is deleted.",
+      [
+        { text: 'Keep writing', style: 'cancel' },
+        {
+          text: 'Seal words only',
+          // 注意:没有 style:'destructive',这是一个"确认"而非"危险"操作。
+          onPress: async () => {
+            // 只清草稿里的媒体引用(不碰相册里的文件),然后用纯文字档位封存。
+            setPhotos([]);
+            setVideo(null);
+            // 用空媒体调 doSeal(覆盖当前 state,因为 setState 是异步的,doSeal 若直接读 state 会拿到旧值)。
+            await doSeal([], null);
+          },
+        },
+      ],
+    );
+  }
+
+  // 选照片(可多选,最多补到 10 张)/ 1 段视频(从相册)。
   async function addPhotos() {
     const picked = await pickPhotos(MAX_PHOTOS - photos.length);
     if (picked.length) setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
@@ -187,8 +316,8 @@ export default function WriteScreen() {
         onCancel={() => setShowSignIn(false)}
         onVerified={() => {
           setShowSignIn(false);
-          // 验证刚通过,登录信息已就位,直接封存(主人由数据库自动填)。
-          doSeal();
+          // 验证刚通过,登录信息已就位,打开付款底单(主人由数据库自动填)。
+          setStep('seal');
         }}
       />
     );
@@ -287,13 +416,16 @@ export default function WriteScreen() {
               </View>
             ) : null}
 
-            {/* 可选附件:照片(可多选,最多 4 张)+ 1 段视频。安静一行,守"写信为主"。 */}
+            {/* 可选附件:照片(可多选,最多 10 张)+ 1 段视频。安静一行,守"写信为主"。 */}
             <View style={styles.mediaRow}>
+              {/* 未满 10 张:显示 ＋ Photos;满 10 张:显示安静提示文字(不显示按钮)。 */}
               {photos.length < MAX_PHOTOS ? (
                 <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button">
                   <Text style={styles.mediaAdd}>＋ Photos</Text>
                 </Pressable>
-              ) : null}
+              ) : (
+                <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
+              )}
               {video ? (
                 <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button">
                   <Text style={styles.mediaOn}>🎬  ✕</Text>
@@ -345,6 +477,70 @@ export default function WriteScreen() {
           <Text style={styles.backLinkText}>← Keep writing</Text>
         </Pressable>
       </BottomSheet>
+
+      {/*
+        ── SealSheet:付款 + 确认底单 ──
+        step==='seal' 时从底部升起。展示:信件摘要 + 定价档位 + Seal 按钮 + 纯文字备选 + 返回。
+        关闭路径:点遮罩 / 下拉 / ← Keep writing —— 都不封存,草稿 + 附件完整保留。
+      */}
+      <BottomSheet visible={step === 'seal'} onClose={() => setStep('date')}>
+        {/* 标题 */}
+        <Text style={styles.sealSheetTitle}>Seal this capsule</Text>
+
+        {/* 信件摘要清单:只显示非零项。 */}
+        <View style={styles.sealSheetInventory}>
+          {/* 文字 —— 永远有 */}
+          <Text style={styles.sealSheetItem}>Your words</Text>
+          {/* 照片:1 张 or n 张 */}
+          {photos.length === 1 && <Text style={styles.sealSheetItem}>1 photo</Text>}
+          {photos.length > 1 && <Text style={styles.sealSheetItem}>{photos.length} photos</Text>}
+          {/* 视频:格式化成 m:ss */}
+          {video !== null && (
+            <Text style={styles.sealSheetItem}>
+              a {formatDuration(videoSeconds > 0 ? videoSeconds : 0)} video
+            </Text>
+          )}
+          {/* 送达日 */}
+          <Text style={styles.sealSheetItem}>Returning {formatDate(effectiveDate)}</Text>
+        </View>
+
+        {/* 分割线:细金 */}
+        <View style={styles.sealSheetDivider} />
+
+        {/* 档位行:档位名(左) + 价格(右) + 一行说明(下) */}
+        <View style={styles.sealSheetTierRow}>
+          <Text style={styles.sealSheetTierName}>{tierResult.tierName}</Text>
+          <Text style={styles.sealSheetPrice}>{tierResult.priceHint}</Text>
+        </View>
+        <Text style={styles.sealSheetReason}>{tierResult.reason}</Text>
+
+        {/* 主按钮:Seal · $X.XX 或 Seal · Free */}
+        <Pressable
+          style={[styles.sealButton, styles.sealButtonInSheet, busy && styles.sealButtonDisabled]}
+          onPress={handleSealSheet}
+          disabled={busy}
+          accessibilityRole="button">
+          {busy ? (
+            <ActivityIndicator color="#FBEFDB" />
+          ) : (
+            <Text style={styles.sealButtonText}>Seal · {tierResult.priceHint}</Text>
+          )}
+        </Pressable>
+
+        {/* 次选:只有有媒体(更贵档位)时才显示 —— 去掉媒体改用纯文字封存。 */}
+        {showWordsOnlyEscape ? (
+          <Pressable onPress={handleWordsOnly} disabled={busy} accessibilityRole="button">
+            <Text style={styles.sealSheetEscape}>
+              Seal as words only · {wordsOnlyTier.priceHint}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {/* 返回继续写(关底单,草稿 + 附件都在)。 */}
+        <Pressable onPress={() => setStep('date')} disabled={busy} style={styles.backLink} accessibilityRole="button">
+          <Text style={styles.backLinkText}>← Keep writing</Text>
+        </Pressable>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -376,6 +572,8 @@ const styles = StyleSheet.create({
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
   mediaAdd: { fontSize: 14, color: '#9A7E5C' }, // 未选:暖灰
   mediaOn: { fontSize: 14, color: '#B26B24' }, // 已选:波尔多红(✕ 可移除)
+  // 10 张满额提示:静默一行,与 mediaAdd 同字号同色系,但更低调。
+  mediaCap: { fontSize: 14, color: '#B8A492', fontStyle: 'italic' },
 
   // 已选照片的缩略图:像一排小相片。横向自动换行。
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 2 },
@@ -428,6 +626,58 @@ const styles = StyleSheet.create({
   sealButtonInSheet: { marginTop: -8 },
   sealButtonDisabled: { backgroundColor: '#C9B097' }, // 未激活:暖灰玫瑰(不满足条件)
   sealButtonText: { fontFamily: 'CourierPrime_400Regular', color: '#FBEFDB', fontSize: 16, letterSpacing: 0.5 }, // Courier Prime 16,暖近白
+
+  // ── SealSheet 专属样式 ──
+  // 标题:大一点,居中,Courier Prime,深棕。
+  sealSheetTitle: {
+    fontFamily: 'CourierPrime_700Bold',
+    fontSize: 18,
+    letterSpacing: -0.4,
+    color: '#5A3A24',
+    textAlign: 'center',
+  },
+  // 摘要清单:紧凑列表,每行左对齐。
+  sealSheetInventory: { alignSelf: 'stretch', gap: 4 },
+  sealSheetItem: {
+    fontFamily: 'CourierPrime_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6B5A4B',
+  },
+  // 细分割线:满宽暖金(比日历分割线更深一点)。
+  sealSheetDivider: { alignSelf: 'stretch', height: 1, backgroundColor: '#DECA9E' },
+  // 档位行:档位名(左)+ 价格(右),同一行两端对齐。
+  sealSheetTierRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+  },
+  sealSheetTierName: {
+    fontFamily: 'CourierPrime_700Bold',
+    fontSize: 15,
+    color: '#5A3A24',
+  },
+  sealSheetPrice: {
+    fontFamily: 'CourierPrime_700Bold',
+    fontSize: 15,
+    color: '#B26B24',
+  },
+  // 一行说明文字:静默暖灰,比档位行小一号。
+  sealSheetReason: {
+    fontFamily: 'CourierPrime_400Regular',
+    fontSize: 13,
+    color: '#9A7E5C',
+    alignSelf: 'stretch',
+    marginTop: -10, // 与档位行贴近一点
+  },
+  // 「Seal as words only · Free」:静默链接样式。
+  sealSheetEscape: {
+    fontFamily: 'CourierPrime_400Regular',
+    fontSize: 13,
+    color: '#9A7E5C',
+    textDecorationLine: 'underline',
+    paddingVertical: 4,
+  },
 
   // 封存后那一屏:内容居中 + 按钮沉底(对齐设计图)。
   sealedScreen: {
