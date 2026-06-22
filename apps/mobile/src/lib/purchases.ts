@@ -104,7 +104,7 @@ export const TIERS: Record<SealTier, TierDefinition> = {
     packageId: 'video',
     label: 'Photos & Long Video',
     priceHint: '$9.99',
-    description: 'Up to 10 photos and a video (≤60s).',
+    description: 'Up to 10 photos and a video (≤5 min).',
   },
 };
 
