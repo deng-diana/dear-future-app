@@ -92,19 +92,19 @@ export const TIERS: Record<SealTier, TierDefinition> = {
     packageId: 'words',       // 对应 RevenueCat default offering 里的自定义 Package「words」
     label: 'Words',
     priceHint: '$2.99',
-    description: 'Your letter, sealed in time.',
+    description: 'Just your words, up to 25 years.',
   },
   photos: {
     packageId: 'photos',
-    label: 'Words & Photos',
+    label: 'Photos & Short Video',
     priceHint: '$4.99',
-    description: 'Add up to 4 photos and a short video.',
+    description: 'Up to 4 photos and a video (≤30s).',
   },
   video: {
     packageId: 'video',
-    label: 'Words, Photos & Video',
+    label: 'Photos & Long Video',
     priceHint: '$9.99',
-    description: 'More photos and a longer, sharper video.',
+    description: 'Up to 10 photos and a video (≤60s).',
   },
 };
 
