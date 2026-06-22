@@ -1,5 +1,6 @@
-// TODO (next task, high-risk): server-side purchase verification before honoring a paid seal
-// — needs RevenueCat secret key. Client-side ok:true is not proof of payment on the server.
+// 封存流程:write → date → seal → Edge Function(服务器端校验 + 写库)。
+// 付款验证由 supabase/functions/seal-letter/index.ts 在服务器端完成——
+// 客户端只传购买凭证 ID,服务器向 RevenueCat 确认后才落库。
 
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
@@ -135,19 +136,29 @@ export default function WriteScreen() {
   // 只有当前有媒体(有更贵的档位)时,才显示"Seal as words only"备选。
   const showWordsOnlyEscape = (photos.length > 0 || video !== null) && !tierResult.isFree;
 
-  // ── 核心封存逻辑(已确认付款或免费时才调) ──
-  // 顺序:先上传媒体 → 再封存写库(一旦写库成功就播动画)。
-  // 注意:客户端顺序是"先传媒体再收费"——实际上收费在 handleSealSheet 里调 purchaseTier,
-  // 媒体上传在这函数里。真正权威的顺序(upload → charge → insert)应由服务器端 Edge Function
-  // 保障(见顶部 TODO)。
-  async function doSeal(overridePhotos?: PickedMedia[], overrideVideo?: PickedMedia | null) {
+  // ── 核心封存逻辑 ──
+  // 顺序:先上传媒体(如有)→ 再调 seal-letter Edge Function(服务器端验证 + 写库)。
+  // Edge Function 负责:身份验证、输入校验、免费次数检查、RevenueCat 购买验证、
+  // 防重放攻击、最终写库。客户端只做"上传媒体 + 调函数"两件事。
+  //
+  // 参数:
+  //   sealTier       — 档位('words'|'photos'|'video'|null),null = 免费
+  //   transactionId  — 购买凭证 ID(付款档位必须传,免费时 undefined)
+  //   overridePhotos / overrideVideo — 用于"仅文字"备选路径(绕过当前媒体 state)
+  async function doSeal(
+    sealTier: 'words' | 'photos' | 'video' | null,
+    transactionId: string | undefined,
+    overridePhotos?: PickedMedia[],
+    overrideVideo?: PickedMedia | null,
+  ) {
     const effectivePhotos = overridePhotos ?? photos;
     const effectiveVideo = overrideVideo !== undefined ? overrideVideo : video;
 
-    setBusy(true); // 上传 + 写库期间,按钮转圈、防重复点
+    setBusy(true); // 上传 + 封存期间,按钮转圈、防重复点
+
+    // ── 第一步:上传媒体(如有) ──
     // 先把照片 / 视频传到 memories 桶(同一个随机文件夹),拿到公开 URL。
     const folder = randomFolder();
-    // 多张照片:逐张上传,带 index(文件名用得上);任一张失败就整体中止。
     const photoUrls: string[] = [];
     for (let i = 0; i < effectivePhotos.length; i++) {
       const u = await uploadMedia(effectivePhotos[i], folder, i);
@@ -159,7 +170,6 @@ export default function WriteScreen() {
       }
       photoUrls.push(u);
     }
-    // 可选视频:单段;视频忽略 index。
     let videoUrl: string | null = null;
     if (effectiveVideo) {
       videoUrl = await uploadMedia(effectiveVideo, folder, 0);
@@ -169,18 +179,47 @@ export default function WriteScreen() {
         return; // 信还在、可重试
       }
     }
-    const { error } = await supabase.from('letters').insert({
-      body: letter.trim(),
-      deliver_on: toISODate(effectiveDate),
-      // 多张照片存成 JSON 数组字符串(没有就存 null);单段视频存它的 URL。
-      photo_url: photoUrls.length ? JSON.stringify(photoUrls) : null,
-      video_url: videoUrl,
+
+    // ── 第二步:调 seal-letter Edge Function ──
+    // 服务器端函数会:验证 JWT 身份、校验输入、验证购买、防重放、写库。
+    // 客户端不再直接往 letters 表 insert。
+    const { error } = await supabase.functions.invoke('seal-letter', {
+      body: {
+        body: letter.trim(),
+        deliver_on: toISODate(effectiveDate),
+        // 多张照片存成 JSON 数组字符串(没有就传 null);单段视频传 URL。
+        photo_url: photoUrls.length ? JSON.stringify(photoUrls) : null,
+        video_url: videoUrl,
+        tier: sealTier,       // null = 免费;'words'/'photos'/'video' = 付款档位
+        transactionId,        // 付款时从 purchaseTier() 拿到的商店交易 ID
+      },
     });
+
     setBusy(false);
     if (error) {
-      console.log('封存失败:', error.message);
+      // error.message 是 Edge Function 返回的 JSON 里的 error 字段或 HTTP 错误。
+      // 先尝试解析是否是"免费次数已用完"这个特殊情况。
+      let msg: string = error.message ?? 'Something went wrong. Please try again.';
+      try {
+        // supabase.functions.invoke 把响应体序列化成 error.message 字符串;
+        // 如果 Edge Function 返回 JSON { error: 'free_seal_already_used', message: '...' },
+        // 我们要解析出 message 字段展示给用户。
+        const parsed = JSON.parse(msg) as { error?: string; message?: string };
+        if (parsed.error === 'free_seal_already_used') {
+          msg = parsed.message ?? 'Your free seal has already been used. Please choose a paid tier.';
+        } else if (parsed.message) {
+          msg = parsed.message;
+        } else if (parsed.error) {
+          msg = parsed.error;
+        }
+      } catch {
+        // msg 本身就是普通字符串,直接用
+      }
+      console.log('封存失败:', msg);
+      Alert.alert('Could not seal', msg, [{ text: 'OK' }]);
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
+
     if (DEMO_MODE) {
       // 演示模式:封存后立刻触发送达云函数 → 几秒内邮箱就收到这封信。
       // fire-and-forget:不阻塞封存动画,后台把信发出去。
@@ -214,36 +253,37 @@ export default function WriteScreen() {
     if (busy) return;
 
     if (tierResult.isFree) {
-      // 免费:直接封存,不弹付款。
-      await doSeal();
+      // 免费:直接封存,tier = null,不需要 transactionId。
+      await doSeal(null, undefined);
       return;
     }
 
     // DEMO FALLBACK:购买功能在 web / 无密钥时被禁用。
     // 为了让 /app 演示页和 Expo Go 体验能正常封存,遇到 'purchases disabled' 就跳过付款,
-    // 直接封存。真实 App Store 构建有密钥时不会走这条路。
+    // 用 null tier(免费路径)调 seal-letter。服务器会按免费规则校验。
+    // 真实 App Store 构建有密钥时不会走这条路。
     if (Platform.OS === 'web') {
-      // web 演示:跳过付款,直接封存(Demo fallback — real builds have purchases enabled)。
-      await doSeal();
+      // web 演示:跳过付款,tier = null(免费路径)。
+      await doSeal(null, undefined);
       return;
     }
 
-    // 原生:先触发购买弹窗。
-    // 注意顺序:先上传媒体在 doSeal 里做;这里先走付款再进 doSeal。
-    // 权威顺序(upload → charge → insert)由服务器端 Edge Function 保障(见顶部 TODO)。
+    // 原生:先触发购买弹窗,再把凭证传给服务器验证。
+    // 顺序:上传媒体(在 doSeal 里)→ 购买弹窗(这里)→ 服务器验证 + 写库(在 doSeal 里)。
     const tier = tierResult.tier!;
     const result = await purchaseTier(tier);
 
     if (result.ok) {
-      // 付款成功 → 封存。
-      await doSeal();
+      // 付款成功 → 封存,把商店交易 ID 一起送给服务器验证。
+      // result.transactionId = App Store / Google Play 返回的原始交易 ID。
+      await doSeal(tier, result.transactionId);
     } else if (result.cancelled) {
       // 用户取消付款 → 留在底单,什么都不做。
       return;
     } else if (result.error === 'purchases disabled') {
-      // Demo fallback:购买模块未启用(无密钥的测试构建)→ 直接封存。
+      // Demo fallback:购买模块未启用(无密钥的测试构建)→ 免费路径封存。
       // Demo fallback — real App Store builds have purchases enabled.
-      await doSeal();
+      await doSeal(null, undefined);
     } else {
       // 其他错误(网络失败、App Store 异常等) → 温和提示,留在底单。
       Alert.alert(
@@ -265,11 +305,27 @@ export default function WriteScreen() {
           text: 'Seal words only',
           // 注意:没有 style:'destructive',这是一个"确认"而非"危险"操作。
           onPress: async () => {
-            // 只清草稿里的媒体引用(不碰相册里的文件),然后用纯文字档位封存。
+            // 确定用纯文字档位(wordsOnlyTier.tier 可能是 null 或 'words')。
+            // 用空媒体调 doSeal(覆盖当前 state,因为 setState 是异步的,doSeal 若直接读 state 会拿到旧值)。
+            if (wordsOnlyTier.isFree) {
+              // 纯文字 + 免费条件满足 → 免费封存。
+              await doSeal(null, undefined, [], null);
+            } else {
+              // 纯文字但需要付款(例如时间跨度 > 365 天) → 先购买再封存。
+              const result = await purchaseTier('words');
+              if (result.ok) {
+                await doSeal('words', result.transactionId, [], null);
+              } else if (result.cancelled) {
+                return; // 取消 → 留在底单
+              } else if (result.error === 'purchases disabled') {
+                await doSeal(null, undefined, [], null); // web demo fallback
+              } else {
+                Alert.alert('Something went wrong', result.error ?? 'The purchase could not be completed.', [{ text: 'OK' }]);
+              }
+            }
+            // 只清草稿里的媒体引用(不碰相册里的文件)。
             setPhotos([]);
             setVideo(null);
-            // 用空媒体调 doSeal(覆盖当前 state,因为 setState 是异步的,doSeal 若直接读 state 会拿到旧值)。
-            await doSeal([], null);
           },
         },
       ],

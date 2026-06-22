@@ -6,7 +6,8 @@ import { useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { configurePurchases } from '@/lib/purchases';
+import { configurePurchases, clearPurchasesUser, setPurchasesUser } from '@/lib/purchases';
+import { supabase } from '@/lib/supabase';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -15,6 +16,26 @@ export default function RootLayout() {
   // configurePurchases() 在 web / 无密钥时是 no-op(什么都不做,不报错)。
   useEffect(() => {
     configurePurchases();
+  }, []);
+
+  // 监听登录状态变化:
+  //   - 用户登录(SIGNED_IN)→ 调 setPurchasesUser(uid),让 RevenueCat 的 app_user_id
+  //     与 Supabase uid 对齐。服务器端购买验证会用 uid 查 RevenueCat 的购买记录,
+  //     如果不对齐,服务器查不到这个用户的购买,验证会失败。
+  //   - 用户登出(SIGNED_OUT)→ 调 clearPurchasesUser(),让 RevenueCat 回到匿名状态,
+  //     避免下一个登录的用户被关联到上一个用户的购买记录。
+  // web / 无密钥时:setPurchasesUser / clearPurchasesUser 都是 no-op,安全跳过。
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.id) {
+        // 不 await —— 认证状态变化是异步事件,我们 fire-and-forget(触发后不阻塞)。
+        // 购买验证发生在封存那一刻,有充足时间让 logIn 完成。
+        setPurchasesUser(session.user.id).catch(() => {});
+      } else if (event === 'SIGNED_OUT') {
+        clearPurchasesUser().catch(() => {});
+      }
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   // 加载字体:Courier Prime(全站打字机字体)+ IBM Plex Mono(保留备用)。

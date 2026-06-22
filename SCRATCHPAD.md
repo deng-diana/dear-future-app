@@ -5,6 +5,25 @@
 
 ## ▶ 下一步从这里继续
 
+### 服务器端购买验证(2026-06-22)— 待编排器执行
+
+**已构建(tsc 零错误,未部署,未运行 SQL):**
+- `supabase/functions/seal-letter/index.ts` — 新 Edge Function(Deno)
+- `supabase/sql/2026-06-22-seal-server-side.sql` — 第一个迁移(加列 + 新表)
+- `supabase/sql/2026-06-22-lock-letters-insert.sql` — 第二个迁移(删客户端 INSERT 策略,最后运行)
+- `apps/mobile/src/lib/purchases.ts` — 扩展 PurchaseResult.transactionId + setPurchasesUser/clearPurchasesUser
+- `apps/mobile/src/app/_layout.tsx` — SIGNED_IN/SIGNED_OUT 触发 logIn/logOut
+- `apps/mobile/src/app/index.tsx` — doSeal 改用 seal-letter Edge Function
+
+**编排器需要做的事(按顺序):**
+1. 在 Supabase Dashboard → Edge Function secrets 里设 `REVENUECAT_SECRET_KEY`
+2. 运行 `2026-06-22-seal-server-side.sql`
+3. 部署 `supabase/functions/seal-letter/`(supabase functions deploy seal-letter)
+4. 在 native 设备测试:免费封存 + 付款封存各走一遍
+5. 最后运行 `2026-06-22-lock-letters-insert.sql`(锁死客户端直接插入)
+
+---
+
 ### 🌙 明天从这里接(RevenueCat 拿 key)
 **目标:拿到 Apple 的 `appl_` 公钥发给 Claude。**
 1. 登录 app.revenuecat.com → 项目「Create an app called Reunite」

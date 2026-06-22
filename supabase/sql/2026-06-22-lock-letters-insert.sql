@@ -1,0 +1,37 @@
+-- ============================================================================
+-- Reunite — 锁死客户端直接插入 letters 表
+-- 文件:supabase/sql/2026-06-22-lock-letters-insert.sql
+--
+-- ⚠️  重要:这是"执行开关"——运行这个文件之后,客户端 app 就再也无法
+--     直接往 letters 表插数据了,只能通过 seal-letter Edge Function。
+--
+--     运行顺序:
+--       1. 先运行 2026-06-22-seal-server-side.sql(新建列和表)。
+--       2. 部署 seal-letter Edge Function,并验证它能正常封存一封信。
+--       3. 最后再运行本文件(这一步)。
+--
+--     在步骤 2 验证完成之前,运行这个文件会直接 broken app!
+--     客户端代码切换到调用 Edge Function 之后,才能安全执行本文件。
+--
+-- 如何找到现有 INSERT 策略的名称(以备策略名不同时调整):
+--   Supabase Dashboard → Table Editor → letters → Policies,
+--   或运行:
+--     select policyname from pg_policies
+--       where schemaname = 'public' and tablename = 'letters' and cmd = 'INSERT';
+--
+--   根据历史迁移文件,当前策略名通常是:
+--     "Users can insert their own letters"
+--   如果查出来的名称不同,把下面的 drop policy 语句里的名称替换成实际名称。
+-- ============================================================================
+
+-- 删除允许客户端直接插入 letters 的 RLS 策略。
+-- 删除之后,letters 表的 INSERT 只有 service_role 能执行
+-- (service_role 绕过 RLS,只在 Edge Function 里使用)。
+--
+-- ⚠️ 如果策略名不同,把引号里的字符串改成 pg_policies 查到的实际名称。
+drop policy if exists "Users can insert their own letters" on public.letters;
+
+-- (可选验证)运行完后执行下面这行,确认没有残留的 INSERT 策略:
+-- select policyname, cmd from pg_policies
+--   where schemaname = 'public' and tablename = 'letters' and cmd = 'INSERT';
+-- 应该返回 0 行。

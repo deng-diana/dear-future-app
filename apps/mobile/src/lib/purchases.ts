@@ -26,6 +26,44 @@ import { Platform } from 'react-native';
 import Purchases, { PURCHASES_ERROR_CODE } from 'react-native-purchases';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
+// setPurchasesUser / clearPurchasesUser:
+//   让 RevenueCat 的 app_user_id(应用用户 ID)与 Supabase 的 uid(用户唯一 ID)保持一致。
+//   这是服务器端购买验证的前提:RevenueCat 那边的记录要用 uid 索引,
+//   服务器才能用 GET /v1/subscribers/{uid} 查到这个用户的购买记录。
+//
+// Purchases.logIn(uid):告诉 RevenueCat "当前用户是 uid"。
+//   web / 无密钥时:静默跳过(no-op),不抛错。
+// Purchases.logOut():用户登出时调用,告诉 RevenueCat 切回匿名状态。
+//   web / 无密钥时:静默跳过。
+
+/**
+ * setPurchasesUser — 在用户登录时调用,把 RevenueCat 的用户 ID 对齐到 Supabase uid。
+ * 服务器端验证购买时会用 uid 查 RevenueCat,所以必须对齐。
+ * web / 无密钥时静默跳过。
+ */
+export async function setPurchasesUser(uid: string): Promise<void> {
+  if (!isEnabled()) return; // web 或无密钥 → 跳过
+  try {
+    await Purchases.logIn(uid);
+  } catch (e) {
+    // logIn 失败不崩 app:购买流程会因之后无法验证而被服务器拒绝,用户会看到提示。
+    console.warn('[purchases] logIn 失败:', e);
+  }
+}
+
+/**
+ * clearPurchasesUser — 在用户登出时调用,让 RevenueCat 回到匿名状态。
+ * web / 无密钥时静默跳过。
+ */
+export async function clearPurchasesUser(): Promise<void> {
+  if (!isEnabled()) return; // web 或无密钥 → 跳过
+  try {
+    await Purchases.logOut();
+  } catch (e) {
+    console.warn('[purchases] logOut 失败:', e);
+  }
+}
+
 // ──────────────────────────────────────────────────────────────
 // 密钥 & 平台检测
 // ──────────────────────────────────────────────────────────────
@@ -153,8 +191,11 @@ export async function getOfferings(): Promise<PurchasesOffering | null> {
 // purchaseTier 的返回值类型。
 export interface PurchaseResult {
   ok: boolean;
-  cancelled?: boolean; // 用户自己取消了(点了"不买")
-  error?: string;      // 其他错误的文字描述
+  cancelled?: boolean;     // 用户自己取消了(点了"不买")
+  error?: string;          // 其他错误的文字描述
+  transactionId?: string;  // 商店交易 ID(App Store / Google Play 返回的原始 ID)。
+  // 成功时必填——服务器端会用这个 ID 向 RevenueCat 验证购买真实性,并防止双花。
+  // web / Expo Go(无密钥)时为 undefined。
 }
 
 /**
@@ -200,8 +241,14 @@ export async function purchaseTier(tier: SealTier): Promise<PurchaseResult> {
 
   // 触发付款。
   try {
-    await Purchases.purchasePackage(pkg);
-    return { ok: true };
+    // purchasePackage 返回 MakePurchaseResult,其中 .transaction.transactionIdentifier
+    // 是商店(App Store / Google Play)返回的原始交易 ID。
+    // 我们把它带回给调用方,再传给服务器端的 seal-letter 函数做购买验证。
+    const result = await Purchases.purchasePackage(pkg);
+    // transactionIdentifier = RevenueCat 使用的内部交易 ID 字段名。
+    // 这个 ID 就是服务器向 RevenueCat API 查询时要匹配的 store_transaction_id。
+    const transactionId = result.transaction.transactionIdentifier;
+    return { ok: true, transactionId };
   } catch (e: unknown) {
     // RevenueCat 把错误当 object 抛出,带 code 和 userCancelled 字段。
     // userCancelled = 用户自己点了"不买"。
