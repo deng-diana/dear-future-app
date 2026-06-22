@@ -15,12 +15,21 @@
 - `apps/mobile/src/app/_layout.tsx` — SIGNED_IN/SIGNED_OUT 触发 logIn/logOut
 - `apps/mobile/src/app/index.tsx` — doSeal 改用 seal-letter Edge Function
 
-**编排器需要做的事(按顺序):**
-1. 在 Supabase Dashboard → Edge Function secrets 里设 `REVENUECAT_SECRET_KEY`
-2. 运行 `2026-06-22-seal-server-side.sql`
-3. 部署 `supabase/functions/seal-letter/`(supabase functions deploy seal-letter)
-4. 在 native 设备测试:免费封存 + 付款封存各走一遍
-5. 最后运行 `2026-06-22-lock-letters-insert.sql`(锁死客户端直接插入)
+**进度:**
+- [x] 设 `REVENUECAT_SECRET_KEY` + `ALLOW_SANDBOX_PURCHASES=true`(测试期)
+- [x] 运行 `2026-06-22-seal-server-side.sql`(列+表+免费唯一索引,已 Success)
+- [x] 部署 `seal-letter` 函数
+- [x] 对抗式安全审查 + 修复(拒沙盒 / 免费竞态DB约束 / 25年上限)
+
+**剩余(内购上线收尾,休息后做):**
+1. ⬜ **EAS 打包** → 装真机/TestFlight
+2. ⬜ **沙盒测试**:免费封一次 + 付费封一次,各走通(确认 seal-letter 路径工作)
+3. ⬜ **最后跑** `2026-06-22-lock-letters-insert.sql`(锁死客户端直插=校验真正生效;测试通过才跑)
+4. ⬜ **上线前**:移除 `ALLOW_SANDBOX_PURCHASES`、升 Supabase Pro(永不暂停+大存储)
+5. ⬜ App Store 那两个媒体商品显示名改 Photos & Short Video / Photos & Long Video
+6. ⬜ DMARC 加 rua、配 `unsubscribe@`/`privacy@` 转发、账号删除网页 URL(Android)
+
+**🔐 进行中(用户最高优先):端到端/静态加密** —— 信件正文当前在 DB 是明文,要加密。方向待定(见对话:静态加密 A / 时间锁 B / 真E2EE C)。定向后:详细计划→资深 review→/loop。
 
 ---
 
