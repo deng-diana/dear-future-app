@@ -89,19 +89,19 @@ export interface TierDefinition {
 // 名字用大白话、自带说明,对非英语母语者友好(用户在付款弹窗看到的就是这些)。
 export const TIERS: Record<SealTier, TierDefinition> = {
   words: {
-    packageId: '$rc_words',       // 在 RevenueCat 控制台里配置成同名 Package
+    packageId: 'words',       // 对应 RevenueCat default offering 里的自定义 Package「words」
     label: 'Words',
     priceHint: '$2.99',
     description: 'Your letter, sealed in time.',
   },
   photos: {
-    packageId: '$rc_photos',
+    packageId: 'photos',
     label: 'Words & Photos',
     priceHint: '$4.99',
     description: 'Add up to 4 photos and a short video.',
   },
   video: {
-    packageId: '$rc_video',
+    packageId: 'video',
     label: 'Words, Photos & Video',
     priceHint: '$9.99',
     description: 'More photos and a longer, sharper video.',
