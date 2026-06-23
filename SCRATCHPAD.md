@@ -11,8 +11,12 @@
 - `39a4853` 揭晓页加环境配乐(点击播放/暂停,修了 iOS 忽略 audio.volume 导致暂停失灵的坑)。⚠️ 音乐文件 `web/reveal/assets/music.mp3` 已放,但**揭晓页还没部署上线**,下次部署/做内购上线那批时一起上。
 - `8182316` 颜色+字体 → 语义 token:新增 `apps/mobile/src/theme/`(colors/typography/index)。82 处硬编码 hex + 内联字体串收进 token,**改名不改色**(27 个色值一个不少、逐处核对)。文末有 BRAND.md 漂移说明(app 实际主色是赭土 `#B26B24`,不是文档的波尔多红 `#7A1E1E`)待日后定夺。
 - `4e0525b` 抽出共享 `<Button>`(solid/link 两变体,disabled/loading 自动防重复点)。迁移 10 处手写按钮。**刻意没抽** Input/Modal/Card(对一屏 app 过度工程)。
+- `a8ee90a` web 统一设计 token:新增 `web/reveal/assets/tokens.css`,三页共用;隐私页从波尔多红→对齐 app 赭土色;修了照片扇形(380→430px 断点+窄屏缩图)和隐私表格两个手机溢出 bug;reveal 字号改 clamp。字体保持 Courier Prime。
+- `be13083` a11y 全量 + 对比度达 WCAG AA(用户选全 AA):读屏标签/自动填充/"已封存"播报/装饰图隐藏/触控区≥44pt/弹层 modal/减弱动效(SealCeremony onDone 有 guard 只触发一次);新增 brandButton#9D5E1F / brandText=brandDark / brandSelected 三个 token,muted 系全部加深到 ≥4.5:1。
+  - ⚠️ **TestFlight 眼检**:按钮底色略深、Dateline/已封存提示文字明显加深、浅灰辅助字变深 —— 都是对比度达标的预期变化。
+  - 真机才能测的(留到 TestFlight):VoiceOver 滑动顺序、封存播报、减弱动效、BottomSheet 焦点、一次性验证码自动填充、最大字号不裁切。
 
-**决策记录(为什么没全做那张"九层图"):** 性能优化(Web Vitals/code-splitting)是**网页**概念,对 RN 原生 app 不适用;工程化全套测试+CI 会拖慢上线 → 都推迟到上线后。只做了真有债的 Design System。
+**决策记录(为什么没全做那张"九层图"):** 性能优化(Web Vitals/code-splitting)是**网页**概念,对 RN 原生 app 不适用;工程化全套测试+CI 会拖慢上线 → 都推迟到上线后。只做了真有债的 Design System + a11y。
 
 **▶ 下一步:Phase 3 — EAS 打包 → TestFlight。** 第一步 `eas login`(Dan 已有 Expo 账号)。然后我做 `eas init` + 配云端公开变量 + `eas build --platform ios` → `eas submit`。
 
