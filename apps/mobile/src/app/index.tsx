@@ -66,8 +66,8 @@ function daysBetween(a: Date, b: Date): number {
 // These are informational only; the Seal button + "Seal as words only" link do the acting.
 const LADDER = [
   { key: 'words',  label: 'Words',   lines: ['text'] },
-  { key: 'photos', label: 'Photos',  lines: ['+4 photos', ':30 video'] },
-  { key: 'video',  label: 'Photos+', lines: ['+10 photos', '5m video'] },
+  { key: 'photos', label: 'Photos',  lines: ['up to 4 photos', ':30 video'] },
+  { key: 'video',  label: 'Photos+', lines: ['up to 10 photos', '5m video'] },
 ] as const;
 
 export default function WriteScreen() {
@@ -628,7 +628,7 @@ export default function WriteScreen() {
                     accessibilityLabel={`${TIERS[key].label}, ${price}, ${TIERS[key].description}${active ? '. This is your capsule.' : ''}`}>
                     <Text numberOfLines={1} style={[styles.ladderLabel, active && styles.ladderLabelActive]}>{label}</Text>
                     {lines.map((l) => (
-                      <Text key={l} numberOfLines={1} style={[styles.ladderLine, active && styles.ladderLineActive]}>{l}</Text>
+                      <Text key={l} style={[styles.ladderLine, active && styles.ladderLineActive]}>{l}</Text>
                     ))}
                     <Text numberOfLines={1} style={[styles.ladderPrice, active && styles.ladderPriceActive]}>{price}</Text>
                   </View>
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
   sealSheetLadder: { flexDirection: 'row', alignSelf: 'stretch', gap: 8 },
   ladderBox: {
     flex: 1,
-    minHeight: 96,
+    minHeight: 110, // 容下 "up to N photos" 折行后的高度;一行 cell 自动等高对齐
     paddingVertical: 10,
     paddingHorizontal: 6,
     borderRadius: 4,
