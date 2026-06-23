@@ -3,9 +3,10 @@
 // 背景是整张装饰图(纸+叶影+钢笔+怀表+信封),上面叠 logo / Reunite 切图 / 分隔线 / 标语 / 按钮。
 
 import { useRef } from 'react';
-import { Animated, Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Animated, Dimensions, Image, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import Button from '@/components/Button';
 import { colors, fonts } from '@/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -41,9 +42,7 @@ export default function Splash({ onStart }: Props) {
 
         {/* 底部:Start 按钮(与写信页同款实心主题色) */}
         <Animated.View style={styles.footer}>
-          <Pressable style={styles.button} onPress={handleStart} accessibilityRole="button" accessibilityLabel="Start">
-            <Text style={styles.buttonText}>Start</Text>
-          </Pressable>
+          <Button label="Start" onPress={handleStart} />
         </Animated.View>
       </SafeAreaView>
     </Animated.View>
@@ -73,11 +72,4 @@ const styles = StyleSheet.create({
 
   // 底部按钮容器:左右页边距更大 → 按钮更窄;离底一点
   footer: { paddingHorizontal: 64, paddingBottom: 56 },
-  button: {
-    backgroundColor: colors.brand,
-    paddingVertical: 16,
-    borderRadius: 0,           // 直角(与写信页一致)
-    alignItems: 'center',
-  },
-  buttonText: { fontFamily: fonts.regular, color: colors.textInverse, fontSize: 16, letterSpacing: 0.5 },
 });

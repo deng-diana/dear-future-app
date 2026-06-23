@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import Button from '@/components/Button';
 import { supabase } from '@/lib/supabase';
-import { colors, fonts } from '@/theme';
+import { colors } from '@/theme';
 
 type Props = {
   onVerified: () => void; // 验证成功后,通知外面"可以封存了"
@@ -89,24 +90,35 @@ export default function SignIn({ onVerified, onCancel }: Props) {
 
         <View style={styles.footer}>
           {stage === 'email' ? (
-            <Pressable
-              style={[styles.button, (busy || email.trim().length === 0) && styles.buttonDisabled]}
+            // 发码按钮:邮箱为空 / 正在发送 → 禁用
+            <Button
+              label="Send code"
               onPress={sendCode}
-              disabled={busy || email.trim().length === 0}>
-              {busy ? <ActivityIndicator color={colors.backgroundPaper} /> : <Text style={styles.buttonText}>Send code</Text>}
-            </Pressable>
+              disabled={email.trim().length === 0}
+              loading={busy}
+              style={styles.buttonLayout}
+              textStyle={styles.buttonText}
+            />
           ) : (
-            <Pressable
-              style={[styles.button, (busy || code.trim().length < 6) && styles.buttonDisabled]}
+            // 验码按钮:码不足 6 位 / 正在验证 → 禁用
+            <Button
+              label="Verify"
               onPress={verifyCode}
-              disabled={busy || code.trim().length < 6}>
-              {busy ? <ActivityIndicator color={colors.backgroundPaper} /> : <Text style={styles.buttonText}>Verify</Text>}
-            </Pressable>
+              disabled={code.trim().length < 6}
+              loading={busy}
+              style={styles.buttonLayout}
+              textStyle={styles.buttonText}
+            />
           )}
 
-          <Pressable onPress={onCancel} disabled={busy}>
-            <Text style={styles.cancel}>Not now</Text>
-          </Pressable>
+          {/* 取消:字号与颜色与默认 link 不同,通过 textStyle 覆盖 */}
+          <Button
+            variant="link"
+            label="Not now"
+            onPress={onCancel}
+            disabled={busy}
+            textStyle={styles.cancel}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -131,14 +143,10 @@ const styles = StyleSheet.create({
   error: { fontSize: 13, color: colors.danger },
 
   footer: { padding: 16, gap: 14, alignItems: 'center' },
-  button: {
-    width: '100%',
-    backgroundColor: colors.brand,
-    paddingVertical: 16,
-    borderRadius: 0, // 直角(用户要求按钮不要圆角)
-    alignItems: 'center',
-  },
-  buttonDisabled: { backgroundColor: colors.buttonDisabled },
-  buttonText: { color: colors.textInverse, fontSize: 17, fontWeight: '600', letterSpacing: 2 },
+  // Button 组件默认 alignSelf:'stretch';这里再加 width:'100%' 确保 footer alignItems:'center' 不压缩它
+  buttonLayout: { width: '100%' },
+  // SignIn 按钮文字比 Button 默认值略大、字距更宽,通过 textStyle 覆盖
+  buttonText: { fontSize: 17, fontWeight: '600' as const, letterSpacing: 2 },
+  // "Not now" 是静默取消:字号略大、用更深的灰色(与默认 link 不同)
   cancel: { fontSize: 15, color: colors.textMutedMid },
 });

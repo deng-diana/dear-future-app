@@ -4,11 +4,12 @@
 
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
 import BottomSheet from '@/components/BottomSheet';
+import Button from '@/components/Button';
 import Calendar from '@/components/Calendar';
 import Dateline from '@/components/Dateline';
 import SealCeremony from '@/components/SealCeremony';
@@ -405,9 +406,7 @@ export default function WriteScreen() {
 
         {/* 底部按钮:与写信页 Seal 按钮同款(实心主题色、直角、近白文字),但更窄更精致。 */}
         <View style={styles.sealedFooter}>
-          <Pressable onPress={writeAnother} style={[styles.sealButton, styles.sealedButton]} accessibilityRole="button">
-            <Text style={styles.sealButtonText}>Write another letter</Text>
-          </Pressable>
+          <Button label="Write another letter" onPress={writeAnother} style={styles.sealedButton} />
         </View>
       </SafeAreaView>
     );
@@ -495,12 +494,7 @@ export default function WriteScreen() {
             </View>
 
             {/* 写完了 → 进入选日期那一屏(这里不封存、不问登录)。 */}
-            <Pressable
-              style={styles.sealButton}
-              onPress={handleFinish}
-              accessibilityRole="button">
-              <Text style={styles.sealButtonText}>Finish</Text>
-            </Pressable>
+            <Button label="Finish" onPress={handleFinish} />
           </View>
         ) : null}
         </KeyboardAvoidingView>
@@ -520,19 +514,23 @@ export default function WriteScreen() {
         <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
 
         {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
-        <Pressable
-          style={[styles.sealButton, styles.sealButtonInSheet, (!deliverOn || busy) && styles.sealButtonDisabled]}
+        <Button
+          label="Seal"
           onPress={handleSeal}
-          disabled={!deliverOn || busy}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !deliverOn || busy }}>
-          {busy ? <ActivityIndicator color={colors.textInverse} /> : <Text style={styles.sealButtonText}>Seal</Text>}
-        </Pressable>
+          disabled={!deliverOn}
+          loading={busy}
+          style={styles.sealButtonInSheet}
+        />
 
         {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
-        <Pressable onPress={() => setStep('write')} disabled={busy} style={styles.backLink} accessibilityRole="button">
-          <Text style={styles.backLinkText}>← Keep writing</Text>
-        </Pressable>
+        <Button
+          variant="link"
+          label="← Keep writing"
+          onPress={() => setStep('write')}
+          disabled={busy}
+          style={styles.backLink}
+          textStyle={styles.backLinkText}
+        />
       </BottomSheet>
 
       {/*
@@ -572,17 +570,12 @@ export default function WriteScreen() {
         <Text style={styles.sealSheetReason}>{tierResult.reason}</Text>
 
         {/* 主按钮:Seal · $X.XX 或 Seal · Free */}
-        <Pressable
-          style={[styles.sealButton, styles.sealButtonInSheet, busy && styles.sealButtonDisabled]}
+        <Button
+          label={`Seal · ${tierResult.priceHint}`}
           onPress={handleSealSheet}
-          disabled={busy}
-          accessibilityRole="button">
-          {busy ? (
-            <ActivityIndicator color={colors.textInverse} />
-          ) : (
-            <Text style={styles.sealButtonText}>Seal · {tierResult.priceHint}</Text>
-          )}
-        </Pressable>
+          loading={busy}
+          style={styles.sealButtonInSheet}
+        />
 
         {/* 次选:只有有媒体(更贵档位)时才显示 —— 去掉媒体改用纯文字封存。 */}
         {showWordsOnlyEscape ? (
@@ -594,9 +587,14 @@ export default function WriteScreen() {
         ) : null}
 
         {/* 返回继续写(关底单,草稿 + 附件都在)。 */}
-        <Pressable onPress={() => setStep('date')} disabled={busy} style={styles.backLink} accessibilityRole="button">
-          <Text style={styles.backLinkText}>← Keep writing</Text>
-        </Pressable>
+        <Button
+          variant="link"
+          label="← Keep writing"
+          onPress={() => setStep('date')}
+          disabled={busy}
+          style={styles.backLink}
+          textStyle={styles.backLinkText}
+        />
       </BottomSheet>
     </SafeAreaView>
   );
@@ -668,21 +666,11 @@ const styles = StyleSheet.create({
   },
   // 标题下方的浅分割线:满宽、极细,暖浅金。
   dateHeroDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldSoft },
+  // backLink / backLinkText:作为 style / textStyle 覆盖传给 <Button variant="link">
   backLink: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16 },
   backLinkText: { fontSize: 14, color: colors.textMuted },
-
-  sealButton: {
-    backgroundColor: colors.brand, // 品牌主题色
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 0, // 直角(用户要求按钮不要圆角)
-    alignItems: 'center',
-    alignSelf: 'stretch', // 写信屏的 footer 里照样撑满
-  },
   // 在底单里:把 Seal 按钮往日历那边收紧一点(BottomSheet 子项默认 gap 18,这里抵消一截)。
   sealButtonInSheet: { marginTop: -8 },
-  sealButtonDisabled: { backgroundColor: colors.buttonDisabled }, // 未激活:暖灰玫瑰(不满足条件)
-  sealButtonText: { fontFamily: fonts.regular, color: colors.textInverse, fontSize: 16, letterSpacing: 0.5 }, // Courier Prime 16,暖近白
 
   // ── SealSheet 专属样式 ──
   // 标题:大一点,居中,Courier Prime,深棕。
