@@ -18,7 +18,7 @@ import Splash from '@/components/Splash';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
 import { colors, fonts } from '@/theme';
 import { pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
-import { purchaseTier } from '@/lib/purchases';
+import { purchaseTier, TIERS } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
 import { tierFor } from '@/lib/tiers';
 
@@ -61,6 +61,14 @@ function daysBetween(a: Date, b: Date): number {
   const msPerDay = 1000 * 60 * 60 * 24;
   return Math.round((b.getTime() - a.getTime()) / msPerDay);
 }
+
+// Pricing ladder shown in the SealSheet — three static info boxes (not tappable).
+// These are informational only; the Seal button + "Seal as words only" link do the acting.
+const LADDER = [
+  { key: 'words',  label: 'Words',   lines: ['text'] },
+  { key: 'photos', label: 'Photos',  lines: ['+4 photos', ':30 video'] },
+  { key: 'video',  label: 'Photos+', lines: ['+10 photos', '5m video'] },
+] as const;
 
 export default function WriteScreen() {
   const [letter, setLetter] = useState('Dear future me,\n\n'); // 信里写了什么(开屏即预填称呼,可编辑)
@@ -296,16 +304,24 @@ export default function WriteScreen() {
     }
   }
 
-  // 「Seal as words only」:去掉媒体后用纯文字档位封存。
+  // "Seal as words only": seal with text only, dropping all media from the capsule.
   function handleWordsOnly() {
+    // Build a plain-English description of what will be left behind.
+    const mediaParts: string[] = [];
+    if (photos.length > 0) mediaParts.push(photos.length === 1 ? '1 photo' : `${photos.length} photos`);
+    if (video !== null) mediaParts.push('a video');
+    const mediaDesc = mediaParts.join(' and ');
+
     Alert.alert(
-      'Seal your words only?',
-      "Your photos and video won't travel with this capsule. They stay safe in your phone's library — nothing is deleted.",
+      'Seal with words only?',
+      `The Words tier holds text only, so ${mediaDesc} can't travel in this capsule. ` +
+        "They stay safe in your phone's library — nothing is deleted from your device. " +
+        'Only your words will be sealed.',
       [
         { text: 'Keep writing', style: 'cancel' },
         {
           text: 'Seal words only',
-          // 注意:没有 style:'destructive',这是一个"确认"而非"危险"操作。
+          // Not style:'destructive' — this is a confirmation, not a dangerous action.
           onPress: async () => {
             // 确定用纯文字档位(wordsOnlyTier.tier 可能是 null 或 'words')。
             // 用空媒体调 doSeal(覆盖当前 state,因为 setState 是异步的,doSeal 若直接读 state 会拿到旧值)。
@@ -592,12 +608,40 @@ export default function WriteScreen() {
         {/* 分割线:细金 */}
         <View style={styles.sealSheetDivider} />
 
-        {/* 档位行:档位名(左) + 价格(右) + 一行说明(下) */}
-        <View style={styles.sealSheetTierRow}>
-          <Text style={styles.sealSheetTierName}>{tierResult.tierName}</Text>
-          <Text style={styles.sealSheetPrice}>{tierResult.priceHint}</Text>
-        </View>
-        <Text style={styles.sealSheetReason}>{tierResult.reason}</Text>
+        {/* Three-box pricing ladder — purely informational, not tappable. */}
+        {/* Active box = the tier this capsule currently falls into. */}
+        {(() => {
+          const activeTierKey = tierResult.tier ?? 'words';
+          // Free first-capsule: activeTierKey stays 'words' but priceHint is 'Free'.
+          const priceForSlot = (key: 'words' | 'photos' | 'video') =>
+            key === activeTierKey ? tierResult.priceHint : TIERS[key].priceHint;
+          return (
+            <View style={styles.sealSheetLadder}>
+              {LADDER.map(({ key, label, lines }) => {
+                const active = key === activeTierKey;
+                const price = priceForSlot(key);
+                return (
+                  <View
+                    key={key}
+                    style={[styles.ladderBox, active && styles.ladderBoxActive]}
+                    accessibilityRole="text"
+                    accessibilityLabel={`${TIERS[key].label}, ${price}, ${TIERS[key].description}${active ? '. This is your capsule.' : ''}`}>
+                    <Text numberOfLines={1} style={[styles.ladderLabel, active && styles.ladderLabelActive]}>{label}</Text>
+                    {lines.map((l) => (
+                      <Text key={l} numberOfLines={1} style={[styles.ladderLine, active && styles.ladderLineActive]}>{l}</Text>
+                    ))}
+                    <Text numberOfLines={1} style={[styles.ladderPrice, active && styles.ladderPriceActive]}>{price}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })()}
+        {/* Show the warm "first capsule is on us" line only when the seal is free. */}
+        {/* For paid tiers, the three boxes already convey the info. */}
+        {tierResult.isFree ? (
+          <Text style={styles.sealSheetReason}>{tierResult.reason}</Text>
+        ) : null}
 
         {/* 主按钮:Seal · $X.XX 或 Seal · Free */}
         <Button
@@ -724,31 +768,54 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textMutedSoft,
   },
-  // 细分割线:满宽暖金(比日历分割线更深一点)。
+  // Fine divider: full-width warm gold (slightly deeper than the date-hero one).
   sealSheetDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldMid },
-  // 档位行:档位名(左)+ 价格(右),同一行两端对齐。
-  sealSheetTierRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignSelf: 'stretch',
+  // Three-box pricing ladder.
+  sealSheetLadder: { flexDirection: 'row', alignSelf: 'stretch', gap: 8 },
+  ladderBox: {
+    flex: 1,
+    minHeight: 96,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,          // inactive border — palette.borderMid (#C9B097)
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    gap: 3,
   },
-  sealSheetTierName: {
+  ladderBoxActive: {
+    borderWidth: 1.5,
+    borderColor: colors.brandDark,
+    backgroundColor: colors.surfacePhoto,
+  },
+  ladderLabel: {
     fontFamily: fonts.bold,
-    fontSize: 15,
+    fontSize: 13,
+    letterSpacing: -0.3,
     color: colors.textHeading,
   },
-  sealSheetPrice: {
-    fontFamily: fonts.bold,
-    fontSize: 15,
-    color: colors.brand,
+  ladderLabelActive: { color: colors.brandDark },
+  ladderLine: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.textMutedSoft,         // inactive muted line — palette.mutedSoft (#6B5A4B)
   },
-  // 一行说明文字:静默暖灰,比档位行小一号。
+  ladderLineActive: { color: colors.textBody },
+  ladderPrice: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    marginTop: 'auto' as unknown as number,
+    color: colors.textHeading,
+  },
+  ladderPriceActive: { color: colors.brandDark },
+  // "Your first capsule is on us." — shown only when isFree.
   sealSheetReason: {
     fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textMuted,
     alignSelf: 'stretch',
-    marginTop: -10, // 与档位行贴近一点
   },
   // 「Seal as words only · Free」:静默链接样式。A10: paddingVertical 放大到 10 以达到 ~44pt 触摸区。
   sealSheetEscape: {

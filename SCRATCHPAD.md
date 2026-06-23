@@ -5,6 +5,40 @@
 
 ## ▶ 下一步从这里继续
 
+### 2026-06-23 — Seal sheet redesign + video fix (tsc clean)
+
+**Landed (all tsc clean, no tests changed):**
+
+**Task 1 — 3-box pricing ladder in SealSheet:**
+- Added `LADDER` constant (outside component) with `words / photos / video` keys.
+- Replaced the old single-row `sealSheetTierRow` JSX + styles with a horizontal `sealSheetLadder` of three static `View` boxes (no `onPress`).
+- Active box = `tierResult.tier ?? 'words'`; free capsule → Words box is active, price shows "Free".
+- Tokens used: inactive border = `colors.border` (`palette.borderMid` `#C9B097`); inactive muted lines = `colors.textMutedSoft` (`palette.mutedSoft` `#6B5A4B`).
+- Added import of `TIERS` from `purchases.ts` (was missing).
+
+**Task 2 — Remove "keepsake" reason line for paid tiers:**
+- `sealSheetReason` now renders only when `tierResult.isFree` (shows "Your first capsule is on us.").
+- For paid tiers the 3 boxes do the explaining. Old `sealSheetTierRow / sealSheetTierName / sealSheetPrice` styles deleted.
+
+**Task 3 — Words-only Alert explains the reason:**
+- Alert title: "Seal with words only?"
+- Body dynamically names the media (e.g. "3 photos and a video"), explains the Words tier is text-only so they can't travel, reassures nothing is deleted, states "Only your words will be sealed."
+- Buttons: "Keep writing" (cancel) / "Seal words only" (confirm, no destructive style).
+
+**Task 4 — Video 5-minute fix (real bug):**
+- Removed `allowsEditing: true` from `pickVideo` in `media.ts`. On iOS, `allowsEditing` activates the system trim UI which hard-caps library selection at ~30 s, regardless of `videoMaxDuration` (which only limits recording). Verified against Expo SDK 56 docs.
+- Added explicit post-pick guard: if `durationSec > 300`, shows "This video is longer than 5 minutes. Please choose a shorter clip." and returns null. A 45 s or 3-min video now flows through and lands in the correct tier (`photos` or `video`).
+
+**Token names (confirmed real names):**
+- Inactive border: `colors.border` (= `palette.borderMid` = `#C9B097`)
+- Inactive muted line: `colors.textMutedSoft` (= `palette.mutedSoft` = `#6B5A4B`)
+
+**Files changed:**
+- `apps/mobile/src/app/index.tsx`
+- `apps/mobile/src/lib/media.ts`
+
+---
+
 ### 2026-06-23 — 设计系统整理完成,即将进 EAS
 
 **今天落地(都已提交、tsc 绿):**

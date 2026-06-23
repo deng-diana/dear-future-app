@@ -125,21 +125,39 @@ export async function pickPhotos(remaining: number): Promise<PickedMedia[]> {
   return kept.slice(0, Math.max(0, remaining));
 }
 
-// 选 1 段视频,最长 5 分钟 = 300 秒(Photos & Long Video 档位新上限)。
-// asset.duration 是 ImagePicker 返回的视频时长,单位是毫秒,四舍五入成秒存入 durationSec。
+// Pick 1 video from the library, up to 5 minutes (300 s).
+//
+// Why allowsEditing is removed:
+//   On iOS, allowsEditing:true activates the system trim UI, which enforces a
+//   ~30 s cap on library videos regardless of videoMaxDuration.
+//   videoMaxDuration only limits RECORDING, not library selection.
+//   Removing allowsEditing lets the user pick any library video; we then
+//   enforce the 5-minute cap ourselves with an explicit post-pick guard.
+//   (Verified against Expo SDK 56 expo-image-picker docs:
+//    https://docs.expo.dev/versions/v56.0.0/sdk/imagepicker/
+//    "allowsEditing ... On iOS, the user can also trim and crop the video.")
 export async function pickVideo(): Promise<PickedMedia | null> {
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['videos'],
-    allowsEditing: true,
-    videoMaxDuration: 300, // 60 → 300 秒(5 分钟);Apple 原生 picker 会强制执行这个上限。
+    // allowsEditing intentionally omitted — see comment above.
   });
   if (res.canceled || !res.assets?.[0]) return null;
   if (tooBig(res.assets[0].fileSize, MAX_VIDEO_BYTES, 'Video')) return null;
-  // asset.duration 单位是毫秒(ms);换算成秒并四舍五入。
+  // asset.duration unit is milliseconds (ms); convert to seconds and round.
   const durationSec =
     typeof res.assets[0].duration === 'number'
       ? Math.round(res.assets[0].duration / 1000)
       : undefined;
+  // Post-pick 5-minute guard: reject anything over 300 s.
+  // Neither allowsEditing nor videoMaxDuration reliably limits library picks on iOS,
+  // so we enforce the cap here after the fact.
+  if (typeof durationSec === 'number' && durationSec > 300) {
+    Alert.alert(
+      'Video too long',
+      'This video is longer than 5 minutes. Please choose a shorter clip.',
+    );
+    return null;
+  }
   return { uri: res.assets[0].uri, kind: 'video', durationSec };
 }
 
