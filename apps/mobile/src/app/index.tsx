@@ -362,6 +362,18 @@ export default function WriteScreen() {
     ]);
   }
 
+  // A2: 封存完成时把 VoiceOver 焦点移到标题 + 播报封存成功。
+  // 重要:必须在任何 if(...) return 之前声明,否则点 Start 切屏时 Hook 数量变化会崩溃(Rules of Hooks)。
+  const sealedHeadingRef = useRef<Text>(null);
+  useEffect(() => {
+    if (!sealed) return;
+    // 播报给屏幕阅读器用户
+    AccessibilityInfo.announceForAccessibility('Your letter is sealed. It will return to you in the future.');
+    // 把 VoiceOver 焦点移动到"Sealed"标题
+    const tag = findNodeHandle(sealedHeadingRef.current);
+    if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+  }, [sealed]);
+
   // 岔路口⓪⁻:开场页 —— 启动先显示 Splash,只有点 Start 才进入(无自动跳转)。
   if (showSplash) {
     return <Splash onStart={() => setShowSplash(false)} />;
@@ -392,17 +404,6 @@ export default function WriteScreen() {
       />
     );
   }
-
-  // A2: 封存完成时把 VoiceOver 焦点移到标题 + 播报封存成功
-  const sealedHeadingRef = useRef<Text>(null);
-  useEffect(() => {
-    if (!sealed) return;
-    // 播报给屏幕阅读器用户
-    AccessibilityInfo.announceForAccessibility('Your letter is sealed. It will return to you in the future.');
-    // 把 VoiceOver 焦点移动到"Sealed"标题
-    const tag = findNodeHandle(sealedHeadingRef.current);
-    if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
-  }, [sealed]);
 
   // 岔路口①:已封存 → 写信的纸消失,只剩一句安静的话。
   if (sealed) {
