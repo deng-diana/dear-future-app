@@ -4,7 +4,7 @@
 
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
@@ -442,35 +442,41 @@ export default function WriteScreen() {
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。长按日期 = 演示用回到开场页。 */}
-          <Dateline onLongPress={() => setShowSplash(true)} />
+          {/* 可滚动的信纸:邮戳 + 分割线 + 正文一起滚动。写得越多,邮戳越往上退,腾出更大的写信区(用户要求:日期不必一直钉在顶部)。 */}
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollBody}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}>
+            {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。长按日期 = 演示用回到开场页。 */}
+            <Dateline onLongPress={() => setShowSplash(true)} />
 
-          {/* 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星(代码画,稳定渲染)。A7: 纯装饰,对屏幕阅读器隐藏 */}
-          <View style={styles.dividerRow} accessible={false} importantForAccessibility="no-hide-descendants">
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerStar}>✦</Text>
-            <View style={styles.dividerLine} />
-          </View>
+            {/* 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星(代码画,稳定渲染)。A7: 纯装饰,对屏幕阅读器隐藏 */}
+            <View style={styles.dividerRow} accessible={false} importantForAccessibility="no-hide-descendants">
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerStar}>✦</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-        {/* 整封信(含称呼)都在这一个输入框里写,同一字体同一字号;光标是暖金棕色。 */}
-        {/* A1: accessibilityLabel 让屏幕阅读器知道这是写给未来自己的信 */}
-        <TextInput
-          style={styles.input}
-          value={letter}
-          onChangeText={setLetter}
-          multiline
-          autoFocus
-          textAlignVertical="top"
-          selectionColor={colors.cursor}
-          cursorColor={colors.cursor}
-          accessibilityLabel="Your letter"
-        />
+            {/* 整封信(含称呼)都在这一个输入框里写,同一字体同一字号;光标是暖金棕色。 */}
+            {/* scrollEnabled=false → 交给外层 ScrollView 统一滚动,邮戳才能随内容上退。 */}
+            {/* A1: accessibilityLabel 让屏幕阅读器知道这是写给未来自己的信 */}
+            <TextInput
+              style={styles.input}
+              value={letter}
+              onChangeText={setLetter}
+              multiline
+              scrollEnabled={false}
+              autoFocus
+              textAlignVertical="top"
+              selectionColor={colors.cursor}
+              cursorColor={colors.cursor}
+              accessibilityLabel="Your letter"
+            />
 
-        {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,附件 + Finish 才出现。 */}
-        {canSeal ? (
-          <View style={styles.footer}>
-            {/* 已选的照片:一排小"相片",每张右上角一个 ✕ 单独删。 */}
-            {photos.length ? (
+            {/* 已选的照片:一排小"相片",随信一起滚动。每张右上角一个 ✕ 单独删。 */}
+            {canSeal && photos.length ? (
               <View style={styles.thumbs}>
                 {photos.map((p, idx) => (
                   <View key={p.uri + idx} style={styles.thumbWrap}>
@@ -489,33 +495,38 @@ export default function WriteScreen() {
                 ))}
               </View>
             ) : null}
+          </ScrollView>
 
-            {/* 可选附件:照片(可多选,最多 10 张)+ 1 段视频。安静一行,守"写信为主"。 */}
-            {/* A9: 媒体按钮加上 hitSlop 和 accessibilityLabel */}
-            <View style={styles.mediaRow}>
-              {/* 未满 10 张:显示 ＋ Photos;满 10 张:显示安静提示文字(不显示按钮)。 */}
-              {photos.length < MAX_PHOTOS ? (
-                <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add photos">
-                  <Text style={styles.mediaAdd}>＋ Photos</Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
-              )}
-              {video ? (
-                <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Remove video">
-                  <Text style={styles.mediaOn}>🎬  ✕</Text>
-                </Pressable>
-              ) : (
-                <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add a video">
-                  <Text style={styles.mediaAdd}>＋ Video</Text>
-                </Pressable>
-              )}
+          {/* 底部固定栏:附件按钮 + Finish。固定在键盘上方,绝不被键盘遮住(用户要求)。
+              还没写字时整条隐藏 —— 守"一张干净的纸"。 */}
+          {canSeal ? (
+            <View style={styles.footer}>
+              {/* 可选附件:照片(可多选,最多 10 张)+ 1 段视频。安静一行,守"写信为主"。 */}
+              {/* A9: 媒体按钮加上 hitSlop 和 accessibilityLabel */}
+              <View style={styles.mediaRow}>
+                {/* 未满 10 张:显示 ＋ Photos;满 10 张:显示安静提示文字(不显示按钮)。 */}
+                {photos.length < MAX_PHOTOS ? (
+                  <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add photos">
+                    <Text style={styles.mediaAdd}>＋ Photos</Text>
+                  </Pressable>
+                ) : (
+                  <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
+                )}
+                {video ? (
+                  <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Remove video">
+                    <Text style={styles.mediaOn}>🎬  ✕</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add a video">
+                    <Text style={styles.mediaAdd}>＋ Video</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {/* 写完了 → 进入选日期那一屏(这里不封存、不问登录)。 */}
+              <Button label="Finish" onPress={handleFinish} />
             </View>
-
-            {/* 写完了 → 进入选日期那一屏(这里不封存、不问登录)。 */}
-            <Button label="Finish" onPress={handleFinish} />
-          </View>
-        ) : null}
+          ) : null}
         </KeyboardAvoidingView>
       </View>
 
@@ -631,8 +642,12 @@ const styles = StyleSheet.create({
 
   // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
   // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。
+  // 写信区在 ScrollView 里:flexGrow 让它在内容少时也撑满整页(随手点都能写),
+  // 内容多时自适应增高、由外层 ScrollView 统一滚动(邮戳随之上退)。
+  scrollBody: { flexGrow: 1 },
   input: {
-    flex: 1,
+    flexGrow: 1,
+    minHeight: 240,
     paddingHorizontal: 32,
     paddingTop: 0, // 上间距交给分割线(marginBottom 12),让分割线上下对称
     paddingBottom: 24,
