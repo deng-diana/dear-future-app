@@ -15,6 +15,7 @@ import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
 import Splash from '@/components/Splash';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
+import { colors, fonts } from '@/theme';
 import { pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
@@ -446,8 +447,8 @@ export default function WriteScreen() {
           multiline
           autoFocus
           textAlignVertical="top"
-          selectionColor="#C68A3A"
-          cursorColor="#C68A3A"
+          selectionColor={colors.cursor}
+          cursorColor={colors.cursor}
         />
 
         {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,附件 + Finish 才出现。 */}
@@ -525,7 +526,7 @@ export default function WriteScreen() {
           disabled={!deliverOn || busy}
           accessibilityRole="button"
           accessibilityState={{ disabled: !deliverOn || busy }}>
-          {busy ? <ActivityIndicator color="#FBEFDB" /> : <Text style={styles.sealButtonText}>Seal</Text>}
+          {busy ? <ActivityIndicator color={colors.textInverse} /> : <Text style={styles.sealButtonText}>Seal</Text>}
         </Pressable>
 
         {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
@@ -577,7 +578,7 @@ export default function WriteScreen() {
           disabled={busy}
           accessibilityRole="button">
           {busy ? (
-            <ActivityIndicator color="#FBEFDB" />
+            <ActivityIndicator color={colors.textInverse} />
           ) : (
             <Text style={styles.sealButtonText}>Seal · {tierResult.priceHint}</Text>
           )}
@@ -603,12 +604,12 @@ export default function WriteScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#FAE6C9' }, // 干净纯色底(用户指定)
+  screen: { flex: 1, backgroundColor: colors.background }, // 干净纯色底(用户指定)
 
   // 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星,与正文同样 32 页边距。
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 32, marginTop: 12, marginBottom: 12, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E0A93E' },
-  dividerStar: { color: '#E0A93E', fontSize: 13, marginTop: -2 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.accentGold },
+  dividerStar: { color: colors.accentGold, fontSize: 13, marginTop: -2 },
 
   // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
   // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。
@@ -617,19 +618,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 0, // 上间距交给分割线(marginBottom 12),让分割线上下对称
     paddingBottom: 24,
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 16, // 正文字号恢复到 16(用户)
     lineHeight: 23, // 行/段落间距收紧(原 26);光标高度跟随行高
     letterSpacing: -0.5, // 等宽字体唯一能收紧"词间距"的办法:整体微微收紧(字母几乎不变)
-    color: '#67350F',
+    color: colors.textBody,
   },
 
   footer: { paddingHorizontal: 32, paddingVertical: 20, gap: 14 },
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
-  mediaAdd: { fontSize: 14, color: '#9A7E5C' }, // 未选:暖灰
-  mediaOn: { fontSize: 14, color: '#B26B24' }, // 已选:波尔多红(✕ 可移除)
+  mediaAdd: { fontSize: 14, color: colors.textMuted }, // 未选:暖灰
+  mediaOn: { fontSize: 14, color: colors.brand }, // 已选:品牌色(✕ 可移除)
   // 10 张满额提示:静默一行,与 mediaAdd 同字号同色系,但更低调。
-  mediaCap: { fontSize: 14, color: '#B8A492', fontStyle: 'italic' },
+  mediaCap: { fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
 
   // 已选照片的缩略图:像一排小相片。横向自动换行。
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 2 },
@@ -639,8 +640,8 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 4, // 微圆角,像相片
     borderWidth: 1,
-    borderColor: '#D6C7B2', // 暖灰边,像相纸边
-    backgroundColor: '#E3CDB4',
+    borderColor: colors.borderLight, // 暖灰边,像相纸边
+    backgroundColor: colors.surfacePhoto,
   },
   // 右上角的小 ✕:单独删这一张。
   thumbRemove: {
@@ -650,28 +651,28 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#B26B24', // 波尔多红
+    backgroundColor: colors.brand, // 品牌主题色
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbRemoveText: { color: '#EDD8C3', fontSize: 10, lineHeight: 12 },
+  thumbRemoveText: { color: colors.backgroundPaper, fontSize: 10, lineHeight: 12 },
 
   // 底单(遮罩 / 圆角 / 抓手 / 滑入+下拉手势)已收进 BottomSheet 组件,这里只留内容样式。
   dateHero: {
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 19,
     lineHeight: 25,
     letterSpacing: -0.3,
-    color: '#5A3A24',
+    color: colors.textHeading,
     textAlign: 'center',
   },
-  // 标题下方的浅分割线:满宽、极细,暖浅金(#EFDFC0)。
-  dateHeroDivider: { alignSelf: 'stretch', height: 1, backgroundColor: '#EFDFC0' },
+  // 标题下方的浅分割线:满宽、极细,暖浅金。
+  dateHeroDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldSoft },
   backLink: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16 },
-  backLinkText: { fontSize: 14, color: '#9A7E5C' },
+  backLinkText: { fontSize: 14, color: colors.textMuted },
 
   sealButton: {
-    backgroundColor: '#B26B24', // 品牌主题色
+    backgroundColor: colors.brand, // 品牌主题色
     paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 0, // 直角(用户要求按钮不要圆角)
@@ -680,28 +681,28 @@ const styles = StyleSheet.create({
   },
   // 在底单里:把 Seal 按钮往日历那边收紧一点(BottomSheet 子项默认 gap 18,这里抵消一截)。
   sealButtonInSheet: { marginTop: -8 },
-  sealButtonDisabled: { backgroundColor: '#C9B097' }, // 未激活:暖灰玫瑰(不满足条件)
-  sealButtonText: { fontFamily: 'CourierPrime_400Regular', color: '#FBEFDB', fontSize: 16, letterSpacing: 0.5 }, // Courier Prime 16,暖近白
+  sealButtonDisabled: { backgroundColor: colors.buttonDisabled }, // 未激活:暖灰玫瑰(不满足条件)
+  sealButtonText: { fontFamily: fonts.regular, color: colors.textInverse, fontSize: 16, letterSpacing: 0.5 }, // Courier Prime 16,暖近白
 
   // ── SealSheet 专属样式 ──
   // 标题:大一点,居中,Courier Prime,深棕。
   sealSheetTitle: {
-    fontFamily: 'CourierPrime_700Bold',
+    fontFamily: fonts.bold,
     fontSize: 18,
     letterSpacing: -0.4,
-    color: '#5A3A24',
+    color: colors.textHeading,
     textAlign: 'center',
   },
   // 摘要清单:紧凑列表,每行左对齐。
   sealSheetInventory: { alignSelf: 'stretch', gap: 4 },
   sealSheetItem: {
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: '#6B5A4B',
+    color: colors.textMutedSoft,
   },
   // 细分割线:满宽暖金(比日历分割线更深一点)。
-  sealSheetDivider: { alignSelf: 'stretch', height: 1, backgroundColor: '#DECA9E' },
+  sealSheetDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldMid },
   // 档位行:档位名(左)+ 价格(右),同一行两端对齐。
   sealSheetTierRow: {
     flexDirection: 'row',
@@ -709,28 +710,28 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   sealSheetTierName: {
-    fontFamily: 'CourierPrime_700Bold',
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: '#5A3A24',
+    color: colors.textHeading,
   },
   sealSheetPrice: {
-    fontFamily: 'CourierPrime_700Bold',
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: '#B26B24',
+    color: colors.brand,
   },
   // 一行说明文字:静默暖灰,比档位行小一号。
   sealSheetReason: {
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 13,
-    color: '#9A7E5C',
+    color: colors.textMuted,
     alignSelf: 'stretch',
     marginTop: -10, // 与档位行贴近一点
   },
   // 「Seal as words only · Free」:静默链接样式。
   sealSheetEscape: {
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 13,
-    color: '#9A7E5C',
+    color: colors.textMuted,
     textDecorationLine: 'underline',
     paddingVertical: 4,
   },
@@ -738,7 +739,7 @@ const styles = StyleSheet.create({
   // 封存后那一屏:内容居中 + 按钮沉底(对齐设计图)。
   sealedScreen: {
     flex: 1,
-    backgroundColor: '#FAE6C9', // 与首页一致的干净奶油底
+    backgroundColor: colors.background, // 与首页一致的干净奶油底
   },
   // 信封 + 标题 + 描述:占满按钮以上的空间并居中;底部留白把整组上移一些(对齐设计图)。
   sealedContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 160 },
@@ -749,18 +750,18 @@ const styles = StyleSheet.create({
   sealedLogo: { width: 120, height: 79 }, // 蜡封信封图标(改小,aspect 50/33)
   // 标题:Courier Prime 粗体,深棕,收紧字距(用户规格)。
   sealedText: {
-    fontFamily: 'CourierPrime_700Bold',
+    fontFamily: fonts.bold,
     fontSize: 18,
-    color: '#84410F',
+    color: colors.brandDark,
     letterSpacing: -0.9,
     marginTop: 4,
   },
   // 描述:Courier Prime 常规,赤陶色,居中,行高 20(用户规格)。
   sealedHint: {
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: '#B26B24',
+    color: colors.brand,
     textAlign: 'center',
     paddingHorizontal: 32,
   },

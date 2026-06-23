@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { colors, fonts } from '@/theme';
+
 const CITY_KEY = 'reunite.city';
 
 // 可选:演示用隐藏手势 —— 长按日期那行回到开场页(用户看不见,演示者知道)。
@@ -82,7 +84,7 @@ export default function Dateline({ onLongPress }: Props) {
           autoFocus
           autoCapitalize="words"
           returnKeyType="done"
-          selectionColor="#C68A3A"
+          selectionColor={colors.cursor}
           onBlur={commitEdit}
           onSubmitEditing={commitEdit}
         />
@@ -105,10 +107,10 @@ export default function Dateline({ onLongPress }: Props) {
 }
 
 const lineBase = {
-  fontFamily: 'CourierPrime_400Regular',
+  fontFamily: fonts.regular,
   fontSize: 14,
   lineHeight: 22,
-  color: '#B26B24',
+  color: colors.brand,
   letterSpacing: 1.1,
 } as const;
 
@@ -122,7 +124,7 @@ const styles = StyleSheet.create({
   cityText: {
     textDecorationLine: 'underline',
     textDecorationStyle: 'dotted',
-    textDecorationColor: '#C9B097',
+    textDecorationColor: colors.border,
   },
   // 城市编辑框:和 Text 行保持同等间距
   cityInput: {

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { colors, fonts } from '@/theme';
+
 // 自制的 Courier Prime 月历:纯 React Native,iOS / Web 都能跑(不依赖原生组件)。
 // 故意做得克制、留白多、方角、无图片 —— 像一张纸上手画的日历。
 type Props = {
@@ -122,13 +124,13 @@ const styles = StyleSheet.create({
   // 头部行:左右箭头 + 居中的"月 年"。
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   chevronHit: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  chevron: { fontFamily: 'CourierPrime_400Regular', fontSize: 24, color: '#B26B24', lineHeight: 26 },
+  chevron: { fontFamily: fonts.regular, fontSize: 24, color: colors.brand, lineHeight: 26 },
   chevronHidden: { opacity: 0 }, // 到下限月就藏起左箭头(占位不跳动)
-  monthLabel: { fontFamily: 'CourierPrime_400Regular', fontSize: 18, color: '#5A3A24' },
+  monthLabel: { fontFamily: fonts.regular, fontSize: 18, color: colors.textHeading },
 
   // 星期表头一行 7 列;width:100% 让它与下方网格容器同宽,列才会一一对齐。
   weekRow: { flexDirection: 'row', width: '100%', marginBottom: 4 },
-  weekday: { fontFamily: 'CourierPrime_400Regular', fontSize: 13, color: '#9A7E5C' },
+  weekday: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted },
 
   // 网格:横向换行,每格占 1/7 宽;与表头共用同一个 cell,保证列宽一致。
   grid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
@@ -136,8 +138,8 @@ const styles = StyleSheet.create({
 
   // 每天的数字外面一个透明圆;选中那天填成主题色实心圆。
   dayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  dayCircleSelected: { backgroundColor: '#B26B24' },
-  dayText: { fontFamily: 'CourierPrime_400Regular', fontSize: 17, color: '#67350F' },
-  dayTextDisabled: { color: '#B09A80' }, // 早于下限:灰
-  dayTextSelected: { color: '#FAE6C9' }, // 选中:奶白字
+  dayCircleSelected: { backgroundColor: colors.brand },
+  dayText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
+  dayTextDisabled: { color: colors.textMutedLight }, // 早于下限:灰
+  dayTextSelected: { color: colors.background }, // 选中:奶白字
 });

@@ -3,6 +3,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleShee
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
+import { colors, fonts } from '@/theme';
 
 type Props = {
   onVerified: () => void; // 验证成功后,通知外面"可以封存了"
@@ -59,7 +60,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor="#B09A80"
+                placeholderTextColor={colors.textMutedLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -75,7 +76,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 value={code}
                 onChangeText={setCode}
                 placeholder="••••••"
-                placeholderTextColor="#B09A80"
+                placeholderTextColor={colors.textMutedLight}
                 keyboardType="number-pad"
                 maxLength={10}
                 autoFocus
@@ -92,14 +93,14 @@ export default function SignIn({ onVerified, onCancel }: Props) {
               style={[styles.button, (busy || email.trim().length === 0) && styles.buttonDisabled]}
               onPress={sendCode}
               disabled={busy || email.trim().length === 0}>
-              {busy ? <ActivityIndicator color="#EDD8C3" /> : <Text style={styles.buttonText}>Send code</Text>}
+              {busy ? <ActivityIndicator color={colors.backgroundPaper} /> : <Text style={styles.buttonText}>Send code</Text>}
             </Pressable>
           ) : (
             <Pressable
               style={[styles.button, (busy || code.trim().length < 6) && styles.buttonDisabled]}
               onPress={verifyCode}
               disabled={busy || code.trim().length < 6}>
-              {busy ? <ActivityIndicator color="#EDD8C3" /> : <Text style={styles.buttonText}>Verify</Text>}
+              {busy ? <ActivityIndicator color={colors.backgroundPaper} /> : <Text style={styles.buttonText}>Verify</Text>}
             </Pressable>
           )}
 
@@ -114,30 +115,30 @@ export default function SignIn({ onVerified, onCancel }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: '#EDD8C3' },
+  screen: { flex: 1, backgroundColor: colors.backgroundPaper },
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
-  title: { fontSize: 22, color: '#3A2416', lineHeight: 30 },
-  hint: { fontSize: 14, color: '#8A7256', lineHeight: 20 },
+  title: { fontSize: 22, color: colors.textPrimary, lineHeight: 30 },
+  hint: { fontSize: 14, color: colors.textMutedMid, lineHeight: 20 },
   input: {
     marginTop: 12,
     paddingVertical: 12,
     fontSize: 20,
-    color: '#3A2416',
+    color: colors.textPrimary,
     borderBottomWidth: 1,
-    borderBottomColor: '#C9B097',
+    borderBottomColor: colors.border,
   },
   codeInput: { fontSize: 26, letterSpacing: 6 },
-  error: { fontSize: 13, color: '#B24A18' },
+  error: { fontSize: 13, color: colors.danger },
 
   footer: { padding: 16, gap: 14, alignItems: 'center' },
   button: {
     width: '100%',
-    backgroundColor: '#B26B24',
+    backgroundColor: colors.brand,
     paddingVertical: 16,
     borderRadius: 0, // 直角(用户要求按钮不要圆角)
     alignItems: 'center',
   },
-  buttonDisabled: { backgroundColor: '#C9B097' },
-  buttonText: { color: '#FBEFDB', fontSize: 17, fontWeight: '600', letterSpacing: 2 },
-  cancel: { fontSize: 15, color: '#8A7256' },
+  buttonDisabled: { backgroundColor: colors.buttonDisabled },
+  buttonText: { color: colors.textInverse, fontSize: 17, fontWeight: '600', letterSpacing: 2 },
+  cancel: { fontSize: 15, color: colors.textMutedMid },
 });

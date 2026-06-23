@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { configurePurchases, clearPurchasesUser, setPurchasesUser } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -52,7 +53,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }} />
         ) : (
           // 字体加载中的占位:奶油色满屏,避免白屏,也避免系统字体抢先渲染
-          <View style={{ flex: 1, backgroundColor: '#FAE6C9' }} />
+          <View style={{ flex: 1, backgroundColor: colors.background }} />
         )}
       </ThemeProvider>
     </SafeAreaProvider>

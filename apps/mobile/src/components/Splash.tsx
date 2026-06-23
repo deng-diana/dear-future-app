@@ -6,6 +6,8 @@ import { useRef } from 'react';
 import { Animated, Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { colors, fonts } from '@/theme';
+
 const { width: SW, height: SH } = Dimensions.get('window');
 
 type Props = {
@@ -49,7 +51,7 @@ export default function Splash({ onStart }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAE6C9' },
+  root: { flex: 1, backgroundColor: colors.background },
   // 背景图绝对铺满整屏(显式 SW×SH),网页端也不会塌高度
   bgImage: { position: 'absolute', top: 0, left: 0, width: SW, height: SH },
   // 上下分布:内容靠上,按钮沉底(中间留白自动撑开)
@@ -61,10 +63,10 @@ const styles = StyleSheet.create({
   wordmark: { width: 138, height: 40, marginTop: -20 }, // Reunite 切图(再缩小 + 上移靠近 logo)
   divider: { width: 188, height: 11, marginTop: 12 },   // 金色分隔线(227×13)
   tagline: {
-    fontFamily: 'CourierPrime_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 21,
-    color: '#B26B24',
+    color: colors.brand,
     textAlign: 'center',
     marginTop: 14,
   },
@@ -72,10 +74,10 @@ const styles = StyleSheet.create({
   // 底部按钮容器:左右页边距更大 → 按钮更窄;离底一点
   footer: { paddingHorizontal: 64, paddingBottom: 56 },
   button: {
-    backgroundColor: '#B26B24',
+    backgroundColor: colors.brand,
     paddingVertical: 16,
     borderRadius: 0,           // 直角(与写信页一致)
     alignItems: 'center',
   },
-  buttonText: { fontFamily: 'CourierPrime_400Regular', color: '#FBEFDB', fontSize: 16, letterSpacing: 0.5 },
+  buttonText: { fontFamily: fonts.regular, color: colors.textInverse, fontSize: 16, letterSpacing: 0.5 },
 });

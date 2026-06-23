@@ -13,6 +13,8 @@
 import React, { useMemo } from 'react';
 import { DimensionValue, StyleSheet, View } from 'react-native';
 
+import { colors } from '@/theme';
+
 // 预先生成颗粒点位,避免每次 render 重新随机
 // 每个点:{ left%, top%, size(px), opacity }
 function generateFlecks(count: number) {
@@ -59,7 +61,7 @@ export default function PaperBackground({ children }: Props) {
             width: f.size,
             height: f.size,
             borderRadius: f.size,           // 圆点
-            backgroundColor: '#5A3A24',     // 暖棕色"杂质"
+            backgroundColor: colors.paperFleck,  // 暖棕色"杂质"
             opacity: f.opacity,
           }}
         />
@@ -101,7 +103,7 @@ export default function PaperBackground({ children }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#EDD8C3', // 象牙白底色
+    backgroundColor: colors.backgroundPaper, // 象牙白底色
   },
   // 内容容器:明确给 flex:1,保证 children(含 KAV flex:1)能正确拿到全部剩余高度。
   // 没有这层包裹时,Yoga 在 children 里同时有 absolute 子视图的情况下可能无法正确分配高度。
@@ -112,13 +114,13 @@ const styles = StyleSheet.create({
   // 外晕:极淡边框,四周 2px,颜色比纸面稍深一点
   vignetteOuter: {
     borderWidth: 6,
-    borderColor: 'rgba(90, 58, 36, 0.03)', // #5A3A24 at 3%
+    borderColor: 'rgba(90, 58, 36, 0.03)', // colors.paperFleck(#5A3A24) at 3% — rgba 保留以控制透明度
     borderRadius: 0,
   },
   // 内晕:再叠一层,稍厚,更淡
   vignetteInner: {
     borderWidth: 14,
-    borderColor: 'rgba(90, 58, 36, 0.015)', // #5A3A24 at 1.5%
+    borderColor: 'rgba(90, 58, 36, 0.015)', // colors.paperFleck(#5A3A24) at 1.5% — rgba 保留以控制透明度
     borderRadius: 0,
   },
 
@@ -138,9 +140,9 @@ const styles = StyleSheet.create({
     bottom: -34,
     width: 66,
     height: 66,
-    backgroundColor: '#C9B097',   // 中间调暖褐,比纸面深
+    backgroundColor: colors.border,   // 中间调暖褐,比纸面深
     transform: [{ rotate: '45deg' }],
-    opacity: 0.22,                 // 约等于 shadowOpacity 0.05 的视觉感
+    opacity: 0.22,                     // 约等于 shadowOpacity 0.05 的视觉感
     // 注:RN 的 shadow* 属性只在 iOS 生效且只能用在有背景色的 View 上,
     // 用 opacity 近似能跨平台保持一致
   },
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     bottom: -30,
     width: 60,
     height: 60,
-    backgroundColor: '#E3CDB4',   // 比正面 #EDD8C3 略深,像纸背面
+    backgroundColor: colors.surfacePhoto,   // 比正面略深,像纸背面
     transform: [{ rotate: '45deg' }],
     shadowColor: '#000',
     shadowOpacity: 0.06,           // < 0.08,非常轻

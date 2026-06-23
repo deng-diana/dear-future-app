@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Alert, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 
 type Props = {
   email: string;
@@ -133,7 +135,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     width: 248,
-    backgroundColor: '#F4E7D6',
+    backgroundColor: colors.surfaceCard,
     borderRadius: 14,
     padding: 16,
     shadowColor: '#000',
@@ -142,10 +144,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  label: { fontSize: 12, color: '#B09A80' },
-  email: { fontSize: 15, color: '#3A2416', marginTop: 2 },
-  divider: { height: 1, backgroundColor: '#E3CDB4', marginVertical: 12 },
-  signOut: { fontSize: 15, color: '#B24A18' },
+  label: { fontSize: 12, color: colors.textMutedLight },
+  email: { fontSize: 15, color: colors.textPrimary, marginTop: 2 },
+  divider: { height: 1, backgroundColor: colors.surfacePhoto, marginVertical: 12 },
+  signOut: { fontSize: 15, color: colors.danger },
   // 删账号:比登出更深的红,暗示破坏性操作更严重。
-  deleteAccount: { fontSize: 15, color: '#7A1E1E' },
+  deleteAccount: { fontSize: 15, color: colors.dangerDeep },
 });

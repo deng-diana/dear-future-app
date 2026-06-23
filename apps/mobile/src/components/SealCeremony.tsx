@@ -5,6 +5,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 
+import { colors } from '@/theme';
+
 // 屏幕尺寸 — 用来给"信纸"定大小,让它在各种手机上比例一致。
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#FAE6C9',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
@@ -186,20 +188,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // 信纸:暖色卡片 #FFEBC1,柔和干净的暖投影(大半径、低透明、向下偏移)
+  // 信纸:暖色卡片,柔和干净的暖投影(大半径、低透明、向下偏移)
   paper: {
     width: PAPER_W,
     height: PAPER_H,
-    backgroundColor: '#FFEBC1',
+    backgroundColor: colors.surfacePaper,
     borderRadius: 10,
-    shadowColor: '#7A4A1E',     // 暖棕投影(不发灰),靠大半径+低透明做"干净"
+    shadowColor: colors.brandWarm,  // 暖棕投影(不发灰),靠大半径+低透明做"干净"
     shadowOpacity: 0.1,
     shadowRadius: 32,
     shadowOffset: { width: 0, height: 18 },
-    elevation: 10,              // Android 阴影
+    elevation: 10,                  // Android 阴影
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'visible',        // 让火漆可以超出信纸边界
+    overflow: 'visible',            // 让火漆可以超出信纸边界
   },
 
   // 火漆 logo:保持原图比例,居中盖在信纸上

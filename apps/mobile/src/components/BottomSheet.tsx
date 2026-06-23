@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { colors } from '@/theme';
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // 下拉超过屏幕这个比例、或下滑速度超过这个值,松手即关闭(对齐 Thankly 的手感)。
@@ -127,13 +129,13 @@ const styles = StyleSheet.create({
   // 暖调深色遮罩(不是死黑),底单坐在最底部。
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(45,22,8,0.5)',
+    backgroundColor: 'rgba(45,22,8,0.5)', // 暗暖遮罩,不用纯黑 — 保留 rgba 以便控制透明度
     justifyContent: 'flex-end',
   },
   // 升起的纸张底单:满宽、只圆上面两角、柔和投影。
   sheet: {
     width: '100%',
-    backgroundColor: '#FBF1DF', // 暖奶油底单(恢复原样,不用纯白)
+    backgroundColor: colors.surface, // 暖奶油底单
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 10,
@@ -149,5 +151,5 @@ const styles = StyleSheet.create({
   },
   // 抓手区:给手势一块好按的区域;条本身居中。
   handleArea: { paddingVertical: 8, alignItems: 'center', alignSelf: 'stretch' },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#C9B097' },
+  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border },
 });
