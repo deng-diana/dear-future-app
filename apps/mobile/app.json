@@ -8,7 +8,10 @@
     "scheme": "reunite",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.stillkindailab.reunite"
+      "bundleIdentifier": "com.stillkindailab.reunite",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.stillkindailab.reunite",
@@ -48,7 +51,8 @@
           "cameraPermission": "Reunite uses the camera to capture a photo or short video to seal inside your letter.",
           "microphonePermission": "Reunite records sound for the short video you seal inside your letter."
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
