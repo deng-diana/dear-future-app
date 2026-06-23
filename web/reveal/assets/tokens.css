@@ -1,0 +1,17 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Reunite — shared design tokens
+   Single source of truth for all web pages (reveal, privacy, deck).
+   Keyed to the REAL app palette (React Native screens).
+   ───────────────────────────────────────────────────────────────────── */
+:root {
+  --ivory:      #FAE6C9;        /* app background */
+  --ink:        #67350F;        /* body/letter ink — AA-legible on ivory */
+  --ink-soft:   #5A3A24;
+  --brand:      #B26B24;        /* primary terracotta */
+  --brand-deep: #84410F;
+  --gold:       #E0A93E;
+  --surface:    #E3CDB4;        /* polaroid window / panels */
+  --line:       rgba(74,61,49,.16);
+  --f-serif:    "Cormorant Garamond", Georgia, serif;
+  --f-mono:     "Courier Prime", monospace;   /* reveal page typewriter face */
+}

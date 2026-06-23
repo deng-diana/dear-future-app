@@ -9,33 +9,41 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <!-- Task 3: shared palette tokens (one folder up from deck/) -->
+  <link rel="stylesheet" href="../assets/tokens.css" />
 
   <style>
     /* ═══════════════════════════════════════════════════════════════
-       DESIGN TOKENS  — sampled directly from the wax-seal logo art
+       DESIGN TOKENS  — Task 3: colors unified with shared tokens.css.
+       Deck-local names are aliased to the shared :root vars where they
+       match; deck-only extras (cream-deep, sienna-*, gold-*) are kept
+       here. Non-color tokens (type scale, spacing, motion) are unchanged.
        ═══════════════════════════════════════════════════════════════ */
     :root {
-      /* Backgrounds */
-      --cream:          #EDD8C3;   /* primary warm cream (logo background) */
-      --cream-deep:     #E3CDB4;   /* slightly richer panel cream */
-      --paper:          #F2E8DC;   /* lighter paper for elements */
-      --paper-dark:     #D9C5AE;   /* shadow / panel border */
+      /* Backgrounds — bridge to shared token */
+      --cream:          var(--ivory);    /* was #EDD8C3 → now #FAE6C9 warm ivory */
+      --cream-deep:     var(--surface);  /* was #E3CDB4 → now #E3CDB4 (same value via token) */
+      --paper:          #F2E8DC;         /* lighter paper — deck-only, keep */
+      --paper-dark:     #D9C5AE;         /* shadow / panel border — deck-only, keep */
 
-      /* Ink */
-      --ink:            #4A2E1C;   /* primary body ink */
+      /* Ink — bridge to shared tokens */
+      /* --ink already in tokens.css as #67350F; deck overrides below with its own richer value.
+         Keeping deck's own ink values intact (they work well for the slide-deck context). */
+      --ink:            #4A2E1C;   /* primary body ink (deck keeps its own darker value) */
       --ink-soft:       #5C3F2C;   /* softer ink */
       --ink-faint:      #8A6B52;   /* muted metadata */
       --ink-ghost:      rgba(74, 46, 28, 0.18); /* hairline borders */
 
-      /* Brand red-brown (the wax seal) */
-      --sienna:         #9B3C10;   /* primary brand colour */
-      --sienna-deep:    #572007;   /* deep emphasis */
-      --sienna-light:   #B24A18;   /* highlight */
-      --sienna-tint:    rgba(155, 60, 16, 0.07);
+      /* Brand — bridge to shared token */
+      --sienna:         var(--brand);      /* was #9B3C10 → now #B26B24 terracotta */
+      --sienna-deep:    var(--brand-deep); /* was #572007 → now #84410F */
+      --sienna-light:   #B24A18;           /* highlight — deck-only, keep */
+      --sienna-tint:    rgba(178, 107, 36, 0.07); /* updated to match new --brand */
 
-      /* Gold (the north-star) */
-      --gold:           #E0A93E;   /* antique gold accent */
-      --gold-bright:    #F0C04C;   /* bright gold */
+      /* Gold — shared token value matches; extras are deck-only */
+      /* --gold already in tokens.css as #E0A93E (same value) */
+      --gold:           #E0A93E;   /* antique gold accent — same as token, explicit for deck */
+      --gold-bright:    #F0C04C;   /* bright gold — deck-only, keep */
       --gold-soft:      rgba(224, 169, 62, 0.28);
       --gold-hair:      rgba(224, 169, 62, 0.55);
 

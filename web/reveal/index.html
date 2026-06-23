@@ -7,9 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
 <style>
+  /* Local aliases bridging the token names used below to the shared tokens */
   :root {
-    --ivory:#FAE6C9; --ink:#995A2A; --brown:#572007; --soft:#995A2A; --faint:#995A2A; --gold:#E0A93E; --wax:#B26B24;
+    --brown: var(--brand-deep);   /* salutation — deepest ink */
+    --soft:  var(--ink);          /* deliver-date, state text */
+    --faint: var(--ink);          /* same */
+    --wax:   var(--brand);        /* music button colour */
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { background:var(--ivory); color:var(--ink); }
@@ -61,8 +66,9 @@
     margin-top:28px;          /* 分割线下方间距更大 */
   }
 
-  .salutation { font-family:'Courier Prime',monospace; font-weight:700; font-size:30px; line-height:1.25; color:var(--brown); margin:28px 0 18px; }
-  .body { font-family:'Courier Prime',monospace; font-size:16px; line-height:1.95; white-space:pre-wrap; color:var(--ink); }
+  /* Task 4: responsive font sizing */
+  .salutation { font-family:'Courier Prime',monospace; font-weight:700; font-size:clamp(24px, 7vw, 30px); line-height:1.25; color:var(--brown); margin:28px 0 18px; }
+  .body { font-family:'Courier Prime',monospace; font-size:clamp(15px, 4vw, 17px); line-height:1.95; white-space:pre-wrap; color:var(--ink); }
   .star { margin-top:64px; text-align:center; color:var(--gold); font-size:20px; }
   .state { font-family:'Courier Prime',monospace; font-size:13px; letter-spacing:.06em; color:var(--faint); }
 
@@ -100,6 +106,9 @@
     margin: 46px 0 0;
     overflow: visible;     /* 扇形抬起不被裁切(窄屏由 @media 换行兜底) */
     padding-bottom: 28px;  /* room for shadows below the photos */
+    /* Task 1: horizontal padding so rotated corners don't clip page edge */
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   /* ── Polaroid frame (shared base) ── */
@@ -185,7 +194,7 @@
     width: 100%;
     aspect-ratio: 4 / 5;
     overflow: hidden;
-    background: #E3CDB4;
+    background: var(--surface);
   }
 
   /* Subtle film-grain overlay for vintage warmth */
@@ -222,10 +231,12 @@
     filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
   }
 
-  /* On narrow screens, let the fan wrap gracefully */
-  @media (max-width: 380px) {
+  /* Task 1: narrow phones — wrap fan and shrink photos so corners don't clip.
+     Raised to 430px to cover iPhone 12-15 (390px) and Plus/Pixel (393-414px). */
+  @media (max-width: 430px) {
     .photo-strip { flex-wrap: wrap; gap: 12px; }
-    .polaroid--photo { margin-left: 0; }
+    .polaroid--photo { width: min(150px, 40vw); margin-left: -26px; }
+    .polaroid--photo:first-child { margin-left: 0; }
   }
 
   /* ── Ambient music toggle (opt-in) ──

@@ -7,10 +7,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet" />
+<!-- Task 3: shared palette tokens (one folder up from privacy/) -->
+<link rel="stylesheet" href="../assets/tokens.css" />
 <style>
-  :root{
-    --cream:#F4EEE4; --ink:#4A3D31; --ink-soft:#6B5A4B; --sienna:#7A1E1E; --gold:#D6B26E;
-    --line:rgba(74,61,49,.16);
+  /* Task 3: local aliases — map privacy page names to shared tokens.
+     Old palette: --cream #F4EEE4 bordeaux sienna #7A1E1E gold #D6B26E
+     New palette: var(--ivory) terracotta var(--brand) gold var(--gold) */
+  :root {
+    --cream:   var(--ivory);      /* was #F4EEE4 cool ivory → now #FAE6C9 warm ivory */
+    --sienna:  var(--brand);      /* was bordeaux #7A1E1E    → now terracotta #B26B24 */
+    /* --ink, --ink-soft, --gold, --line already provided by tokens.css */
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--cream);color:var(--ink);
@@ -24,14 +30,20 @@
   a{color:var(--sienna);}
   .eff{font-family:"Courier Prime",monospace;font-size:.8rem;letter-spacing:.04em;color:var(--ink-soft);text-transform:uppercase;}
   .lede{font-style:italic;color:var(--ink);font-size:1.15rem;}
-  table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.92rem;}
-  th,td{text-align:left;padding:.55em .7em;border-bottom:1px solid var(--line);vertical-align:top;}
+  /* Task 2: table overflow fix — fixed layout + word breaking */
+  table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.92rem;table-layout:fixed;}
+  th,td{text-align:left;padding:.55em .7em;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word;overflow-wrap:anywhere;}
   th{font-family:"Courier Prime",monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);}
   mark.todo{background:#FBE6A6;color:#5B4314;font-family:"Courier Prime",monospace;font-size:.8rem;padding:.05em .35em;border-radius:3px;}
   .hr{height:1px;background:var(--line);margin:2.5em 0;border:0;}
-  .note{background:rgba(214,178,110,.12);border-left:3px solid var(--gold);padding:.8em 1.1em;border-radius:0 6px 6px 0;}
+  .note{background:rgba(224,169,62,.12);border-left:3px solid var(--gold);padding:.8em 1.1em;border-radius:0 6px 6px 0;}
   footer{margin-top:3em;font-size:.85rem;color:var(--ink-soft);}
   strong{color:var(--ink);}
+  /* Task 2: extra squeeze on very narrow phones (320px) */
+  @media (max-width:520px){
+    th,td{padding:.45em .5em;}
+    table{font-size:.85rem;}
+  }
 </style>
 </head>
 <body>
