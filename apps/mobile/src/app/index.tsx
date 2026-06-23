@@ -535,7 +535,7 @@ export default function WriteScreen() {
         关闭 = 回去继续写(step → 'write');底单内部不会误关。
       */}
       <BottomSheet visible={step === 'date'} onClose={() => setStep('write')}>
-        <Text style={styles.dateHero}>When should this letter return to you?</Text>
+        <Text style={styles.dateHero}>When should it come home?</Text>
 
         {/* 标题下方一根浅浅的分割线(#EFDFC0),把标题和日历轻轻分开。 */}
         <View style={styles.dateHeroDivider} />

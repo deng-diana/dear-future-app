@@ -76,7 +76,7 @@ export default function Calendar({ value, minDate, onChange }: Props) {
         </Pressable>
       </View>
 
-      {/* 星期表头:S M T W T F S */}
+      {/* Weekday header: S M T W T F S — same 7-column row structure as grid rows */}
       <View style={styles.weekRow}>
         {WEEKDAYS.map((w, i) => (
           <View key={i} style={styles.cell}>
@@ -85,30 +85,39 @@ export default function Calendar({ value, minDate, onChange }: Props) {
         ))}
       </View>
 
-      {/* 日期网格:6 行 × 7 列 */}
+      {/* Date grid: explicit rows of exactly 7 cells; flex:1 per cell avoids
+          floating-point percentage wrap that caused the phantom empty row. */}
       <View style={styles.grid}>
-        {cells.map((day, i) => {
-          if (day === null) {
-            return <View key={i} style={styles.cell} />; // 空格(占位,不可点)
-          }
-          const thisDate = new Date(year, month, day);
-          const disabled = startOfDay(thisDate).getTime() < min.getTime(); // 早于下限 → 灰、不可点
-          const selected = value != null && sameDay(thisDate, value); // 是被选中的那天?
-
+        {Array.from({ length: 6 }, (_, rowIdx) => {
+          const rowCells = cells.slice(rowIdx * 7, rowIdx * 7 + 7);
           return (
-            <Pressable
-              key={i}
-              style={styles.cell}
-              disabled={disabled}
-              onPress={() => onChange(new Date(year, month, day))}
-              accessibilityRole="button"
-              accessibilityLabel={`${MONTHS[month]} ${day}, ${year}`}
-              accessibilityState={{ disabled, selected }}>
-              {/* A6: accessibilityLabel 让屏幕阅读器读出完整日期(如 "June 22, 2027") */}
-              <View style={[styles.dayCircle, selected && styles.dayCircleSelected]}>
-                <Text style={[styles.dayText, disabled && styles.dayTextDisabled, selected && styles.dayTextSelected]}>{day}</Text>
-              </View>
-            </Pressable>
+            <View key={rowIdx} style={styles.gridRow}>
+              {rowCells.map((day, colIdx) => {
+                const cellKey = rowIdx * 7 + colIdx;
+                if (day === null) {
+                  return <View key={cellKey} style={styles.cell} />; // blank spacer, not tappable
+                }
+                const thisDate = new Date(year, month, day);
+                const disabled = startOfDay(thisDate).getTime() < min.getTime(); // before min → grey, untappable
+                const selected = value != null && sameDay(thisDate, value); // is this the chosen day?
+
+                return (
+                  <Pressable
+                    key={cellKey}
+                    style={styles.cell}
+                    disabled={disabled}
+                    onPress={() => onChange(new Date(year, month, day))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${MONTHS[month]} ${day}, ${year}`}
+                    accessibilityState={{ disabled, selected }}>
+                    {/* A6: accessibilityLabel lets screen readers announce the full date (e.g. "June 22, 2027") */}
+                    <View style={[styles.dayCircle, selected && styles.dayCircleSelected]}>
+                      <Text style={[styles.dayText, disabled && styles.dayTextDisabled, selected && styles.dayTextSelected]}>{day}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           );
         })}
       </View>
@@ -131,14 +140,16 @@ const styles = StyleSheet.create({
   chevronHidden: { opacity: 0 }, // 到下限月就藏起左箭头(占位不跳动)
   monthLabel: { fontFamily: fonts.regular, fontSize: 18, color: colors.textHeading },
 
-  // 星期表头一行 7 列;width:100% 让它与下方网格容器同宽,列才会一一对齐。
-  weekRow: { flexDirection: 'row', width: '100%', marginBottom: 4 },
+  // Weekday header: one row of 7 flex:1 cells, same structure as each grid row.
+  weekRow: { flexDirection: 'row', marginBottom: 4 },
   weekday: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted },
 
-  // 网格:横向换行,每格占 1/7 宽;与表头共用同一个 cell,保证列宽一致。
-  grid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
-  // A14: height → minHeight,动态字号时格子不裁字
-  cell: { width: `${100 / 7}%`, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  // Grid: a column of rows; each row is a flexDirection:'row' View with 7 flex:1 cells.
+  // flex:1 on each cell gives exact equal division with no floating-point rounding.
+  grid: { flexDirection: 'column' },
+  gridRow: { flexDirection: 'row' },
+  // A14: minHeight so tall dynamic-type text is never clipped; flex:1 fills 1/7 of the row exactly.
+  cell: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 
   // 每天的数字外面一个透明圆;选中那天填成更深的品牌色实心圆(奶白字 ≥4.5:1 AA)。
   dayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
