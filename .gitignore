@@ -28,3 +28,6 @@ SCRATCHPAD.local.md
 
 # Expo web export output
 apps/mobile/dist/
+
+# Supabase CLI temp
+supabase/.temp/
