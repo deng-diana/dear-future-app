@@ -57,14 +57,17 @@ time capsule,future self,diary,journal,memory,reflection,mindfulness,self care,k
 
 ### Support URL (required — must be a reachable https page)
 ```
-https://dearfuture.space
+https://dear-future-app.vercel.app/support
 ```
-> TODO: confirm this page is live and has a way to contact you (or a short
-> support/contact section). Apple rejects dead/placeholder support URLs.
+> LIVE NOW (curl-verified 200). A dedicated support page with a contact email +
+> FAQ. After you attach the custom domain you can switch this to
+> https://dearfuture.space/support. IMPORTANT: make sure the contact mailbox on
+> that page (privacy@dearfuture.space) actually receives mail — or change it to
+> an email you monitor.
 
 ### Marketing URL (optional)
 ```
-https://dearfuture.space
+https://dear-future-app.vercel.app
 ```
 
 ### Copyright
@@ -83,10 +86,11 @@ https://dearfuture.space
 
 ### Privacy Policy URL (REQUIRED)
 ```
-https://dearfuture.space/privacy
+https://dear-future-app.vercel.app/privacy
 ```
-> TODO: deploy the privacy page (web/reveal/privacy/index.html) and put its
-> real public URL here. Required — cannot submit without it.
+> LIVE NOW (curl-verified 200, assets load). After attaching the custom domain
+> you can switch to https://dearfuture.space/privacy. TODO: set the real
+> "Effective date" on the privacy page before submitting.
 
 ### Category
 - Primary: **Lifestyle**
