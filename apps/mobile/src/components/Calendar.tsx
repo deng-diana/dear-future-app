@@ -64,13 +64,14 @@ export default function Calendar({ value, minDate, onChange }: Props) {
     <View style={styles.container}>
       {/* 头部:‹  June 2026  › */}
       <View style={styles.header}>
-        <Pressable onPress={goPrev} disabled={!canGoPrev} hitSlop={10} style={styles.chevronHit} accessibilityRole="button">
+        {/* A6: 翻页箭头加上无障碍标签(屏幕阅读器报出"Previous month" / "Next month") */}
+        <Pressable onPress={goPrev} disabled={!canGoPrev} hitSlop={10} style={styles.chevronHit} accessibilityRole="button" accessibilityLabel="Previous month">
           <Text style={[styles.chevron, !canGoPrev && styles.chevronHidden]}>‹</Text>
         </Pressable>
         <Text style={styles.monthLabel}>
           {MONTHS[month]} {year}
         </Text>
-        <Pressable onPress={goNext} hitSlop={10} style={styles.chevronHit} accessibilityRole="button">
+        <Pressable onPress={goNext} hitSlop={10} style={styles.chevronHit} accessibilityRole="button" accessibilityLabel="Next month">
           <Text style={styles.chevron}>›</Text>
         </Pressable>
       </View>
@@ -101,7 +102,9 @@ export default function Calendar({ value, minDate, onChange }: Props) {
               disabled={disabled}
               onPress={() => onChange(new Date(year, month, day))}
               accessibilityRole="button"
+              accessibilityLabel={`${MONTHS[month]} ${day}, ${year}`}
               accessibilityState={{ disabled, selected }}>
+              {/* A6: accessibilityLabel 让屏幕阅读器读出完整日期(如 "June 22, 2027") */}
               <View style={[styles.dayCircle, selected && styles.dayCircleSelected]}>
                 <Text style={[styles.dayText, disabled && styles.dayTextDisabled, selected && styles.dayTextSelected]}>{day}</Text>
               </View>
@@ -134,12 +137,13 @@ const styles = StyleSheet.create({
 
   // 网格:横向换行,每格占 1/7 宽;与表头共用同一个 cell,保证列宽一致。
   grid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
-  cell: { width: `${100 / 7}%`, height: 44, alignItems: 'center', justifyContent: 'center' },
+  // A14: height → minHeight,动态字号时格子不裁字
+  cell: { width: `${100 / 7}%`, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 
-  // 每天的数字外面一个透明圆;选中那天填成主题色实心圆。
+  // 每天的数字外面一个透明圆;选中那天填成更深的品牌色实心圆(奶白字 ≥4.5:1 AA)。
   dayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  dayCircleSelected: { backgroundColor: colors.brand },
+  dayCircleSelected: { backgroundColor: colors.brandSelected }, // B: 加深选中背景至 brandDark,确保对比度 AA
   dayText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
-  dayTextDisabled: { color: colors.textMutedLight }, // 早于下限:灰
+  dayTextDisabled: { color: colors.textMutedLight }, // 早于下限:灰(disabled 态 WCAG 豁免)
   dayTextSelected: { color: colors.background }, // 选中:奶白字
 });

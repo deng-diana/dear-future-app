@@ -3,8 +3,8 @@
 // 客户端只传购买凭证 ID,服务器向 RevenueCat 确认后才落库。
 
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
@@ -393,14 +393,27 @@ export default function WriteScreen() {
     );
   }
 
+  // A2: 封存完成时把 VoiceOver 焦点移到标题 + 播报封存成功
+  const sealedHeadingRef = useRef<Text>(null);
+  useEffect(() => {
+    if (!sealed) return;
+    // 播报给屏幕阅读器用户
+    AccessibilityInfo.announceForAccessibility('Your letter is sealed. It will return to you in the future.');
+    // 把 VoiceOver 焦点移动到"Sealed"标题
+    const tag = findNodeHandle(sealedHeadingRef.current);
+    if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+  }, [sealed]);
+
   // 岔路口①:已封存 → 写信的纸消失,只剩一句安静的话。
   if (sealed) {
     return (
       <SafeAreaView style={styles.sealedScreen} edges={['top', 'bottom']}>
         {/* 内容居中:信封 + 标题 + 描述(信封改小一些)。 */}
         <View style={styles.sealedContent}>
-          <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" />
-          <Text style={styles.sealedText}>Sealed</Text>
+          {/* A7: 装饰性信封图片,对屏幕阅读器隐藏 */}
+          <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
+          {/* A2: accessibilityLiveRegion="assertive" 确保 Android TalkBack 也能立即播报;ref 用于 iOS VoiceOver 焦点 */}
+          <Text ref={sealedHeadingRef} style={styles.sealedText} accessibilityLiveRegion="assertive">Sealed</Text>
           <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
         </View>
 
@@ -431,14 +444,15 @@ export default function WriteScreen() {
           {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。长按日期 = 演示用回到开场页。 */}
           <Dateline onLongPress={() => setShowSplash(true)} />
 
-          {/* 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星(代码画,稳定渲染)。 */}
-          <View style={styles.dividerRow}>
+          {/* 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星(代码画,稳定渲染)。A7: 纯装饰,对屏幕阅读器隐藏 */}
+          <View style={styles.dividerRow} accessible={false} importantForAccessibility="no-hide-descendants">
             <View style={styles.dividerLine} />
             <Text style={styles.dividerStar}>✦</Text>
             <View style={styles.dividerLine} />
           </View>
 
         {/* 整封信(含称呼)都在这一个输入框里写,同一字体同一字号;光标是暖金棕色。 */}
+        {/* A1: accessibilityLabel 让屏幕阅读器知道这是写给未来自己的信 */}
         <TextInput
           style={styles.input}
           value={letter}
@@ -448,6 +462,7 @@ export default function WriteScreen() {
           textAlignVertical="top"
           selectionColor={colors.cursor}
           cursorColor={colors.cursor}
+          accessibilityLabel="Your letter"
         />
 
         {/* 还没写字时,底部完全隐藏 —— 守"一张干净的纸"。一旦动笔,附件 + Finish 才出现。 */}
@@ -459,12 +474,14 @@ export default function WriteScreen() {
                 {photos.map((p, idx) => (
                   <View key={p.uri + idx} style={styles.thumbWrap}>
                     <Image source={{ uri: p.uri }} style={styles.thumb} />
+                    {/* A8: hitSlop 扩到 14pt,加上 accessibilityLabel 让屏幕阅读器播报"Remove photo" */}
                     <Pressable
                       onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== idx))}
                       disabled={busy}
-                      hitSlop={8}
+                      hitSlop={14}
                       style={styles.thumbRemove}
-                      accessibilityRole="button">
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove photo">
                       <Text style={styles.thumbRemoveText}>✕</Text>
                     </Pressable>
                   </View>
@@ -473,21 +490,22 @@ export default function WriteScreen() {
             ) : null}
 
             {/* 可选附件:照片(可多选,最多 10 张)+ 1 段视频。安静一行,守"写信为主"。 */}
+            {/* A9: 媒体按钮加上 hitSlop 和 accessibilityLabel */}
             <View style={styles.mediaRow}>
               {/* 未满 10 张:显示 ＋ Photos;满 10 张:显示安静提示文字(不显示按钮)。 */}
               {photos.length < MAX_PHOTOS ? (
-                <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button">
+                <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add photos">
                   <Text style={styles.mediaAdd}>＋ Photos</Text>
                 </Pressable>
               ) : (
                 <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
               )}
               {video ? (
-                <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button">
+                <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Remove video">
                   <Text style={styles.mediaOn}>🎬  ✕</Text>
                 </Pressable>
               ) : (
-                <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button">
+                <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add a video">
                   <Text style={styles.mediaAdd}>＋ Video</Text>
                 </Pressable>
               )}
@@ -577,9 +595,10 @@ export default function WriteScreen() {
           style={styles.sealButtonInSheet}
         />
 
-        {/* 次选:只有有媒体(更贵档位)时才显示 —— 去掉媒体改用纯文字封存。 */}
+        {/* 次选:只有有媒体(更贵档位)时才显示 —— 去掉媒体改用纯文字封存。
+            A10: 加上 hitSlop + paddingVertical 让触摸区至少达到 ~44pt */}
         {showWordsOnlyEscape ? (
-          <Pressable onPress={handleWordsOnly} disabled={busy} accessibilityRole="button">
+          <Pressable onPress={handleWordsOnly} disabled={busy} accessibilityRole="button" hitSlop={{ top: 12, bottom: 12 }}>
             <Text style={styles.sealSheetEscape}>
               Seal as words only · {wordsOnlyTier.priceHint}
             </Text>
@@ -626,7 +645,7 @@ const styles = StyleSheet.create({
   footer: { paddingHorizontal: 32, paddingVertical: 20, gap: 14 },
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
   mediaAdd: { fontSize: 14, color: colors.textMuted }, // 未选:暖灰
-  mediaOn: { fontSize: 14, color: colors.brand }, // 已选:品牌色(✕ 可移除)
+  mediaOn: { fontSize: 14, color: colors.brandText }, // B: 已选 — 换用 brandText(#84410F),达到 ≥4.5:1(AA)
   // 10 张满额提示:静默一行,与 mediaAdd 同字号同色系,但更低调。
   mediaCap: { fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
 
@@ -715,13 +734,13 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: -10, // 与档位行贴近一点
   },
-  // 「Seal as words only · Free」:静默链接样式。
+  // 「Seal as words only · Free」:静默链接样式。A10: paddingVertical 放大到 10 以达到 ~44pt 触摸区。
   sealSheetEscape: {
     fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textMuted,
     textDecorationLine: 'underline',
-    paddingVertical: 4,
+    paddingVertical: 10,
   },
 
   // 封存后那一屏:内容居中 + 按钮沉底(对齐设计图)。
@@ -744,12 +763,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.9,
     marginTop: 4,
   },
-  // 描述:Courier Prime 常规,赤陶色,居中,行高 20(用户规格)。
+  // 描述:Courier Prime 常规,居中,行高 20(用户规格)。B: 换用 brandText(#84410F),达到 ≥4.5:1(AA)
   sealedHint: {
     fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.brand,
+    color: colors.brandText, // B: 文字场景用 brandText 而非 brand,确保对比度 AA
     textAlign: 'center',
     paddingHorizontal: 32,
   },

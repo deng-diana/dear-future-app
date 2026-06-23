@@ -2,8 +2,8 @@
 // 情感基调:把这一刻交给时间,轻轻松手。慢、庄重、平静。
 // 只用 React Native 内置 Animated API,不依赖 reanimated。
 
-import { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Dimensions, StyleSheet, View } from 'react-native';
 
 import { colors } from '@/theme';
 
@@ -48,80 +48,109 @@ export default function SealCeremony({ onDone }: Props) {
   // ── 是否已触发 onDone(保证只调一次)──────────────────────────────────
   const doneCalled = useRef(false);
 
+  // A13: 读取系统"减少动画"设置——用 ref 同步给动画 effect
+  const reduceMotionRef = useRef(false);
   useEffect(() => {
-    // ── 阶段一 (0 – 0.6 s):信纸安静入场 ────────────────────────────────
-    // 淡入 + 轻微放大,像纸被稳稳放下。干净,不压暗。
-    const phase1 = Animated.parallel([
-      Animated.timing(paperOpacity, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(paperScale, {
-        toValue: 1,
-        tension: 60,
-        friction: 9,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // ── 阶段二 (0.7 – 1.4 s):火漆落下并盖章 ───────────────────────────
-    //   a) 火漆从 translateY=-36 落到 0(像从高处压下来)
-    //   b) 缩放从 1.5 弹性压到 1.0(spring 的微过冲 = 盖章的触感)
-    //   c) 火漆随落下淡入
-    const phase2 = Animated.parallel([
-      Animated.timing(sealTranslateY, {
-        toValue: 0,
-        duration: 460,
-        useNativeDriver: true,
-      }),
-      Animated.spring(sealScale, {
-        toValue: 1,
-        tension: 170,
-        friction: 7.5,
-        useNativeDriver: true,
-      }),
-      Animated.timing(sealOpacity, {
-        toValue: 1,
-        duration: 360,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // ── 阶段三 (1.7 – 3.0 s):信纸上飘并淡出 ───────────────────────────
-    // 整个组合缓缓上飘出屏幕,同时透明度归零。像信被时间轻轻接走。
-    const phase3 = Animated.parallel([
-      Animated.timing(groupTranslateY, {
-        toValue: -(SH * 0.62),
-        duration: 1300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(groupOpacity, {
-        toValue: 0,
-        duration: 1100,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // ── 串联三个阶段,用 delay 隔开 ────────────────────────────────────
-    const ceremony = Animated.sequence([
-      phase1,
-      Animated.delay(120),     // 信纸稳住一瞬,火漆才落
-      phase2,
-      Animated.delay(420),     // 让用户看到"已封好"的火漆
-      phase3,
-    ]);
-
-    ceremony.start(({ finished }) => {
-      if (finished && !doneCalled.current) {
-        doneCalled.current = true;
-        onDone();
-      }
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      reduceMotionRef.current = enabled;
     });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
+      reduceMotionRef.current = enabled;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // 动画实例 ref — 用于卸载时停止
+  const ceremonyRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    // A13: 减少动画模式 — 用 setTimeout(0) 让 isReduceMotionEnabled Promise 先 resolve
+    const timer = setTimeout(() => {
+      if (reduceMotionRef.current) {
+        // 跳过多秒仪式,立即触发 onDone(封存已写库,此处只是动画)
+        if (!doneCalled.current) {
+          doneCalled.current = true;
+          onDone();
+        }
+        return;
+      }
+
+      // ── 阶段一 (0 – 0.6 s):信纸安静入场 ────────────────────────────────
+      // 淡入 + 轻微放大,像纸被稳稳放下。干净,不压暗。
+      const phase1 = Animated.parallel([
+        Animated.timing(paperOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(paperScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 9,
+          useNativeDriver: true,
+        }),
+      ]);
+
+      // ── 阶段二 (0.7 – 1.4 s):火漆落下并盖章 ───────────────────────────
+      //   a) 火漆从 translateY=-36 落到 0(像从高处压下来)
+      //   b) 缩放从 1.5 弹性压到 1.0(spring 的微过冲 = 盖章的触感)
+      //   c) 火漆随落下淡入
+      const phase2 = Animated.parallel([
+        Animated.timing(sealTranslateY, {
+          toValue: 0,
+          duration: 460,
+          useNativeDriver: true,
+        }),
+        Animated.spring(sealScale, {
+          toValue: 1,
+          tension: 170,
+          friction: 7.5,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sealOpacity, {
+          toValue: 1,
+          duration: 360,
+          useNativeDriver: true,
+        }),
+      ]);
+
+      // ── 阶段三 (1.7 – 3.0 s):信纸上飘并淡出 ───────────────────────────
+      // 整个组合缓缓上飘出屏幕,同时透明度归零。像信被时间轻轻接走。
+      const phase3 = Animated.parallel([
+        Animated.timing(groupTranslateY, {
+          toValue: -(SH * 0.62),
+          duration: 1300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(groupOpacity, {
+          toValue: 0,
+          duration: 1100,
+          useNativeDriver: true,
+        }),
+      ]);
+
+      // ── 串联三个阶段,用 delay 隔开 ────────────────────────────────────
+      const ceremony = Animated.sequence([
+        phase1,
+        Animated.delay(120),     // 信纸稳住一瞬,火漆才落
+        phase2,
+        Animated.delay(420),     // 让用户看到"已封好"的火漆
+        phase3,
+      ]);
+
+      ceremonyRef.current = ceremony;
+      ceremony.start(({ finished }) => {
+        if (finished && !doneCalled.current) {
+          doneCalled.current = true;
+          onDone();
+        }
+      });
+    }, 0);
 
     // 组件卸载时停掉动画(防止内存泄漏 / 对已卸载组件 setState)
     return () => {
-      ceremony.stop();
+      clearTimeout(timer);
+      ceremonyRef.current?.stop();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在挂载时跑一次
@@ -147,10 +176,12 @@ export default function SealCeremony({ onDone }: Props) {
             { opacity: paperOpacity, transform: [{ scale: paperScale }] },
           ]}
         >
-          {/* 火漆 logo:落下 + 弹性盖章 + 淡入 */}
+          {/* 火漆 logo:落下 + 弹性盖章 + 淡入。A7: 纯装饰动画,对屏幕阅读器隐藏 */}
           <Animated.Image
             source={require('@/assets/images/seal-stamp.png')}
             resizeMode="contain"
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
             style={[
               styles.seal,
               {

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AccessibilityInfo, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '@/components/Button';
@@ -17,6 +17,11 @@ export default function SignIn({ onVerified, onCancel }: Props) {
   const [stage, setStage] = useState<'email' | 'code'>('email'); // 现在在哪一步:输邮箱 还是 输码
   const [busy, setBusy] = useState(false); // 正在等服务器(发码 / 验码)
   const [error, setError] = useState('');
+
+  // A5: 有错误时立即通过屏幕阅读器播报(让 VoiceOver/TalkBack 用户知道出错了)
+  useEffect(() => {
+    if (error) AccessibilityInfo.announceForAccessibility(error);
+  }, [error]);
 
   // 第 1 步:把 6 位码发到这个邮箱
   async function sendCode() {
@@ -56,6 +61,7 @@ export default function SignIn({ onVerified, onCancel }: Props) {
             <>
               <Text style={styles.title}>Where should it be sent, years from now?</Text>
               <Text style={styles.hint}>Your letter will return here. This address is your only key.</Text>
+              {/* A4: 添加邮箱自动填充提示(textContentType / autoComplete)+ 屏幕阅读器标签 */}
               <TextInput
                 style={styles.input}
                 value={email}
@@ -66,12 +72,16 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoFocus
+                textContentType="emailAddress"
+                autoComplete="email"
+                accessibilityLabel="Email address"
               />
             </>
           ) : (
             <>
               <Text style={styles.title}>A code is waiting for you</Text>
               <Text style={styles.hint}>We sent it to {email.trim()}.</Text>
+              {/* A3: OTP 字段加上自动填充(textContentType / autoComplete)+ 屏幕阅读器标签 */}
               <TextInput
                 style={[styles.input, styles.codeInput]}
                 value={code}
@@ -81,11 +91,15 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 keyboardType="number-pad"
                 maxLength={10}
                 autoFocus
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                accessibilityLabel="Verification code"
               />
             </>
           )}
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {/* A5: accessibilityLiveRegion="assertive" — 错误出现时屏幕阅读器立即打断并播报 */}
+          {error ? <Text style={styles.error} accessibilityLiveRegion="assertive">{error}</Text> : null}
         </View>
 
         <View style={styles.footer}>

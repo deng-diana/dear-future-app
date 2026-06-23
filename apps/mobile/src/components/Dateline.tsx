@@ -89,12 +89,15 @@ export default function Dateline({ onLongPress }: Props) {
           onSubmitEditing={commitEdit}
         />
       ) : (
+        // A12: 城市可编辑区域 — 告知屏幕阅读器这是一个按钮(role)并说明操作(hint)
         <Text
           style={[styles.line, styles.cityText]}
           onPress={() => {
             setDraft(city);
             setEditing(true);
           }}
+          accessibilityRole="button"
+          accessibilityHint="Edit your city"
           suppressHighlighting>
           {city}
         </Text>
@@ -110,7 +113,7 @@ const lineBase = {
   fontFamily: fonts.regular,
   fontSize: 14,
   lineHeight: 22,
-  color: colors.brand,
+  color: colors.brandText, // B: brand 文字场景换用更深的 brandText(#84410F),达到 ≥4.5:1(AA)
   letterSpacing: 1.1,
 } as const;
 
@@ -128,8 +131,8 @@ const styles = StyleSheet.create({
   },
   // 城市编辑框:和 Text 行保持同等间距
   cityInput: {
-    padding: 0,     // 抹掉 TextInput 自带的内边距,与 Text 行对齐
+    padding: 0,        // 抹掉 TextInput 自带的内边距,与 Text 行对齐
     margin: 0,
-    height: 22,     // 和 lineHeight 一致,防止高度抖动
+    minHeight: 22,     // A14: height → minHeight,动态字号时不裁字
   },
 });

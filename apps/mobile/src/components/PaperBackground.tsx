@@ -76,21 +76,20 @@ export default function PaperBackground({ children }: Props) {
         {children}
       </View>
 
-      {/* ── 颗粒层:32 个极淡暖色小点,模拟纸浆纤维 ── */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {/* ── 颗粒层:32 个极淡暖色小点,模拟纸浆纤维。A7: 纯装饰,对屏幕阅读器隐藏 ── */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false} importantForAccessibility="no-hide-descendants">
         {fleckNodes}
       </View>
 
-      {/* ── 内晕层:四面 semi-透明边框,边缘略暗,模拟纸张四周渐暗 ──
-          用四个 1px 宽的条状 View 各贴一边,opacity 叠加出渐暗效果 */}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.vignetteOuter]} />
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.vignetteInner]} />
+      {/* ── 内晕层:四面 semi-透明边框,边缘略暗。A7: 纯装饰,对屏幕阅读器隐藏 ── */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.vignetteOuter]} accessible={false} importantForAccessibility="no-hide-descendants" />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.vignetteInner]} accessible={false} importantForAccessibility="no-hide-descendants" />
 
-      {/* ── 翘角:右下角"被掀起的一页"近似效果 ──
+      {/* ── 翘角:右下角"被掀起的一页"近似效果。A7: 纯装饰,对屏幕阅读器隐藏 ──
           由两层组成:
             curlShadow — 偏移出去、略暗,模拟掀起的页背面投影
             curlFace   — 正面那片,象牙白略深,45° 旋转,探出屏外 */}
-      <View pointerEvents="none" style={styles.curlWrap}>
+      <View pointerEvents="none" style={styles.curlWrap} accessible={false} importantForAccessibility="no-hide-descendants">
         {/* 投影近似:比正面大一点点,颜色深一点,偏左偏上 */}
         <View style={styles.curlShadow} />
         {/* 掀起的纸面 */}

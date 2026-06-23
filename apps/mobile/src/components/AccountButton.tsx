@@ -88,8 +88,8 @@ export default function AccountButton({ email, onSignOut }: Props) {
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         {/* 半透明背景:点空白处关掉 */}
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          {/* 卡片本身:吸收点击,不让它穿透去关掉 */}
-          <Pressable style={[styles.card, { top: cardTop + 48 }]} onPress={() => {}}>
+          {/* 卡片本身:吸收点击,不让它穿透去关掉。A11: accessibilityViewIsModal 让 VoiceOver 把焦点锁在卡片内 */}
+          <Pressable style={[styles.card, { top: cardTop + 48 }]} onPress={() => {}} accessibilityViewIsModal={true}>
             <Text style={styles.label}>Your letters return to</Text>
             <Text style={styles.email} numberOfLines={1}>
               {email}

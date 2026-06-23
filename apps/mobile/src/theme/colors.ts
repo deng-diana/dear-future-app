@@ -27,8 +27,9 @@ export const palette = {
   brownWarm: '#7A4A1E',    // SealCeremony 信纸投影色
 
   // 主题色 — 赤陶/品牌橙棕 系
-  brand: '#B26B24',        // 主品牌色:按钮背景/Dateline邮戳/日历选中圆/价格高亮
-  brandDark: '#84410F',    // 已封存标题文字(比 brand 更深)
+  brand: '#B26B24',        // 主品牌色:日历选中圆/价格高亮/日历箭头等 UI 元素
+  brandButton: '#9D5E1F',  // 实心按钮背景 — 比 brand 稍深,确保近白文字 ≥4.5:1(AA)
+  brandDark: '#84410F',    // 已封存标题文字/Dateline邮戳/sealed hint — 文字场景 ≥4.5:1(AA)
   brandDeep: '#67350F',    // (alias brownInk,均是深墨水棕,已在 brownInk 定义)
 
   // 金/暖金 系 — 强调色
@@ -38,15 +39,18 @@ export const palette = {
   goldCursor: '#C68A3A',   // 光标/选择色(TextInput selectionColor/cursorColor)
 
   // 暖红 系 — 危险/破坏性操作
-  terracottaDeep: '#B24A18', // Sign Out 文字 / SignIn 错误文字
+  terracottaDeep: '#A14315', // Sign Out 文字 / SignIn 错误文字 — 加深至 ≥4.5:1(AA)
   bordeauxRed: '#7A1E1E',    // Delete Account 文字(更深的危险红)
 
   // 灰褐 系 — 静默/禁用/辅助文字
-  mutedBrown: '#9A7E5C',   // 静默辅助文字:星期表头/mediaAdd/backLinkText/sealSheetReason
-  mutedMid: '#8A7256',     // SignIn hint/cancel 文字
+  mutedBrown: '#7D644A',   // 静默辅助文字:星期表头/mediaAdd/backLinkText/sealSheetReason — 加深至 ≥4.5:1(AA)
+  mutedMid: '#715D46',     // SignIn hint/cancel 文字 — 加深至 ≥4.5:1(AA)
   mutedSoft: '#6B5A4B',    // SealSheet 摘要项文字
-  mutedLight: '#B09A80',   // 禁用态文字:日历灰色日期/placeholder/AccountButton label
-  mutedPale: '#B8A492',    // mediaCap 斜体文字(最淡静默)
+  mutedLight: '#7C6249',   // 禁用态文字:日历灰色日期/placeholder/AccountButton label — 加深至 ≥4.5:1(AA)
+  mutedPale: '#726454',    // mediaCap 斜体文字 — 加深至 ≥4.5:1(AA)
+
+  // 日历选中日圆背景 — 用更深的品牌色,确保奶白文字 ≥4.5:1(AA)
+  brandSelected: '#84410F', // 日历选中日背景(=brandDark),奶白文字比率 6.28
 
   // 边框/分割/纸张质感 系
   borderMid: '#C9B097',    // 禁用按钮背景色/SignIn 输入框底边/BottomSheet 抓手条
@@ -77,8 +81,10 @@ export const colors = {
   textInverse: palette.creamText,       // 深色按钮上的近白文字
 
   // 品牌/强调
-  brand: palette.brand,                 // 主品牌色(按钮/邮戳/日历选中/价格)
-  brandDark: palette.brandDark,         // 封存标题文字(更深品牌色)
+  brand: palette.brand,                 // 主品牌色(日历选中圆/价格/箭头等 UI 元素)
+  brandButton: palette.brandButton,     // 实心按钮专用背景 — 近白文字 ≥4.5:1(AA)
+  brandDark: palette.brandDark,         // 封存标题文字(更深品牌色,文字场景 ≥4.5:1 AA)
+  brandText: palette.brandDark,         // 品牌色文字(Dateline/sealedHint/mediaOn) — ≥4.5:1(AA)
   brandWarm: palette.brownWarm,         // 信纸投影暖色(SealCeremony)
   accentGold: palette.goldBright,       // 金色分割线/星
   accentGoldMid: palette.goldMid,       // SealSheet分割线(中等金)
@@ -86,8 +92,11 @@ export const colors = {
   cursor: palette.goldCursor,           // 光标/选区高亮色
 
   // 危险操作
-  danger: palette.terracottaDeep,       // 登出文字/错误文字
+  danger: palette.terracottaDeep,       // 登出文字/错误文字(加深至 ≥4.5:1 AA)
   dangerDeep: palette.bordeauxRed,      // 删除账号文字(更深)
+
+  // 日历选中日专用背景
+  brandSelected: palette.brandSelected, // 日历选中日背景 — 深品牌色,奶白字 ≥4.5:1(AA)
 
   // 禁用状态
   buttonDisabled: palette.borderMid,    // 禁用按钮背景

@@ -2,8 +2,8 @@
 // 重要:绝不自动跳转,只有按钮触发 onStart()(用户明确要求)。
 // 背景是整张装饰图(纸+叶影+钢笔+怀表+信封),上面叠 logo / Reunite 切图 / 分隔线 / 标语 / 按钮。
 
-import { useRef } from 'react';
-import { Animated, Dimensions, Image, StyleSheet, Text } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Dimensions, Image, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '@/components/Button';
@@ -19,7 +19,20 @@ export default function Splash({ onStart }: Props) {
   // 点 Start 时整屏轻轻淡出,再真正切走(只此一条出场路径,无自动跳转)。
   const fade = useRef(new Animated.Value(1)).current;
 
+  // A13: 读取系统"减少动画"设置——开启时跳过淡出动画,直接切走
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
   function handleStart() {
+    if (reduceMotion) {
+      // 减少动画:跳过 420ms 淡出,立即切走
+      onStart();
+      return;
+    }
     Animated.timing(fade, { toValue: 0, duration: 420, useNativeDriver: true }).start(({ finished }) => {
       if (finished) onStart();
     });
@@ -28,15 +41,17 @@ export default function Splash({ onStart }: Props) {
   return (
     <Animated.View style={[styles.root, { opacity: fade }]}>
       {/* 背景图:绝对铺满整屏(显式 SW×SH),保证 cover 把整张图都盖住(含底部钢笔/怀表/信封),
-          不依赖 flex 在网页端能否撑满高度 —— 修复 web 上底部被裁掉的问题。 */}
-      <Image source={require('@/assets/images/splash-bg.png')} style={styles.bgImage} resizeMode="cover" />
+          不依赖 flex 在网页端能否撑满高度 —— 修复 web 上底部被裁掉的问题。
+          A7: 纯装饰背景,对屏幕阅读器隐藏 */}
+      <Image source={require('@/assets/images/splash-bg.png')} style={styles.bgImage} resizeMode="cover" accessible={false} importantForAccessibility="no-hide-descendants" />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         {/* 上半部分:火漆 logo + Reunite 切图 + 金色分隔线 + 标语 */}
         <Animated.View style={styles.top}>
-          <Image source={require('@/assets/images/seal-stamp.png')} style={styles.logo} resizeMode="contain" />
-          <Image source={require('@/assets/images/splash-wordmark.png')} style={styles.wordmark} resizeMode="contain" />
-          <Image source={require('@/assets/images/splash-divider.png')} style={styles.divider} resizeMode="contain" />
+          {/* A7: 装饰性图片对屏幕阅读器隐藏(logo/wordmark/divider/bgImage 均为纯装饰) */}
+          <Image source={require('@/assets/images/seal-stamp.png')} style={styles.logo} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
+          <Image source={require('@/assets/images/splash-wordmark.png')} style={styles.wordmark} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
+          <Image source={require('@/assets/images/splash-divider.png')} style={styles.divider} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
           <Text style={styles.tagline}>Write to your future self.{'\n'}Meet the person you used to be.</Text>
         </Animated.View>
 

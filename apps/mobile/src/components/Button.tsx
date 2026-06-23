@@ -91,7 +91,7 @@ export default function Button({
 const styles = StyleSheet.create({
   // ── solid 变体 ──────────────────────────────────────────────────────────
   solid: {
-    backgroundColor: colors.brand,    // 主品牌色背景
+    backgroundColor: colors.brandButton,  // 按钮专用背景(比 brand 稍深,确保近白文字 ≥4.5:1 AA)
     paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 0,                   // 直角(品牌规范:不要圆角)
