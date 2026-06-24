@@ -48,6 +48,7 @@ export const palette = {
   mutedSoft: '#6B5A4B',    // SealSheet 摘要项文字
   mutedLight: '#7C6249',   // 禁用态文字:日历灰色日期/placeholder/AccountButton label — 加深至 ≥4.5:1(AA)
   mutedPale: '#726454',    // mediaCap 斜体文字 — 加深至 ≥4.5:1(AA)
+  mutedFaint: '#C4B29B',   // 禁用态文字:刻意更浅,做出"可选/不可选"区分(disabled 态 WCAG 豁免)
 
   // 日历选中日圆背景 — 用更深的品牌色,确保奶白文字 ≥4.5:1(AA)
   brandSelected: '#84410F', // 日历选中日背景(=brandDark),奶白文字比率 6.28
@@ -78,6 +79,7 @@ export const colors = {
   textMutedSoft: palette.mutedSoft,     // 三级静默文字(SealSheet摘要项)
   textMutedLight: palette.mutedLight,   // 禁用/占位文字(日历灰日期/placeholder)
   textMutedPale: palette.mutedPale,     // 最淡静默文字(mediaCap)
+  textDisabled: palette.mutedFaint,     // 禁用态文字(日历不可选日期)— 比 textMutedLight 更浅,明显区分可选/不可选
   textInverse: palette.creamText,       // 深色按钮上的近白文字
 
   // 品牌/强调

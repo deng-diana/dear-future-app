@@ -155,6 +155,6 @@ const styles = StyleSheet.create({
   dayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   dayCircleSelected: { backgroundColor: colors.brandSelected }, // B: 加深选中背景至 brandDark,确保对比度 AA
   dayText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
-  dayTextDisabled: { color: colors.textMutedLight }, // 早于下限:灰(disabled 态 WCAG 豁免)
+  dayTextDisabled: { color: colors.textDisabled }, // 早于下限:更浅的禁用色,明显区分可选/不可选(disabled WCAG 豁免)
   dayTextSelected: { color: colors.background }, // 选中:奶白字
 });
