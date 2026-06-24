@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Alert, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -95,20 +96,28 @@ export default function AccountButton({ email, onSignOut }: Props) {
               {email}
             </Text>
             <View style={styles.divider} />
+            {/* Delete account 放在上方(用户要求);用红色 + 垃圾桶图标强烈区分,避免误点;且本身有两步确认。 */}
+            <Pressable
+              onPress={handleDeleteAccount}
+              disabled={deleting}
+              style={styles.menuRow}
+              accessibilityRole="button"
+              accessibilityLabel="Delete account">
+              <Ionicons name="trash-outline" size={18} color={colors.dangerDeep} />
+              <Text style={styles.deleteAccount}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
+            </Pressable>
+            <View style={styles.divider} />
+            {/* Sign out 放在下方;正常正文色 + 退出图标 —— 安全/常用,与上面的红色 Delete 明显区分。 */}
             <Pressable
               onPress={() => {
                 setOpen(false);
                 onSignOut();
               }}
-              accessibilityRole="button">
+              style={styles.menuRow}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out">
+              <Ionicons name="log-out-outline" size={18} color={colors.textBody} />
               <Text style={styles.signOut}>Sign out</Text>
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              onPress={handleDeleteAccount}
-              disabled={deleting}
-              accessibilityRole="button">
-              <Text style={styles.deleteAccount}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -147,7 +156,9 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, color: colors.textMutedLight },
   email: { fontSize: 15, color: colors.textPrimary, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.surfacePhoto, marginVertical: 12 },
-  signOut: { fontSize: 15, color: colors.danger },
-  // 删账号:比登出更深的红,暗示破坏性操作更严重。
+  // 一行菜单项:图标 + 文字,横向排列。
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
+  signOut: { fontSize: 15, color: colors.textBody }, // 改正常正文色(原为 danger 红)—— 与红色 Delete 明显区分
+  // 删账号:破坏性操作,保持红色(dangerDeep)+ 垃圾桶图标。
   deleteAccount: { fontSize: 15, color: colors.dangerDeep },
 });
