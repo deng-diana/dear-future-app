@@ -710,7 +710,8 @@ const styles = StyleSheet.create({
   mediaCap: { fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
 
   // 已选照片的缩略图:像一排小相片。横向自动换行。
-  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 2 },
+  // 缩略图在滚动区内,需自带左右边距(32)与正文 / ＋Photos / Finish 对齐(否则贴屏幕边)。
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 32, paddingBottom: 2 },
   thumbWrap: { width: 52, height: 52 },
   thumb: {
     width: 52,
