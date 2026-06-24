@@ -5,6 +5,91 @@
 
 ## ▶ 下一步从这里继续
 
+**Resume (2026-06-24):** build 5 is IN_QUEUE on EAS submit (cloud — finishes
+even if the Mac is off). When it lands on TestFlight → install on a real device
+and test the REAL PURCHASE flow (sandbox = no real money). Once purchase is
+verified + UI is satisfactory → cut **build 6** (final; it will include the two
+latest cosmetic commits — lighter disabled calendar dates `de02f9a`, account
+menu reorder+icons `5775816` — which are NOT in build 5) → attach build 6 to the
+"1.0 Prepare for Submission" version, fill the App Store listing (copy ready in
+`docs/app-store-submission.md`), App Privacy + Age Rating, App Review notes +
+demo login → submit for review.
+
+**Pre-launch security TODOs (do NOT forget):**
+- Remove `ALLOW_SANDBOX_PURCHASES` from Supabase secrets (currently `true` for
+  TestFlight testing — leaving it lets anyone seal paid letters for $0 via sandbox).
+- Rotate the once-exposed `service_role` key.
+- Set up the App Review demo login (Supabase fixed-OTP `review@dearfuture.space`
+  + code `123456` via the `recovery_token` hash trick — steps in submission kit)
+  and TEST it before submitting.
+- App Store listing/support URLs use the live `dear-future-app.vercel.app/...`
+  pages; can switch to the custom domain `dearfuture.space` later.
+- Set the real "Effective date" on the privacy page.
+
+### 2026-06-24 — Launch sprint: device-crash fixes, seal flow, free pricing, IAP, polish
+
+EAS pipeline + 5 TestFlight builds; two real device-only crashes found via crash
+logs + expert review; the seal flow un-stuck; the pricing model flipped to
+"text free forever, media paid"; IAP fully wired end-to-end; a big pile of UX
+polish. tsc clean throughout; high-risk server change fresh-eyes reviewed (PASS).
+
+**EAS / TestFlight pipeline:**
+- `eas init` → projectId `b7bc0908-…`, owner `dianadeng`, slug `reunite`. `eas.json`
+  production profile (autoIncrement, `environment: production`); 3 `EXPO_PUBLIC_*`
+  env vars pushed to EAS. Submit profile **pinned** `ascAppId: 6782853400` +
+  `appleTeamId: N3985C22VN` (Shanghai Youzhuoqu) to dodge flaky ASC app-lookup
+  500s (commit `783146b`). Builds 1–3 on TestFlight; 4 superseded; 5 submitting.
+
+**Two device-only crashes (each simulator-green, release-red):**
+- Build 1 launch crash = dyld "Symbol not found" (ExpoFileSystem ↔ ExpoModulesCore)
+  from Expo patch-version drift → `npx expo install --fix` (`804aac1` era). [memory]
+- Build 3 "tap Start" crash = Rules-of-Hooks violation (`useRef`/`useEffect` below
+  three early returns) → hoisted above all returns (`9e98a78`). [memory]
+
+**Seal flow stuck bug (`7e0a3ff`):** date sheet + price sheet were two separate
+RN `<Modal>`s; date→seal dismissed one while presenting the other → iOS dumped to
+the writing screen and froze taps. Merged into ONE BottomSheet that swaps content
+by `step`. [memory]
+
+**Pricing model change (founder decision): text always FREE + unlimited; media paid.**
+- Client `tiers.ts`: no media → always free (`a49f12c`). Media tiers lowered:
+  Photos & Short Video $4.99→**$2.99**, Rich Media (was "Photos & Long Video")
+  $9.99→**$5.99**.
+- Server `seal-letter` (`0c66a59`): removed the once-only-free check + 365-day cap →
+  free is now unlimited, any horizon (1d..~25y). New migration
+  `2026-06-24-unlimited-free-seals.sql` **drops** the `letters_one_free_per_owner`
+  unique index. `MIN_SEAL_DAYS` 15→**1** on BOTH client + server (earliest = tomorrow).
+  **Deployed** (ran the SQL migration in dashboard, then `supabase functions deploy
+  seal-letter`). Fresh-eyes review = PASS (no free-media bypass; paid path's
+  RevenueCat verify + anti-replay intact). [memory: two-rn-modals, rules-of-hooks,
+  version-mismatch]
+
+**IAP fully configured + verified:**
+- App Store Connect: 3 consumables all "Ready to Submit" — `reunite.seal.photos`
+  $2.99 (display "Photos & Short Video"), `reunite.seal.video` $5.99 ("Rich Media"),
+  `reunite.seal.words` free/unused (don't attach to the version). Review screenshot
+  uploaded (saved at `~/Desktop/reunite-iap-screenshot.png`).
+- RevenueCat: "default" Offering packages `words`/`photos`/`video` map to the right
+  products (verified); App Store Connect API key "Valid credentials". Prices auto-sync
+  from ASC (RevenueCat doesn't store prices).
+- Payment→verify→seal confirmed: app `configurePurchases()` + `Purchases.logIn(uid)`;
+  server `seal-letter` verifies the transaction via RevenueCat `/v1/subscribers/{uid}`
+  + `used_transactions` anti-replay, rejects sandbox unless `ALLOW_SANDBOX`.
+  TestFlight purchases are **sandbox = no real money**.
+
+**UX polish (many commits):** 3-tier pricing ladder; copy "up to N photos" /
+"<30s video" / "<5min video"; border-only selected tier (no fill); scrollable
+dateline + keyboard-safe footer; photo thumbnails pinned in footer; avatar moved
+into the scroll; calendar 7-column fix (`100/7%` float-wrap) + one-line heading
+"When should it come home?" + new `colors.textDisabled` token for lighter
+unselectable dates; account menu (Delete above Sign out, sign-out in body color +
+Ionicons icons via new `@expo/vector-icons`); video 5-min fix (drop `allowsEditing`
++ >300s guard).
+
+**Web + docs:** deployed privacy + new `/support` page (live on
+`dear-future-app.vercel.app`). `docs/app-store-submission.md` = full submission kit
+(listing copy, review notes, IAP, checklist).
+
 ### 2026-06-23 — Seal sheet redesign + video fix (tsc clean)
 
 **Landed (all tsc clean, no tests changed):**
