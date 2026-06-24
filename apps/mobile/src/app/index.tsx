@@ -550,41 +550,44 @@ export default function WriteScreen() {
         选送达日:从底部滑上来的纸张底单(BottomSheet)。可点遮罩、也可下拉关闭。
         关闭 = 回去继续写(step → 'write');底单内部不会误关。
       */}
-      <BottomSheet visible={step === 'date'} onClose={() => setStep('write')}>
-        <Text style={styles.dateHero}>When should it come home?</Text>
-
-        {/* 标题下方一根浅浅的分割线(#EFDFC0),把标题和日历轻轻分开。 */}
-        <View style={styles.dateHeroDivider} />
-
-        {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
-        <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
-
-        {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
-        <Button
-          label="Seal"
-          onPress={handleSeal}
-          disabled={!deliverOn}
-          loading={busy}
-          style={styles.sealButtonInSheet}
-        />
-
-        {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
-        <Button
-          variant="link"
-          label="← Keep writing"
-          onPress={() => setStep('write')}
-          disabled={busy}
-          style={styles.backLink}
-          textStyle={styles.backLinkText}
-        />
-      </BottomSheet>
-
       {/*
-        ── SealSheet:付款 + 确认底单 ──
-        step==='seal' 时从底部升起。展示:信件摘要 + 定价档位 + Seal 按钮 + 纯文字备选 + 返回。
-        关闭路径:点遮罩 / 下拉 / ← Keep writing —— 都不封存,草稿 + 附件完整保留。
+        日期 + 定价合并为「一个」BottomSheet:visible 覆盖 date 和 seal 两步,
+        内部按 step 切换内容。这样 date→seal 只是换内容,不会出现「两个 Modal 同时
+        一个关一个开」的 iOS 冲突(那会导致退回写信页、且之后 Finish 卡死)。
+        onClose(点遮罩 / 下拉)= 直接回写信页;seal 的「Keep writing」回到日历(同一底单内)。
       */}
-      <BottomSheet visible={step === 'seal'} onClose={() => setStep('date')}>
+      <BottomSheet visible={step === 'date' || step === 'seal'} onClose={() => setStep('write')}>
+        {step === 'date' ? (
+          <>
+            <Text style={styles.dateHero}>When should it come home?</Text>
+
+            {/* 标题下方一根浅浅的分割线(#EFDFC0),把标题和日历轻轻分开。 */}
+            <View style={styles.dateHeroDivider} />
+
+            {/* 自制 Courier Prime 月历:没选中前空着,选一天 → 归零存进 deliverOn。 */}
+            <Calendar key={pickerKey} value={deliverOn} minDate={earliest} onChange={(d) => setDeliverOn(startOfDay(d))} />
+
+            {/* 选了日子才点得动 Seal —— 空月历 + 灰按钮自然引导用户先点一天。 */}
+            <Button
+              label="Seal"
+              onPress={handleSeal}
+              disabled={!deliverOn}
+              loading={busy}
+              style={styles.sealButtonInSheet}
+            />
+
+            {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
+            <Button
+              variant="link"
+              label="← Keep writing"
+              onPress={() => setStep('write')}
+              disabled={busy}
+              style={styles.backLink}
+              textStyle={styles.backLinkText}
+            />
+          </>
+        ) : (
+          <>
         {/* 标题 */}
         <Text style={styles.sealSheetTitle}>Seal this capsule</Text>
 
@@ -661,7 +664,7 @@ export default function WriteScreen() {
           </Pressable>
         ) : null}
 
-        {/* 返回继续写(关底单,草稿 + 附件都在)。 */}
+        {/* 返回继续写:回到日历那一步(同一底单内换内容,草稿 + 附件都在)。 */}
         <Button
           variant="link"
           label="← Keep writing"
@@ -670,6 +673,8 @@ export default function WriteScreen() {
           style={styles.backLink}
           textStyle={styles.backLinkText}
         />
+          </>
+        )}
       </BottomSheet>
     </SafeAreaView>
   );
