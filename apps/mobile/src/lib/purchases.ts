@@ -127,21 +127,21 @@ export interface TierDefinition {
 // 名字用大白话、自带说明,对非英语母语者友好(用户在付款弹窗看到的就是这些)。
 export const TIERS: Record<SealTier, TierDefinition> = {
   words: {
-    packageId: 'words',       // 对应 RevenueCat default offering 里的自定义 Package「words」
+    packageId: 'words',       // 文字档:策略上永久免费,不再走购买(保留定义供 a11y / 兼容)
     label: 'Words',
-    priceHint: '$2.99',
-    description: 'Just your words, up to 25 years.',
+    priceHint: 'Free',
+    description: 'Just your words — always free.',
   },
   photos: {
     packageId: 'photos',
     label: 'Photos & Short Video',
-    priceHint: '$4.99',
+    priceHint: '$2.99',
     description: 'Up to 4 photos and a video (≤30s).',
   },
   video: {
     packageId: 'video',
-    label: 'Photos & Long Video',
-    priceHint: '$9.99',
+    label: 'Rich Media',
+    priceHint: '$5.99',
     description: 'Up to 10 photos and a video (≤5 min).',
   },
 };
