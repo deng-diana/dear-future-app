@@ -65,9 +65,9 @@ function daysBetween(a: Date, b: Date): number {
 // Pricing ladder shown in the SealSheet — three static info boxes (not tappable).
 // These are informational only; the Seal button + "Seal as words only" link do the acting.
 const LADDER = [
-  { key: 'words',  label: 'Words',   lines: ['text'] },
-  { key: 'photos', label: 'Photos',  lines: ['up to 4 photos', ':30 video'] },
-  { key: 'video',  label: 'Photos+', lines: ['up to 10 photos', '5m video'] },
+  { key: 'words',  label: 'Words',                lines: ['just text'] },
+  { key: 'photos', label: 'Photos & Short Video', lines: ['up to 4 photos', '<30s video'] },
+  { key: 'video',  label: 'Rich Media',           lines: ['up to 10 photos', '<5min video'] },
 ] as const;
 
 export default function WriteScreen() {
@@ -626,7 +626,7 @@ export default function WriteScreen() {
                     style={[styles.ladderBox, active && styles.ladderBoxActive]}
                     accessibilityRole="text"
                     accessibilityLabel={`${TIERS[key].label}, ${price}, ${TIERS[key].description}${active ? '. This is your capsule.' : ''}`}>
-                    <Text numberOfLines={1} style={[styles.ladderLabel, active && styles.ladderLabelActive]}>{label}</Text>
+                    <Text style={[styles.ladderLabel, active && styles.ladderLabelActive]}>{label}</Text>
                     {lines.map((l) => (
                       <Text key={l} style={[styles.ladderLine, active && styles.ladderLineActive]}>{l}</Text>
                     ))}
@@ -654,7 +654,7 @@ export default function WriteScreen() {
         {/* 次选:只有有媒体(更贵档位)时才显示 —— 去掉媒体改用纯文字封存。
             A10: 加上 hitSlop + paddingVertical 让触摸区至少达到 ~44pt */}
         {showWordsOnlyEscape ? (
-          <Pressable onPress={handleWordsOnly} disabled={busy} accessibilityRole="button" hitSlop={{ top: 12, bottom: 12 }}>
+          <Pressable onPress={handleWordsOnly} disabled={busy} accessibilityRole="button" hitSlop={{ top: 12, bottom: 12 }} style={styles.escapeWrap}>
             <Text style={styles.sealSheetEscape}>
               Seal as words only · {wordsOnlyTier.priceHint}
             </Text>
@@ -747,10 +747,11 @@ const styles = StyleSheet.create({
   // 标题下方的浅分割线:满宽、极细,暖浅金。
   dateHeroDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldSoft },
   // backLink / backLinkText:作为 style / textStyle 覆盖传给 <Button variant="link">
-  backLink: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 16 },
+  backLink: { marginTop: -8, paddingVertical: 8, paddingHorizontal: 16 }, // 往上靠,与 words-only 成一组(用户:下方收紧)
+  escapeWrap: { marginTop: -6 }, // words-only 往上靠近 Seal 按钮,下方不再松散
   backLinkText: { fontSize: 14, color: colors.textMuted },
   // 在底单里:把 Seal 按钮往日历那边收紧一点(BottomSheet 子项默认 gap 18,这里抵消一截)。
-  sealButtonInSheet: { marginTop: -8 },
+  sealButtonInSheet: { marginTop: 12 }, // 与上方档位框拉开一点距离(用户:按钮往下移)
 
   // ── SealSheet 专属样式 ──
   // 标题:大一点,居中,Courier Prime,深棕。
@@ -775,7 +776,7 @@ const styles = StyleSheet.create({
   sealSheetLadder: { flexDirection: 'row', alignSelf: 'stretch', gap: 8 },
   ladderBox: {
     flex: 1,
-    minHeight: 110, // 容下 "up to N photos" 折行后的高度;一行 cell 自动等高对齐
+    minHeight: 132, // 容下多行标题(如 "Photos & Short Video")+ 两行内容 + 价格;一行 cell 自动等高对齐
     paddingVertical: 10,
     paddingHorizontal: 6,
     borderRadius: 4,
