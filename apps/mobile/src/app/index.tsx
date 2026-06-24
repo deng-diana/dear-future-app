@@ -449,22 +449,19 @@ export default function WriteScreen() {
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       {/* 干净纯色底(#FAE6C9)—— 去掉纸张质感 + 呼吸层(用户要求)。 */}
       <View style={styles.flex}>
-        {/*
-          已登录时:头像行放在最顶部(普通 flex 流,非绝对定位)。
-          SafeAreaView 的 padding-top 已被证明能正确推开刘海,头像行自然落在刘海下方。
-        */}
-        {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
-
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {/* 可滚动的信纸:邮戳 + 分割线 + 正文一起滚动。写得越多,邮戳越往上退,腾出更大的写信区(用户要求:日期不必一直钉在顶部)。 */}
+          {/* 可滚动的信纸:头像 + 邮戳 + 分割线 + 正文一起滚动。写得越多越往上退,腾出更大的写信区(用户要求:日期/头像不必一直钉在顶部)。 */}
           <ScrollView
             style={styles.flex}
             contentContainerStyle={styles.scrollBody}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}>
+            {/* 账号头像(蜡封):绝对定位在滚动内容的右上角,随内容一起上滑 —— 不再固定在角上与分割线打架(用户要求)。 */}
+            {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
+
             {/* 顶部邮戳:日期 / 可编辑城市 / 时间(此刻的你)。长按日期 = 演示用回到开场页。 */}
             <Dateline onLongPress={() => setShowSplash(true)} />
 
@@ -792,9 +789,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   ladderBoxActive: {
+    // 选中 = 仅用更粗的深棕边框区分,不加填充(用户:填充色都不要)。
     borderWidth: 1.5,
     borderColor: colors.brandDark,
-    backgroundColor: colors.surfacePhoto,
   },
   ladderLabel: {
     fontFamily: fonts.bold,
