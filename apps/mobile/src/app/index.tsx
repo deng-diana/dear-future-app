@@ -490,33 +490,33 @@ export default function WriteScreen() {
               cursorColor={colors.cursor}
               accessibilityLabel="Your letter"
             />
-
-            {/* 已选的照片:一排小"相片",随信一起滚动。每张右上角一个 ✕ 单独删。 */}
-            {canSeal && photos.length ? (
-              <View style={styles.thumbs}>
-                {photos.map((p, idx) => (
-                  <View key={p.uri + idx} style={styles.thumbWrap}>
-                    <Image source={{ uri: p.uri }} style={styles.thumb} />
-                    {/* A8: hitSlop 扩到 14pt,加上 accessibilityLabel 让屏幕阅读器播报"Remove photo" */}
-                    <Pressable
-                      onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== idx))}
-                      disabled={busy}
-                      hitSlop={14}
-                      style={styles.thumbRemove}
-                      accessibilityRole="button"
-                      accessibilityLabel="Remove photo">
-                      <Text style={styles.thumbRemoveText}>✕</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            ) : null}
           </ScrollView>
 
           {/* 底部固定栏:附件按钮 + Finish。固定在键盘上方,绝不被键盘遮住(用户要求)。
               还没写字时整条隐藏 —— 守"一张干净的纸"。 */}
           {canSeal ? (
             <View style={styles.footer}>
+              {/* 已选的照片:一排小"相片",固定在 ＋Photos 上方、完整可见,让用户加完即可确认(不被遮挡、无需下拉)。 */}
+              {photos.length ? (
+                <View style={styles.thumbs}>
+                  {photos.map((p, idx) => (
+                    <View key={p.uri + idx} style={styles.thumbWrap}>
+                      <Image source={{ uri: p.uri }} style={styles.thumb} />
+                      {/* A8: hitSlop 扩到 14pt + accessibilityLabel,屏幕阅读器播报"Remove photo" */}
+                      <Pressable
+                        onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                        disabled={busy}
+                        hitSlop={14}
+                        style={styles.thumbRemove}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove photo">
+                        <Text style={styles.thumbRemoveText}>✕</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
               {/* 可选附件:照片(可多选,最多 10 张)+ 1 段视频。安静一行,守"写信为主"。 */}
               {/* A9: 媒体按钮加上 hitSlop 和 accessibilityLabel */}
               <View style={styles.mediaRow}>
@@ -715,8 +715,8 @@ const styles = StyleSheet.create({
   mediaCap: { fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
 
   // 已选照片的缩略图:像一排小相片。横向自动换行。
-  // 缩略图在滚动区内,需自带左右边距(32)与正文 / ＋Photos / Finish 对齐(否则贴屏幕边)。
-  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 32, paddingBottom: 2 },
+  // 缩略图在底部固定栏内,横向边距由 footer(paddingHorizontal:32)提供,与 ＋Photos / Finish 对齐。
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 2 },
   thumbWrap: { width: 52, height: 52 },
   thumb: {
     width: 52,
