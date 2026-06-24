@@ -99,9 +99,9 @@ export default function WriteScreen() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // 最早可选的送达日 = 今天(归零到 00:00)+ 15 天。
+  // 最早可选的送达日 = 今天(归零到 00:00)+ MIN_SEAL_DAYS 天。
   // 用 useMemo 按"今天是哪天"缓存:同一天内复用同一个对象(不每次按键都重算),
-  // 跨过午夜后 todayStamp 变化才重算 —— 既省分配,又不会让 15 天下限悄悄缩成 14 天。
+  // 跨过午夜后 todayStamp 变化才重算 —— 既省分配,又不会让下限悄悄少算一天。
   const todayStamp = startOfDay(new Date()).getTime();
   const earliest = useMemo(() => addDays(new Date(todayStamp), MIN_SEAL_DAYS), [todayStamp]);
 

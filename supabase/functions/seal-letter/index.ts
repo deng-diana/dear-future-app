@@ -21,10 +21,8 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// MIN_SEAL_DAYS:封存最短跨度(天)。服务器端硬编码,防止客户端绕过。
-const MIN_SEAL_DAYS = 15;
-// FREE_HORIZON_DAYS:免费封存允许的最长时间跨度(天)= 1 年。
-const FREE_HORIZON_DAYS = 365;
+// MIN_SEAL_DAYS:封存最短跨度(天)。服务器端硬编码,防止客户端绕过。最早明天(1 天后)送达。
+const MIN_SEAL_DAYS = 1;
 // MAX_SEAL_DAYS:封存最长跨度(天)≈ 25 年。防止把信定到不合理的遥远未来(存储成本/异常日期)。
 const MAX_SEAL_DAYS = 25 * 366;
 // ALLOW_SANDBOX:是否允许 Sandbox(沙盒/测试)购买通过验证。
@@ -123,7 +121,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: `Letter body exceeds maximum length of ${MAX_BODY_LENGTH} characters` }, 400);
   }
 
-  // 校验 deliver_on(送达日):必须是 YYYY-MM-DD 格式,且 ≥ 今天 + 15 天。
+  // 校验 deliver_on(送达日):必须是 YYYY-MM-DD 格式,且 ≥ 今天 + MIN_SEAL_DAYS 天。
   if (!/^\d{4}-\d{2}-\d{2}$/.test(deliver_on)) {
     return json({ error: 'deliver_on must be in YYYY-MM-DD format' }, 400);
   }
@@ -163,44 +161,18 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── 第五步:免费封存路径(tier === null) ──
+  // 新策略:纯文字胶囊「永久免费、不限次数」(用户决定:Words 永久免费)。
+  //   - 无媒体:已在第四步保证。
+  //   - 任意时长:1 天 ~ MAX_SEAL_DAYS(≈25 年),已在第三步统一校验。
+  //   - 不再限制 365 天上限,也不再「一辈子只能免费一次」(配套迁移删掉了 letters_one_free_per_owner 唯一索引)。
+  // 文字存储成本极低,所以放开不限次;付费仅针对真正占存储/带宽的媒体(photos/video)。
   if (tier === null) {
-    // 免费封存要求:无媒体(已在第四步保证)+ 时间跨度 ≤ 365 天 + 未用过免费次数。
-
-    // 计算时间跨度(天)。
-    const horizonDays = daysBetween(todayUTC, deliver_on);
-    if (horizonDays > FREE_HORIZON_DAYS) {
-      return json({
-        error: `Free seal requires a horizon of ${FREE_HORIZON_DAYS} days or less (yours is ${horizonDays} days). Use the Words tier for longer horizons.`,
-      }, 400);
-    }
-
-    // 用 service_role(管理员钥匙)检查该用户的免费封存次数。
-    // service_role 能绕过 RLS 读取数据,普通用户看不到别人的信。
     const adminClient = createClient(
       supabaseUrl,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { count, error: countErr } = await adminClient
-      .from('letters')
-      .select('id', { count: 'exact', head: true })
-      .eq('owner_id', uid)
-      .eq('seal_tier', 'free');
-
-    if (countErr) {
-      console.error('[seal-letter] free-seal count error:', countErr.message);
-      return json({ error: 'Server error checking free seal eligibility' }, 500);
-    }
-
-    if ((count ?? 0) >= 1) {
-      // 已用过免费次数。
-      return json({
-        error: 'free_seal_already_used',
-        message: 'Your free seal has already been used. Please choose a paid tier.',
-      }, 402); // 402 = Payment Required(需要付款)
-    }
-
-    // 所有检查通过 → 写入信件,seal_tier = 'free'。
+    // 写入信件,seal_tier = 'free'(无媒体)。
     const { error: insertErr } = await adminClient
       .from('letters')
       .insert({
@@ -213,14 +185,6 @@ Deno.serve(async (req: Request) => {
       });
 
     if (insertErr) {
-      // 唯一索引(letters owner_id where seal_tier='free')冲突 = 并发/重复免费封存 → 已用过。
-      // 这是数据库层堵住"刷免费信"竞态的最后一道关。
-      if (insertErr.code === '23505') {
-        return json({
-          error: 'free_seal_already_used',
-          message: 'Your free seal has already been used. Please choose a paid tier.',
-        }, 402);
-      }
       console.error('[seal-letter] insert error (free):', insertErr.message);
       return json({ error: 'Failed to seal letter. Please try again.' }, 500);
     }
