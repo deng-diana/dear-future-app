@@ -27,6 +27,8 @@ const MAX_PHOTO_BYTES = 12 * 1024 * 1024; // 12 MB
 // 视频上限:50 MB(Supabase Storage 免费套餐单文件上限)。
 // 压缩后目标是 ≤45 MB,留 5 MB 余量;超出则提示用户。
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
+// 压缩的目标体积:留出余量,压完落在它以下就收工(50 MB 是硬墙,44 MB 给上传/抖动留 6 MB)。
+const TARGET_VIDEO_BYTES = 44 * 1024 * 1024; // 44 MB
 
 // ── 视频压缩(仅原生) ────────────────────────────────────────────────────────
 // react-native-compressor 需要 native build(Expo Go 里原生模块不存在)。
@@ -48,6 +50,7 @@ type CompressVideoFn = (
     maxSize?: number;   // 输出最长边(像素)
     bitrate?: number;   // 目标比特率(bps)
     minimumFileSizeForCompress?: number; // 小于此大小(字节)跳过压缩
+    stripAudio?: boolean; // true = 去掉音轨(最后几档省体积用)
   },
   onProgress?: (progress: number) => void,
 ) => Promise<string>;
@@ -65,32 +68,52 @@ function getCompressVideoFn(): CompressVideoFn | null {
   }
 }
 
-// compressVideoIfNeeded — 在原生平台尝试压缩视频。
-// 目标:5 分钟视频压到 ≤45 MB,留出 5 MB 余量。
-//   分辨率:最长边 720px(720p),对个人时间胶囊已够清晰。
-//   比特率:1.2 Mbps —— 5 min × 1.2 Mbps ÷ 8 = ~45 MB。
-// 压缩失败(Expo Go / 低端机异常)→ 静默降级,返回原始 URI,继续走大小检查。
-async function compressVideoIfNeeded(uri: string): Promise<string> {
-  // Web 或模块未链接 → 跳过压缩。
+// compressVideoToFit — 压缩视频,保证输出体积 ≤ TARGET_VIDEO_BYTES。
+// 关键认知:react-native-compressor 用的是 AVVideoAverageBitRateKey —— 一个「软目标」码率。
+// 对高细节内容(尤其屏幕录制)编码器会大幅超标(实测:设 1.2 Mbps 却产出 ~1.9 Mbps → 66 MB,
+// 超过 50 MB 上限)。所以不能「设一次码率就信它」,必须:压完量一下,还超就降一档
+//(更小分辨率 + 更低码率)从「原片」重压,直到塞进目标。correct-by-construction:
+// 每一步都实测体积,命中即止 —— 数学上不会产出超限文件(最差收敛到很小的低分辨率)。
+// 时长已知(durationSec),据此算首档码率,让绝大多数视频「一档命中」(只压一次,快)。
+// 压缩不可用(web / Expo Go / 模块异常)→ 返回原始 URI,由上传前的 50 MB 守卫兜底。
+async function compressVideoToFit(uri: string, durationSec: number | undefined): Promise<string> {
   if (Platform.OS === 'web') return uri;
   const compress = getCompressVideoFn();
-  if (!compress) return uri; // Expo Go 或模块加载失败 → 跳过
-  try {
-    const compressed = await compress(
-      uri,
-      {
+  if (!compress) return uri;
+
+  const dur = durationSec && durationSec > 0 ? durationSec : 300; // 拿不到时长 → 按 5 分钟(最保守)
+  // 首档码率:让「软目标 × ~1.7 倍超标」后体积仍 ≈ TARGET。夹在 [500k, 1.5M]。
+  const firstBps = Math.round(Math.min(1_500_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 1.7)));
+
+  // 降档阶梯:分辨率↓ + 码率↓,越往后越狠;靠后才丢音轨(尽量保留人声)。
+  const ladder: { maxSize: number; bitrate: number; stripAudio?: boolean }[] = [
+    { maxSize: 720, bitrate: firstBps },
+    { maxSize: 640, bitrate: Math.round(firstBps * 0.7) },
+    { maxSize: 540, bitrate: Math.round(firstBps * 0.5) },
+    { maxSize: 432, bitrate: Math.max(350_000, Math.round(firstBps * 0.4)), stripAudio: true },
+    { maxSize: 360, bitrate: Math.max(300_000, Math.round(firstBps * 0.3)), stripAudio: true },
+  ];
+
+  let best = uri;
+  for (const step of ladder) {
+    try {
+      const out = await compress(uri, {     // 每档都从「原片」重压,不在已压文件上反复压(免画质叠损)
         compressionMethod: 'manual',
-        maxSize: 720,               // 最长边 720px(720p)
-        bitrate: 1_200_000,         // 1.2 Mbps = 1_200_000 bps
-        minimumFileSizeForCompress: 5 * 1024 * 1024, // < 5 MB 的小视频跳过压缩
-      },
-    );
-    return compressed;
-  } catch (e) {
-    // 压缩失败不崩——继续用原始文件,后面的大小检查会兜底。
-    console.warn('[media] 视频压缩失败,降级用原始文件:', e);
-    return uri;
+        maxSize: step.maxSize,
+        bitrate: step.bitrate,
+        stripAudio: step.stripAudio,
+        minimumFileSizeForCompress: 0,      // 既然进了这条路,一律压
+      });
+      best = out;
+      const info = await FileSystem.getInfoAsync(out);
+      const size = info.exists ? info.size : undefined;
+      console.log(`[media] 压缩档 maxSize=${step.maxSize} bitrate=${step.bitrate} → ${typeof size === 'number' ? Math.round(size / 1048576) + 'MB' : '?'}`);
+      if (typeof size === 'number' && size <= TARGET_VIDEO_BYTES) return out; // 塞进目标 → 完成
+    } catch (e) {
+      console.warn('[media] 该档压缩失败,尝试下一档:', e);
+    }
   }
+  return best; // 跑完阶梯仍偏大(极罕见)→ 返回最后一次;上传前 50 MB 守卫会兜底拒绝
 }
 
 // 选多张照片(从相册,可多选)。remaining = 还能再加几张(调用方传 MAX_PHOTOS - 已选)。
@@ -229,10 +252,10 @@ export async function uploadMedia(media: PickedMedia, folder: string, index: num
       let uploadUri = media.uri;
 
       if (!isPhoto) {
-        // 1. 先压缩(目标 720p / 1.2 Mbps)。
-        uploadUri = await compressVideoIfNeeded(media.uri);
+        // 1. 压缩到目标体积以下(内部按时长选码率,压完量一下、还超就降档重压)。
+        uploadUri = await compressVideoToFit(media.uri, media.durationSec);
 
-        // 2. 压缩后再量一次大小——如果还是超过 50 MB(超长或高码率原片),温和拒绝。
+        // 2. 压缩后再量一次大小——万一阶梯跑完仍超 50 MB(极端原片),温和拒绝。
         // FileInfo 在 exists:true 时直接带 size 字段,无需额外选项。
         const info = await FileSystem.getInfoAsync(uploadUri);
         const sizeBytes = info.exists ? info.size : undefined;
