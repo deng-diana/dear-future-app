@@ -5,19 +5,35 @@
 
 ## ▶ 下一步从这里继续
 
-**Resume (2026-06-25):** **build 6 is BUILDING on EAS** (iOS production,
-`--auto-submit` → TestFlight, autoIncrement). It bundles every app-side fix
-below. When it lands on TestFlight → full real-device regression: photos seal ✓,
-**video seal ✓ (the 50 MB fix)**, keyboard doesn't cover Finish ✓, account menu
-new style ✓, "Your letter is sealed" heading ✓. If all good → attach build 6 to
-the "1.0 Prepare for Submission" version, fill the App Store listing (copy ready
-in `docs/app-store-submission.md`), App Privacy + Age Rating, App Review notes +
-demo login → submit for review.
+**Resume (2026-06-25 late):** Build 6 was built + tested on device. Since then,
+several MORE app-side fixes landed that need a **build 7** (NOT in build 6):
+- `84a5bc5` **video compression fix (CRITICAL)** — compression never ran on
+  device (New-Arch / TurboModule made `NativeModules.Compressor` null → check
+  always false). Even a 36s clip was rejected. Now requires-and-calls the lib
+  directly. [[reunite-newarch-compressor-skip]]
+- `6ec399e` video "too large" message now shows real MB (self-diagnosing).
+- `5d02fde` keyboard-up footer gap tightened + slimmer primary button.
+So: **cut build 7** (bundles the above) → full device regression incl. VIDEO
+seal → then attach to the "1.0 Prepare for Submission" version, fill the App
+Store listing (copy in `docs/app-store-submission.md`), App Privacy + Age
+Rating, App Review notes + demo login → submit for review.
 
-Confirmed live this session: the seal-letter SERVER fix is deployed, so the
-photo paid-seal works on build 5 already (verified on device — reached the
-"Sealed" screen). The "You're all set / purchase successful" blue-OK dialog is
-**Apple's StoreKit system dialog** (not our code) — cannot be removed.
+**DELIVERY IS NOW LIVE (the last fatal gap — fixed this session).** The `deliver`
+Edge Function + Resend always worked, but NOTHING triggered it on a schedule, so
+due letters were silently never sent (founder checked inbox → zero). Fixed:
+`supabase/sql/2026-06-25-deliver-cron.sql` → pg_cron job `deliver-due-letters`,
+daily 07:00 UTC, applied + verified `active=true` (jobid 2). Manual invoke also
+proved the function emails real letters to the inbox (not spam).
+[[reunite-delivery-cron]]
+
+Other confirmed-live this session: the seal-letter SERVER fix is deployed (photo
+paid-seal verified on device → reached "Sealed"). The "You're all set / purchase
+successful" blue-OK dialog is **Apple's StoreKit system dialog** (not our code) —
+cannot be removed.
+
+Open (low priority): the Supabase `memories` bucket file-size limit is the
+Supabase free-plan 50 MB; fine since 5-min videos compress to ~45 MB. Raising it
+needs the Pro plan.
 
 **Pre-launch security TODOs (do NOT forget):**
 - Remove `ALLOW_SANDBOX_PURCHASES` from Supabase secrets (currently `true` for
