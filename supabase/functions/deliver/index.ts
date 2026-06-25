@@ -76,18 +76,18 @@ Deno.serve(async () => {
         html:
           // 预览行(preheader):Gmail 主题后那行灰字;隐藏的一行温柔铺垫。
           `<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Some time ago you asked us to keep this safe until today. It's time.</span>` +
-          `<div style="background:#F4EEE4;padding:40px 16px;font-family:Georgia,serif;">` +
-            `<div style="max-width:520px;margin:0 auto;color:#4A3D31;font-size:17px;line-height:1.7;">` +
+          `<div style="background:#FAE6C9;padding:40px 16px;font-family:Georgia,serif;">` +
+            `<div style="max-width:520px;margin:0 auto;color:#5A3A24;font-size:17px;line-height:1.7;">` +
               `<p style="margin:0 0 1.1em;">${wroteLine}</p>` +
               `<p style="margin:0 0 1.1em;">Not to anyone else. To you, today.</p>` +
               `<p style="margin:0 0 1.1em;">You asked for it to find you on this exact day. So here it is.</p>` +
               `<p style="margin:0 0 1.8em;">Take a quiet moment. Then, when you're ready, meet the person you used to be.</p>` +
               `<p style="margin:0 0 0.6em;text-align:center;"><a href="${readUrl}" style="display:inline-block;background:#B26B24;color:#FBEFDB;text-decoration:none;padding:14px 34px;font-size:16px;">Open your letter</a></p>` +
-              `<p style="margin:0 0 2em;text-align:center;font-size:13px;color:#8A7B6B;font-style:italic;">It opens slowly, the way it was sealed.</p>` +
-              `<p style="margin:0;font-size:13px;color:#8A7B6B;">You're seeing this because you wrote this letter with Reunite and chose today as the day it would return. No one else has read it. No one else ever will.</p>` +
-              `<hr style="border:none;border-top:1px solid #EFDFC0;margin:2em 0;">` +
-              `<p style="margin:0 0 1em;font-size:12px;color:#9A8B79;font-style:italic;">Your own words, kept here for safekeeping — no link, no app, nothing to open. They are simply yours, for as long as this inbox lasts.</p>` +
-              `<pre style="white-space:pre-wrap;font-family:Georgia,serif;font-size:15px;color:#6B5A4B;margin:0;">${escapeHtml(letter.body)}</pre>` +
+              `<p style="margin:0 0 2em;text-align:center;font-size:13px;color:#927C5E;font-style:italic;">It opens slowly, the way it was sealed.</p>` +
+              `<p style="margin:0;font-size:13px;color:#927C5E;">You wrote this with Reunite and chose today for it to return. No one else has read it. No one else ever will.</p>` +
+              `<hr style="border:none;border-top:1px solid #E3CDB4;margin:2em 0;">` +
+              `<p style="margin:0 0 1em;font-size:12px;color:#9C8769;font-style:italic;">Your own words, kept here for safekeeping — no link, no app, nothing to open. They are simply yours, for as long as this inbox lasts.</p>` +
+              `<pre style="white-space:pre-wrap;font-family:Georgia,serif;font-size:15px;color:#6E5640;margin:0;">${escapeHtml(letter.body)}</pre>` +
             `</div>` +
           `</div>`,
         text:
@@ -96,7 +96,7 @@ Deno.serve(async () => {
           `You asked for it to find you on this exact day. So here it is.\n\n` +
           `Take a quiet moment. Then, when you're ready, meet the person you used to be.\n\n` +
           `Open your letter: ${readUrl}\n\n` +
-          `You're seeing this because you wrote this letter with Reunite and chose today as the day it would return. No one else has read it. No one else ever will.\n\n` +
+          `You wrote this with Reunite and chose today for it to return. No one else has read it. No one else ever will.\n\n` +
           `──────────\n` +
           `Your own words, kept here for safekeeping — no link, no app, nothing to open. They are simply yours, for as long as this inbox lasts.\n\n` +
           `${letter.body}`,
