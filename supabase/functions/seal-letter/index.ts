@@ -153,8 +153,24 @@ Deno.serve(async (req: Request) => {
   // 防止客户端传入任意外部 URL(钓鱼、数据注入等)。
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const memPrefix = storageMemoriesPrefix(supabaseUrl);
-  if (photo_url !== null && !photo_url.startsWith(memPrefix)) {
-    return json({ error: 'photo_url must be a URL in this project\'s memories storage bucket' }, 400);
+  // photo_url 是「多张照片打包成的 JSON 数组字符串」:["https://.../memories/a.jpg", ...]
+  //(App 端 index.tsx 用 JSON.stringify(photoUrls) 打包,reveal 页再解析回来)。
+  // 所以这里不能对整串做 startsWith —— 要先解析成数组,再要求每一个元素都是本项目
+  // memories 桶的 URL;任何外部/畸形 URL 一律拒绝(防钓鱼 / 数据注入)。
+  if (photo_url !== null) {
+    let photoList: unknown;
+    try {
+      photoList = JSON.parse(photo_url);
+    } catch (_) {
+      return json({ error: 'photo_url must be a JSON array of memories storage URLs' }, 400);
+    }
+    if (
+      !Array.isArray(photoList) ||
+      photoList.length === 0 ||
+      !photoList.every((u) => typeof u === 'string' && u.startsWith(memPrefix))
+    ) {
+      return json({ error: 'photo_url must be a JSON array of URLs in this project\'s memories storage bucket' }, 400);
+    }
   }
   if (video_url !== null && !video_url.startsWith(memPrefix)) {
     return json({ error: 'video_url must be a URL in this project\'s memories storage bucket' }, 400);
@@ -215,6 +231,8 @@ Deno.serve(async (req: Request) => {
   }
 
   let rcVerified = false;
+  // 记录 RevenueCat 里实际匹配到的那笔交易,用它的稳定 ID 做防重放锁(见第七步)。
+  let matchedEntry: { store_transaction_id?: string; id?: string } | null = null;
   try {
     const rcRes = await fetch(
       `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`,
@@ -241,16 +259,31 @@ Deno.serve(async (req: Request) => {
     // store_transaction_id = App Store 或 Google Play 返回的原始交易 ID。
     const rcData = await rcRes.json() as {
       subscriber?: {
-        non_subscriptions?: Record<string, Array<{ store_transaction_id: string; is_sandbox?: boolean }>>;
+        non_subscriptions?: Record<string, Array<{
+          id?: string;
+          store_transaction_id?: string;
+          purchase_date?: string;
+          is_sandbox?: boolean;
+        }>>;
       };
     };
 
     const entries = rcData?.subscriber?.non_subscriptions?.[productId] ?? [];
-    // 找到 store_transaction_id 匹配的条目;且(生产)拒绝沙盒交易——
-    // is_sandbox=true 是免费的测试购买,绝不能用来封真付费信。
-    rcVerified = entries.some(
-      (e) => e.store_transaction_id === txId && (ALLOW_SANDBOX || e.is_sandbox !== true),
-    );
+    // 沙盒闸门:生产环境(ALLOW_SANDBOX=false)拒绝 is_sandbox 交易——那是免费测试购买,绝不能封真付费信。
+    // 匹配策略(健壮,兼容 StoreKit 2):
+    //   1) 首选:客户端带回的交易 ID 精确等于 RevenueCat 记录的 store_transaction_id 或 id。
+    //   2) 兜底:RevenueCat(已在服务端验证过收据)显示本产品有「刚刚(10 分钟内)」的购买。
+    //      处理 StoreKit 2 下 SDK 的 transactionIdentifier 与 REST API 的 store_transaction_id 格式不一致。
+    // 安全不降:防重放仍严格——第七步用「匹配到的那笔真实交易」的稳定 ID 上锁,而非客户端传来的值。
+    const RECENT_MS = 10 * 60 * 1000;
+    const nowMs = Date.now();
+    matchedEntry = entries.find((e) => {
+      if (!(ALLOW_SANDBOX || e.is_sandbox !== true)) return false; // 沙盒闸门
+      if (e.store_transaction_id === txId || e.id === txId) return true; // 精确匹配
+      if (e.purchase_date && nowMs - Date.parse(e.purchase_date) <= RECENT_MS) return true; // 刚买的兜底
+      return false;
+    }) ?? null;
+    rcVerified = matchedEntry !== null;
   } catch (fetchErr) {
     // 网络故障 → 拒绝(不允许在无法验证时插入付款信件)。
     console.error('[seal-letter] RevenueCat fetch failed:', fetchErr);
@@ -276,10 +309,13 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  // 防重放锁:用「RevenueCat 里匹配到的那笔真实交易」的稳定 ID 上锁,而不是客户端传来的 txId。
+  // 这样即便有人在 10 分钟兜底窗口内用伪造 txId 重复请求,也会解析回同一笔真实交易、撞同一把锁 → 409。
+  const lockId = matchedEntry?.store_transaction_id || matchedEntry?.id || txId;
   const { error: usedInsertErr } = await adminClient
     .from('used_transactions')
     .insert({
-      transaction_id: txId,
+      transaction_id: lockId,
       owner_id: uid,
       product_id: productId,
     });
@@ -319,7 +355,7 @@ Deno.serve(async (req: Request) => {
     const { error: rbErr } = await adminClient
       .from('used_transactions')
       .delete()
-      .eq('transaction_id', txId);
+      .eq('transaction_id', lockId);
     if (rbErr) console.error('[seal-letter] rollback delete failed (txId 仍被锁,需人工处理):', rbErr.message);
 
     console.error('[seal-letter] letter insert error:', insertErr.message);
