@@ -10,7 +10,7 @@
 //       配合后台任务让用户可以离开 app 继续传。
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, NativeModules, Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import { supabase } from './supabase';
 
@@ -29,13 +29,15 @@ const MAX_PHOTO_BYTES = 12 * 1024 * 1024; // 12 MB
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
 
 // ── 视频压缩(仅原生) ────────────────────────────────────────────────────────
-// react-native-compressor 需要 native build(不支持 Expo Go)。
-// 用 try/catch + NativeModules 检查:Expo Go 里 Compressor 模块不存在,
-// 就静默降级,跳过压缩直接上传原始文件。
-// compressorAvailable = true 表示 native 模块已链接。
-// NativeModules = React Native 的"原生模块注册表",可检查某模块是否存在。
-const compressorAvailable =
-  Platform.OS !== 'web' && NativeModules.Compressor != null;
+// react-native-compressor 需要 native build(Expo Go 里原生模块不存在)。
+// ⚠️ 致命坑(已修):不要用 `NativeModules.Compressor != null` 判断是否可用 ——
+// 新架构(New Architecture / TurboModules,Expo SDK 56 默认开启)下,这个库的原生模块
+// 注册成 TurboModule,`NativeModules.Compressor` 恒为 null,会被误判成"不可用"而
+// 永远跳过压缩 → 真机上原始大视频(哪怕只有 36 秒)被 50MB 上限拒掉。
+// 正确做法:直接 require 这个库来用 —— 它内部 (Main.tsx) 自己按新旧架构选择
+// TurboModuleRegistry.getEnforcing / NativeModules。Expo Go 里 require 会在模块
+// 初始化阶段抛错,由下面 getCompressVideoFn 的 try/catch 兜住、静默降级。
+const compressorEnabled = Platform.OS !== 'web';
 
 // VideoCompressor 的类型定义(只用 compress 方法)。
 // 用动态 require 而非顶层 import——顶层 import 在 Expo Go 里会在模块解析阶段抛错。
@@ -50,13 +52,14 @@ type CompressVideoFn = (
   onProgress?: (progress: number) => void,
 ) => Promise<string>;
 
-// 懒加载压缩函数——只在原生 + 模块可用时才 require。
+// 懒加载压缩函数——原生平台尝试 require;require 成功即可用(新旧架构通吃)。
+// Expo Go 里 require 会在模块初始化阶段抛错(找不到原生模块),被 catch 兜住返回 null。
 function getCompressVideoFn(): CompressVideoFn | null {
-  if (!compressorAvailable) return null;
+  if (!compressorEnabled) return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('react-native-compressor') as { Video: { compress: CompressVideoFn } };
-    return mod.Video.compress;
+    const mod = require('react-native-compressor') as { Video?: { compress?: CompressVideoFn } };
+    return mod.Video?.compress ?? null;
   } catch {
     return null;
   }
