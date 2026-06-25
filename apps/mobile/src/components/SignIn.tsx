@@ -40,6 +40,33 @@ export default function SignIn({ onVerified, onCancel }: Props) {
   async function verifyCode() {
     setBusy(true);
     setError('');
+
+    // 审核专用登录:App Store 审核员收不到 review 邮箱的验证码,所以这个特定邮箱走
+    // review-login 边缘函数,用「固定码」换会话(普通用户邮箱不匹配,永远走不到这里;
+    // 且服务器没配 REVIEW_LOGIN_CODE 时函数会拒)。
+    const REVIEW_EMAIL = 'review@dearfuture.space';
+    if (email.trim().toLowerCase() === REVIEW_EMAIL) {
+      const { data, error: fnErr } = await supabase.functions.invoke('review-login', {
+        body: { code: code.trim() },
+      });
+      if (fnErr || !data?.token_hash) {
+        setBusy(false);
+        setError('That code is not valid.');
+        return;
+      }
+      const { error: vErr } = await supabase.auth.verifyOtp({
+        token_hash: data.token_hash as string,
+        type: 'magiclink',
+      });
+      setBusy(false);
+      if (vErr) {
+        setError(vErr.message);
+        return;
+      }
+      onVerified();
+      return;
+    }
+
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: code.trim(),
