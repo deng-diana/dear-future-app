@@ -78,6 +78,21 @@ export default function WriteScreen() {
   // insets.bottom 在键盘收起时给底部栏垫开 Home 指示条的高度(键盘弹起时由键盘自身让位)。
   const insets = useSafeAreaInsets();
 
+  // Track keyboard visibility so the footer's bottom padding doesn't waste space
+  // when the keyboard is up (the home indicator is hidden behind the keyboard).
+  // iOS: keyboardWillShow/Hide fires before the animation; Android: Did* fires after.
+  const [keyboardShown, setKeyboardShown] = useState(false);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardShown(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardShown(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const [letter, setLetter] = useState('Dear future me,\n\n'); // 信里写了什么(开屏即预填称呼,可编辑)
   const [sealing, setSealing] = useState(false); // 正在播封存仪式动画?
   const [sealed, setSealed] = useState(false); // 封存了没?
@@ -503,7 +518,7 @@ export default function WriteScreen() {
           {canSeal ? (
             // 底部栏自己垫开 Home 指示条:键盘收起时 Finish 不压在指示条上;
             // 键盘弹起时 KAV 把整条抬到键盘之上,这截内边距也跟着一起抬。
-            <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>
+            <View style={[styles.footer, { paddingBottom: keyboardShown ? 8 : 20 + insets.bottom }]}>
               {/* 已选的照片:一排小"相片",固定在 ＋Photos 上方、完整可见,让用户加完即可确认(不被遮挡、无需下拉)。 */}
               {photos.length ? (
                 <View style={styles.thumbs}>
@@ -715,7 +730,7 @@ const styles = StyleSheet.create({
     color: colors.textBody,
   },
 
-  footer: { paddingHorizontal: 32, paddingVertical: 20, gap: 14 },
+  footer: { paddingHorizontal: 32, paddingVertical: 16, gap: 10 },
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
   mediaAdd: { fontSize: 14, color: colors.textMuted }, // 未选:暖灰
   mediaOn: { fontSize: 14, color: colors.brandText }, // B: 已选 — 换用 brandText(#84410F),达到 ≥4.5:1(AA)

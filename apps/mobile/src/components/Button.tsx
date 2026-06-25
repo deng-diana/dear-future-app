@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   // ── solid 变体 ──────────────────────────────────────────────────────────
   solid: {
     backgroundColor: colors.brandButton,  // 按钮专用背景(比 brand 稍深,确保近白文字 ≥4.5:1 AA)
-    paddingVertical: 16,
+    paddingVertical: 13,                  // 13+13+~20 text ≈ 46pt, above the 44pt Apple HIG minimum
     paddingHorizontal: 40,
     borderRadius: 0,                   // 直角(品牌规范:不要圆角)
     alignItems: 'center',
