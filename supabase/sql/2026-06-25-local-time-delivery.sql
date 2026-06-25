@@ -36,9 +36,10 @@ alter table public.letters add column if not exists deliver_tz text;
 --     the correct UTC offset for that date, so DST (daylight saving) is handled automatically:
 --     a July letter and a January letter in 'Europe/London' get +01:00 and +00:00 respectively.
 --   • Compare `<= now()`: if that local-7pm instant has already arrived, the letter is due.
---   • coalesce(nullif(deliver_tz,''), 'UTC'): NULL or empty tz → 'UTC' (old letters: UTC 7pm).
---     This fallback also keeps `at time zone` from ever receiving NULL (which would yield NULL,
---     making the row silently never-due) or '' (which raises an error).
+--   • tz fallback (the CASE below): only a tz Postgres actually knows (in pg_timezone_names)
+--     is passed to `at time zone`; NULL / empty / unknown all fall back to 'UTC'. This keeps
+--     `at time zone` from ever receiving NULL (→ silently never-due) or an unrecognized zone
+--     (→ raises an error that would halt the WHOLE batch). Old letters (NULL tz) → UTC 7pm.
 -- Returns full `letters` rows, so the deliver function still gets id, owner_id, body, deliver_on,
 -- reveal_token, sealed_at — every field it already uses.
 create or replace function public.due_letters()
@@ -50,8 +51,28 @@ as $$
   from public.letters
   where delivered_at is null
     and ((deliver_on + interval '19 hours')
-          at time zone coalesce(nullif(deliver_tz, ''), 'UTC')) <= now();
+          at time zone (
+            -- 防「毒时区」:Intl(客户端/seal-letter 校验)可能接受一个本机 Postgres 的 tzdata
+            -- 还不认识的新时区(例:2024b 才加入的 America/Coyhaique)。若把它直接喂给
+            -- `at time zone`,Postgres 会抛错,使 due_letters() 整体失败 → 全体送达永久卡死。
+            -- 这里只放行「Postgres 自己 pg_timezone_names 里有的」时区;NULL / 空 / 不认识的
+            -- 一律降级为 'UTC'(该信改在 UTC 19:00 送达 —— 不理想但绝不卡死全局、绝不丢信)。
+            case
+              when deliver_tz is not null
+                   and deliver_tz <> ''
+                   and exists (select 1 from pg_timezone_names where name = deliver_tz)
+              then deliver_tz
+              else 'UTC'
+            end
+          )) <= now();
 $$;
+
+-- 纵深防御(收紧执行权):due_letters() 是 SECURITY INVOKER + letters 是 insert-only RLS,
+-- 非 service_role 调用本就读不到任何信(返回 0 行)。但为防止「将来万一有人给 letters 加了
+-- SELECT 策略」就让此函数变成读信后门,这里显式收回 PUBLIC 的执行权,只留给 service_role
+-- (deliver 函数用 service_role 调它)。
+revoke execute on function public.due_letters() from public;
+grant execute on function public.due_letters() to service_role;
 
 
 -- ─── 3. Reschedule the delivery cron from DAILY to HOURLY ───────────────────────────
