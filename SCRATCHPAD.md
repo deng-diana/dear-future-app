@@ -5,15 +5,19 @@
 
 ## ▶ 下一步从这里继续
 
-**Resume (2026-06-24):** build 5 is IN_QUEUE on EAS submit (cloud — finishes
-even if the Mac is off). When it lands on TestFlight → install on a real device
-and test the REAL PURCHASE flow (sandbox = no real money). Once purchase is
-verified + UI is satisfactory → cut **build 6** (final; it will include the two
-latest cosmetic commits — lighter disabled calendar dates `de02f9a`, account
-menu reorder+icons `5775816` — which are NOT in build 5) → attach build 6 to the
-"1.0 Prepare for Submission" version, fill the App Store listing (copy ready in
-`docs/app-store-submission.md`), App Privacy + Age Rating, App Review notes +
+**Resume (2026-06-25):** **build 6 is BUILDING on EAS** (iOS production,
+`--auto-submit` → TestFlight, autoIncrement). It bundles every app-side fix
+below. When it lands on TestFlight → full real-device regression: photos seal ✓,
+**video seal ✓ (the 50 MB fix)**, keyboard doesn't cover Finish ✓, account menu
+new style ✓, "Your letter is sealed" heading ✓. If all good → attach build 6 to
+the "1.0 Prepare for Submission" version, fill the App Store listing (copy ready
+in `docs/app-store-submission.md`), App Privacy + Age Rating, App Review notes +
 demo login → submit for review.
+
+Confirmed live this session: the seal-letter SERVER fix is deployed, so the
+photo paid-seal works on build 5 already (verified on device — reached the
+"Sealed" screen). The "You're all set / purchase successful" blue-OK dialog is
+**Apple's StoreKit system dialog** (not our code) — cannot be removed.
 
 **Pre-launch security TODOs (do NOT forget):**
 - Remove `ALLOW_SANDBOX_PURCHASES` from Supabase secrets (currently `true` for
@@ -25,6 +29,50 @@ demo login → submit for review.
 - App Store listing/support URLs use the live `dear-future-app.vercel.app/...`
   pages; can switch to the custom domain `dearfuture.space` later.
 - Set the real "Effective date" on the privacy page.
+
+### 2026-06-25 — First real paid seal on device: bug hunt + build 6
+
+Real-device TestFlight (build 5) testing surfaced 3 issues; all root-caused
+(with senior/adversarial subagents) and fixed. tsc clean throughout; the
+high-risk money change was adversarially reviewed (caught a bug in the first
+fix — see below).
+
+**1. Paid seal failed after a successful purchase (`166b599`, deployed).**
+Root cause was SERVER-side, not payment: the app packs multiple photos as a
+JSON array string (`photo_url = JSON.stringify(urls)`), but `seal-letter`
+validated it with `photo_url.startsWith(memPrefix)` — a JSON array starts with
+`["`, so it 400'd BEFORE purchase verification. This path was never exercisable
+in the simulator (no real store), so it only surfaced on the first real-device
+paid+photos seal. Fix: parse the JSON array, require every element to be a
+memories-bucket URL. Also hardened IAP verify against StoreKit 2 transaction-id
+drift (match store_transaction_id OR id, recent-purchase fallback).
+**Deployed by the founder** (`supabase functions deploy seal-letter`) → verified
+working on device (reached the Sealed screen).
+
+**2. Adversarial review caught a double-spend in MY fix (`bc22438`).** The
+recency fallback's `lockId = ... || txId` could fall through to the client-
+supplied txId when the matched RC entry lacked a stable id (the very StoreKit 2
+case the fallback targets) → forged txIds could seal unlimited paid letters in a
+10-min window; and `find()` bound the lock to array order. Fix: filter the
+sandbox gate up front; prefer exact match; recency only as a guarded fallback to
+the newest entry that HAS a server-side stable id; lock derives SOLELY from the
+matched transaction's stable id (never client input), reject if none. Re-review:
+SHIP. (Compound-loop win: a fresh-eye reviewer caught what tsc + my own eyes
+missed on the money path.)
+
+**3. Video rejected at 50 MB before compression (`ca1f0ce`).** `pickVideo`
+checked the RAW picked file against the 50 MB Supabase free-plan ceiling BEFORE
+`compressVideoIfNeeded` ran, so a normal 5-min phone video (200-400 MB raw) was
+rejected even though it compresses to ~45 MB. Dropped the pre-compression size
+guard (kept the 5-min duration guard); the post-compression guard in
+`uploadMedia` is the real ceiling. Compression confirmed present in EAS builds
+(react-native-compressor is a native dep; only Expo Go lacks it).
+
+**Also (`711e2ff`, `3e7da2d`):** keyboard-safe footer on home-indicator iPhones
+(KeyboardAvoidingView `keyboardVerticalOffset` = top inset; footer pads past the
+home indicator); `doSeal` now reads the real server error from `error.context`
+instead of the generic "non-2xx"; Sealed heading "Sealed" → "Your letter is
+sealed" for clearer success feedback.
 
 ### 2026-06-24 — Launch sprint: device-crash fixes, seal flow, free pricing, IAP, polish
 
