@@ -269,20 +269,27 @@ Deno.serve(async (req: Request) => {
     };
 
     const entries = rcData?.subscriber?.non_subscriptions?.[productId] ?? [];
-    // 沙盒闸门:生产环境(ALLOW_SANDBOX=false)拒绝 is_sandbox 交易——那是免费测试购买,绝不能封真付费信。
-    // 匹配策略(健壮,兼容 StoreKit 2):
-    //   1) 首选:客户端带回的交易 ID 精确等于 RevenueCat 记录的 store_transaction_id 或 id。
-    //   2) 兜底:RevenueCat(已在服务端验证过收据)显示本产品有「刚刚(10 分钟内)」的购买。
-    //      处理 StoreKit 2 下 SDK 的 transactionIdentifier 与 REST API 的 store_transaction_id 格式不一致。
-    // 安全不降:防重放仍严格——第七步用「匹配到的那笔真实交易」的稳定 ID 上锁,而非客户端传来的值。
+    // 沙盒闸门(生产 ALLOW_SANDBOX=false 时):先剔除 is_sandbox 交易——免费测试购买绝不能封真付费信。
+    // 一次性过滤,保证下面两条匹配路径都受闸门保护。
+    const usable = entries.filter((e) => ALLOW_SANDBOX || e.is_sandbox !== true);
     const RECENT_MS = 10 * 60 * 1000;
     const nowMs = Date.now();
-    matchedEntry = entries.find((e) => {
-      if (!(ALLOW_SANDBOX || e.is_sandbox !== true)) return false; // 沙盒闸门
-      if (e.store_transaction_id === txId || e.id === txId) return true; // 精确匹配
-      if (e.purchase_date && nowMs - Date.parse(e.purchase_date) <= RECENT_MS) return true; // 刚买的兜底
-      return false;
-    }) ?? null;
+    // 1) 首选:客户端带回的交易 ID 精确等于 RevenueCat 记录的 store_transaction_id 或 id。
+    matchedEntry = usable.find((e) => e.store_transaction_id === txId || e.id === txId) ?? null;
+    // 2) 仅当没有精确匹配时才兜底(兼容 StoreKit 2 下 SDK 与 REST API 的交易 ID 格式漂移):
+    //    取「10 分钟内、且带服务器侧稳定 ID」的最新一笔。必须有稳定 ID,否则无法防重放、宁可拒绝。
+    //    关键安全约束:防重放锁(见 lockId)永远绑定这笔真实交易的稳定 ID,绝不来自客户端输入。
+    if (!matchedEntry) {
+      matchedEntry =
+        usable
+          .filter(
+            (e) =>
+              (e.store_transaction_id || e.id) &&
+              e.purchase_date &&
+              nowMs - Date.parse(e.purchase_date) <= RECENT_MS,
+          )
+          .sort((a, b) => Date.parse(b.purchase_date!) - Date.parse(a.purchase_date!))[0] ?? null;
+    }
     rcVerified = matchedEntry !== null;
   } catch (fetchErr) {
     // 网络故障 → 拒绝(不允许在无法验证时插入付款信件)。
@@ -309,9 +316,13 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // 防重放锁:用「RevenueCat 里匹配到的那笔真实交易」的稳定 ID 上锁,而不是客户端传来的 txId。
-  // 这样即便有人在 10 分钟兜底窗口内用伪造 txId 重复请求,也会解析回同一笔真实交易、撞同一把锁 → 409。
-  const lockId = matchedEntry?.store_transaction_id || matchedEntry?.id || txId;
+  // 防重放锁:只用「RevenueCat 里匹配到的那笔真实交易」的服务器侧稳定 ID 上锁,
+  // 绝不回退到客户端传来的 txId —— 否则伪造 txId 可在 10 分钟兜底窗口内重复封存(双花)。
+  // 上面的匹配逻辑已保证 matchedEntry 必带稳定 ID;这里再做一次双保险,缺失就拒绝。
+  const lockId = matchedEntry?.store_transaction_id || matchedEntry?.id;
+  if (!lockId) {
+    return json({ error: 'Purchase could not be verified. Please try again or contact support.' }, 402);
+  }
   const { error: usedInsertErr } = await adminClient
     .from('used_transactions')
     .insert({
