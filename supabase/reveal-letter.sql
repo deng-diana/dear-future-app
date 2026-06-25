@@ -32,7 +32,10 @@ as $$
   select l.body, l.deliver_on, l.photo_url, l.video_url, l.sealed_at, l.deliver_tz
     from public.letters l
    where l.reveal_token::text = p_token::text   -- 不管 reveal_token 是 uuid 还是 text 都能比
-     and l.deliver_on <= current_date;          -- 只有到了送达日才能读到
+     and l.delivered_at is not null;            -- 只有「已投递」才能读到 —— 这才是真正的判据。
+                                                 -- (投递链接本就只在送达邮件里;delivered_at 由 deliver
+                                                 --  函数发信成功后回填,所以正常 / 审核 demo 投递都成立,
+                                                 --  且读不到「还没发出去」的信。比看 deliver_on 日期更正确。)
 $$;
 
 -- 让公开页面(anon)和登录用户都能调用。
