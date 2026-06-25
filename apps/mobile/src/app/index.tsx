@@ -17,7 +17,7 @@ import SignIn from '@/components/SignIn';
 import Splash from '@/components/Splash';
 import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
 import { colors, fonts } from '@/theme';
-import { pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
+import { compressVideoToFit, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier, TIERS } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
 import { tierFor } from '@/lib/tiers';
@@ -101,6 +101,14 @@ export default function WriteScreen() {
   const [photos, setPhotos] = useState<PickedMedia[]>([]);
   const [video, setVideo] = useState<PickedMedia | null>(null);
   const [busy, setBusy] = useState(false); // 正在上传媒体 + 写库(按 Seal 后那一下)
+
+  // ── 即时后台压缩(像 Instagram/WhatsApp:选好视频那一刻就在后台压,用户继续写信)──
+  // videoCompRef 记住「为哪一个原始 uri 起的压缩任务」+ 它的 Promise;封存时直接 await,
+  // 已压完 → 立刻 resolve;还在压 → 只等这个进行中的任务(绝不重压)。
+  // srcUri 守卫:用户换/删视频后,旧任务的结果会被忽略(stale)。
+  const videoCompRef = useRef<{ srcUri: string; promise: Promise<string> } | null>(null);
+  // videoStatus 只给 UI 用:'preparing' 显示「Preparing…」,'ready' 表示压好了。
+  const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'ready' | 'error'>('idle');
 
   // 开场页:启动时先显示 Splash,点 Start 才进入写信页(只此一条出场路径,绝不自动跳转)。
   const [showSplash, setShowSplash] = useState(true);
@@ -201,7 +209,13 @@ export default function WriteScreen() {
     }
     let videoUrl: string | null = null;
     if (mediaVideo) {
-      videoUrl = await uploadMedia(mediaVideo, folder, 0);
+      // 取「即时后台压缩」的结果:任务是为这个 uri 起的 → await 它(已压完则瞬间 resolve,
+      // 还在压则只等这个进行中的任务,绝不重压);万一没起过(罕见)→ 现在压一次兜底。
+      const compressedUri =
+        videoCompRef.current?.srcUri === mediaVideo.uri
+          ? await videoCompRef.current.promise
+          : await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+      videoUrl = await uploadMedia(mediaVideo, folder, 0, compressedUri);
       // null 可能是"视频太大"(uploadMedia 已弹自己的提示)或网络失败 —— 都中止。
       if (!videoUrl) {
         Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
@@ -399,6 +413,9 @@ export default function WriteScreen() {
             // 只清草稿里的媒体引用(不碰相册里的文件)。
             setPhotos([]);
             setVideo(null);
+            // 纯文字封存:丢掉视频 → 也忘掉后台压缩任务,状态回 idle。
+            videoCompRef.current = null;
+            setVideoStatus('idle');
           },
         },
       ],
@@ -412,7 +429,21 @@ export default function WriteScreen() {
   }
   async function addVideo() {
     const m = await pickVideo();
-    if (m) setVideo(m);
+    if (!m) return;
+    setVideo(m);
+    // 选好的那一刻就在后台启动压缩,用户继续写信;封存时直接 await 这个任务。
+    // (web / Expo Go 上 compressVideoToFit 是 no-op,Promise 立刻 resolve 原 uri。)
+    const promise = compressVideoToFit(m.uri, m.durationSec);
+    videoCompRef.current = { srcUri: m.uri, promise };
+    setVideoStatus('preparing');
+    promise
+      .then(() => {
+        // srcUri 守卫:只在「这仍是当前选中的视频」时更新 UI(避免 stale 任务覆盖)。
+        if (videoCompRef.current?.srcUri === m.uri) setVideoStatus('ready');
+      })
+      .catch(() => {
+        if (videoCompRef.current?.srcUri === m.uri) setVideoStatus('error');
+      });
   }
 
   // 封存之后想再写一封:清空内容 + 清掉附件,回到全新写信屏(但仍保持登录)。
@@ -422,6 +453,9 @@ export default function WriteScreen() {
     setSealed(false);
     setPhotos([]);
     setVideo(null);
+    // 再写一封:清掉上一封的后台压缩任务,状态回 idle。
+    videoCompRef.current = null;
+    setVideoStatus('idle');
     setStep('write');
   }
 
@@ -587,8 +621,21 @@ export default function WriteScreen() {
                   <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
                 )}
                 {video ? (
-                  <Pressable onPress={() => setVideo(null)} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Remove video">
-                    <Text style={styles.mediaOn}>🎬  ✕</Text>
+                  <Pressable
+                    onPress={() => {
+                      setVideo(null);
+                      // 删掉视频:忘掉后台压缩任务(srcUri 守卫会忽略它迟到的结果),状态回 idle。
+                      videoCompRef.current = null;
+                      setVideoStatus('idle');
+                    }}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    hitSlop={{ top: 14, bottom: 14 }}
+                    accessibilityLabel="Remove video">
+                    {/* 压缩中显示「Preparing…」,压好/其它显示「🎬 ✕」。点任意一处都可移除。 */}
+                    <Text style={videoStatus === 'preparing' ? styles.mediaPreparing : styles.mediaOn}>
+                      {videoStatus === 'preparing' ? '🎬  Preparing…' : '🎬  ✕'}
+                    </Text>
                   </Pressable>
                 ) : (
                   <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add a video">
@@ -769,6 +816,8 @@ const styles = StyleSheet.create({
   mediaRow: { flexDirection: 'row', gap: 22, paddingBottom: 2 },
   mediaAdd: { fontSize: 14, color: colors.textMuted }, // 未选:暖灰
   mediaOn: { fontSize: 14, color: colors.brandText }, // B: 已选 — 换用 brandText(#84410F),达到 ≥4.5:1(AA)
+  // 后台压缩中:低调暖灰 + 斜体「Preparing…」,与 mediaCap 同色系,不抢戏(纸感、安静)。
+  mediaPreparing: { fontSize: 14, color: colors.textMuted, fontStyle: 'italic' },
   // 10 张满额提示:静默一行,与 mediaAdd 同字号同色系,但更低调。
   mediaCap: { fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
 

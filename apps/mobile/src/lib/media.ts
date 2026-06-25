@@ -70,20 +70,24 @@ function getCompressVideoFn(): CompressVideoFn | null {
 
 // compressVideoToFit — 压缩视频,保证输出体积 ≤ TARGET_VIDEO_BYTES。
 // 关键认知:react-native-compressor 用的是 AVVideoAverageBitRateKey —— 一个「软目标」码率。
-// 对高细节内容(尤其屏幕录制)编码器会大幅超标(实测:设 1.2 Mbps 却产出 ~1.9 Mbps → 66 MB,
-// 超过 50 MB 上限)。所以不能「设一次码率就信它」,必须:压完量一下,还超就降一档
+// 对高细节内容(尤其屏幕录制)编码器会大幅超标(实测:设 1.2 Mbps 却产出 ~2.2 Mbps → 约 1.8× 超标)。
+// 所以不能「设一次码率就信它」,必须:压完量一下,还超就降一档
 //(更小分辨率 + 更低码率)从「原片」重压,直到塞进目标。correct-by-construction:
 // 每一步都实测体积,命中即止 —— 数学上不会产出超限文件(最差收敛到很小的低分辨率)。
 // 时长已知(durationSec),据此算首档码率,让绝大多数视频「一档命中」(只压一次,快)。
 // 压缩不可用(web / Expo Go / 模块异常)→ 返回原始 URI,由上传前的 50 MB 守卫兜底。
-async function compressVideoToFit(uri: string, durationSec: number | undefined): Promise<string> {
+//
+// EXPORTED:供「即时后台压缩」用 —— 选好视频那一刻 index.tsx 就在后台启动它,
+// 用户继续写信;封存时直接 await 这个已在跑(或已完成)的 Promise,封存不再卡压缩。
+export async function compressVideoToFit(uri: string, durationSec: number | undefined): Promise<string> {
   if (Platform.OS === 'web') return uri;
   const compress = getCompressVideoFn();
   if (!compress) return uri;
 
   const dur = durationSec && durationSec > 0 ? durationSec : 300; // 拿不到时长 → 按 5 分钟(最保守)
-  // 首档码率:让「软目标 × ~1.7 倍超标」后体积仍 ≈ TARGET。夹在 [500k, 1.5M]。
-  const firstBps = Math.round(Math.min(1_500_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 1.7)));
+  // 首档码率:让「软目标 × ~1.8 倍超标」后体积仍 ≈ TARGET,让绝大多数视频「一压命中」(单遍即过)。
+  // 实测超标 ≈ 1.8×(设 1.2 Mbps → 得 ~2.2 Mbps),据此放保守些,留出余量给阶梯当罕见安全网。
+  const firstBps = Math.round(Math.min(1_500_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 1.8)));
 
   // 降档阶梯:分辨率↓ + 码率↓,越往后越狠;靠后才丢音轨(尽量保留人声)。
   const ladder: { maxSize: number; bitrate: number; stripAudio?: boolean }[] = [
@@ -228,10 +232,17 @@ async function streamUpload(fileUri: string, bucket: string, path: string, conte
 // 把本地文件上传到 memories 桶 → 返回公开 URL(失败返回 null)。
 // index = 第几张照片(多张照片用不同文件名,避免互相覆盖);视频忽略它。
 //
-// 视频原生路径:先压缩 → 二次检查大小 → 流式上传。
+// 视频原生路径:上传调用方传入的「已压缩」uri → 二次检查大小 → 流式上传(本函数不再压缩)。
+//   precompressedUri = 即时后台压缩(index.tsx)已经压好的文件;调用方负责压缩,这里只上传。
+//   没传(罕见兜底)→ 退回上传原片 media.uri,仍由下面的 50 MB 守卫把关。
 // 照片原生路径:流式上传(无需压缩,picker 已经 quality:0.8 缩图)。
 // Web 路径:fetch().blob() + supabase-js(不变)。
-export async function uploadMedia(media: PickedMedia, folder: string, index: number = 0): Promise<string | null> {
+export async function uploadMedia(
+  media: PickedMedia,
+  folder: string,
+  index: number = 0,
+  precompressedUri?: string,
+): Promise<string | null> {
   try {
     const isPhoto = media.kind === 'photo';
     const path = isPhoto ? `${folder}/photo-${index}.jpg` : `${folder}/video.mp4`;
@@ -252,8 +263,9 @@ export async function uploadMedia(media: PickedMedia, folder: string, index: num
       let uploadUri = media.uri;
 
       if (!isPhoto) {
-        // 1. 压缩到目标体积以下(内部按时长选码率,压完量一下、还超就降档重压)。
-        uploadUri = await compressVideoToFit(media.uri, media.durationSec);
+        // 1. 用调用方已压缩好的文件(即时后台压缩在选片时就跑完了);没传则兜底上传原片。
+        //    本函数不再压缩——压缩在 index.tsx 选片那一刻已在后台启动,封存时只 await 取结果。
+        uploadUri = precompressedUri ?? media.uri;
 
         // 2. 压缩后再量一次大小——万一阶梯跑完仍超 50 MB(极端原片),温和拒绝。
         // FileInfo 在 exists:true 时直接带 size 字段,无需额外选项。
