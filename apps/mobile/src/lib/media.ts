@@ -237,9 +237,12 @@ export async function uploadMedia(media: PickedMedia, folder: string, index: num
         const info = await FileSystem.getInfoAsync(uploadUri);
         const sizeBytes = info.exists ? info.size : undefined;
         if (typeof sizeBytes === 'number' && sizeBytes > MAX_VIDEO_BYTES) {
+          // 提示里带上真实体积:既对用户更友好,也方便排查(若显示 100+ MB 说明压缩没生效)。
+          const mb = Math.round(sizeBytes / 1024 / 1024);
+          const limitMb = Math.round(MAX_VIDEO_BYTES / 1024 / 1024);
           Alert.alert(
             'Video too large to seal',
-            'This video is a little too large to seal — try a shorter clip.',
+            `This video is ${mb} MB after compression, over the ${limitMb} MB limit — please try a shorter clip.`,
           );
           return null;
         }
