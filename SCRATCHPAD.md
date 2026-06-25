@@ -313,6 +313,34 @@ Ionicons icons via new `@expo/vector-icons`); video 5-min fix (drop `allowsEditi
 
 ---
 
+## 2026-06-25(下半)— 收信页「信纸」+ 写信那一刻 + 邮件配色(已部署)
+
+收信页(`web/reveal`)与投递邮件的一轮打磨,均已 commit 并部署到生产。
+
+What landed:
+- `1544104` 投递邮件配色对齐收信页/App:背景 F4EEE4→FAE6C9、正文墨 #5A3A24、
+  灰字/分割线改暖棕、精简一句隐私文案(HTML+text 同步)。
+- `31ecbf4` `reveal_letter()` 多返回 `sealed_at` + `deliver_tz`(改返回列须 drop+create)。
+- `edf4f99` 收信页:① 正文放上一张暖白「信纸」(柔影+纸纹),从页眉浮起、不再糊在一起
+  (纯文字信最明显);② 信纸更宽 + 左右内边距更小 + 收紧与日期行的间距;③ 上方那行
+  从「送达日」改成「写信那一刻」(日期+本地时间,用 sealed_at+deliver_tz 换算;缺失时
+  优雅退回送达日,绝不报错);④ 纯文字信正文提前淡入(不冷场);⑤ 删死代码 .salutation。
+
+部署 & 验证:
+- Vercel 生产 ✅ —— curl 正式域名 dear-future-app.vercel.app 命中新标记
+  (letter-paper / fmtWritten / dtext / sealed_at),HTTP 200。
+- Supabase `deliver` Edge Function 重新部署 ✅。
+- 验证手段:本地用 watchr 浏览器 + mock reveal_letter 假数据,逐项截图确认
+  (信纸浮起、间距、宽度、上方显示 "June 9, 2026 · 1:54 PM" = 伦敦本地时间)。
+
+⚠️ 还差一步(手动):`supabase/reveal-letter.sql` 要在 Supabase SQL Editor 跑一次,
+线上才会真返回 sealed_at+deliver_tz;在那之前页面走兜底(只显示送达日)。
+
+注:地点(London)暂不做——城市名从没存进库(只在手机本地),要显示需改 App+后端+库+网页,
+且只有新信才有。本轮按"只加写信时间"推进。
+
+---
+
 ## 2026-06-20(下半)— 品牌 + 视觉 + 自动化 + 演示模式(黑客松冲刺)
 
 - **品牌 Reunite**:见上半段。
