@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Application from 'expo-application';
 import { useState } from 'react';
-import { Alert, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
@@ -96,6 +97,16 @@ export default function AccountButton({ email, onSignOut }: Props) {
               {email}
             </Text>
             <View style={styles.divider} />
+            {/* Support:打开支持页(FAQ + 联系方式)。App 审核也要求有可达的支持入口。 */}
+            <Pressable
+              onPress={() => Linking.openURL('https://dear-future-app.vercel.app/support')}
+              style={styles.menuRow}
+              accessibilityRole="button"
+              accessibilityLabel="Support">
+              <Ionicons name="help-circle-outline" size={18} color={colors.textBody} />
+              <Text style={styles.signOut}>Support</Text>
+            </Pressable>
+            <View style={styles.divider} />
             {/* Delete account 放在上方(用户要求);用红色 + 垃圾桶图标强烈区分,避免误点;且本身有两步确认。 */}
             <Pressable
               onPress={handleDeleteAccount}
@@ -119,6 +130,11 @@ export default function AccountButton({ email, onSignOut }: Props) {
               <Ionicons name="log-out-outline" size={18} color={colors.textBody} />
               <Text style={styles.signOut}>Sign out</Text>
             </Pressable>
+            <View style={styles.divider} />
+            {/* 版本号脚注:显示真实的原生版本 + build 号,方便确认装的是哪个 build(也利于排查 / 审核)。 */}
+            <Text style={styles.version}>
+              Reunite {Application.nativeApplicationVersion ?? '?'} ({Application.nativeBuildVersion ?? '?'})
+            </Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -161,4 +177,6 @@ const styles = StyleSheet.create({
   signOut: { fontSize: 15, color: colors.textBody }, // 改正常正文色(原为 danger 红)—— 与红色 Delete 明显区分
   // 删账号:破坏性操作,保持红色(dangerDeep)+ 垃圾桶图标。
   deleteAccount: { fontSize: 15, color: colors.dangerDeep },
+  // 版本号脚注:小号、静默色、居中。
+  version: { fontSize: 12, color: colors.textMutedLight, textAlign: 'center', marginTop: 4 },
 });
