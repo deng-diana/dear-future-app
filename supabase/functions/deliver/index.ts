@@ -15,12 +15,21 @@ const READ_BASE = 'https://dear-future-app.vercel.app';
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // 找出"现在到期"的信:由 SQL 函数 due_letters() 决定到期与否——
+  // 找出"现在到期"的信:正常由 SQL 函数 due_letters() 决定到期与否——
   // 它按每个用户自己的时区,在 deliver_on 当天的本地 19:00(7pm)到点才放行;
   // 没有时区(老信)降级为 UTC 7pm。delivered_at 已填的会被它过滤掉(防重发)。
-  // 注:旧的 DEMO_MODE(封存即送达)已随这次改造移除——到期判定现在完全在 SQL 端。
-  // due_letters() 返回完整 letters 行,所以 id/owner_id/body/deliver_on/reveal_token/sealed_at 都在。
-  const { data: letters, error } = await supabase.rpc('due_letters');
+  //
+  // 审核临时开关:Supabase secret DELIVER_DEMO_MODE == 'true' 时,不看日期 ——
+  // 所有「没送过」的信立刻发,让 App Store 审核员封完信几秒就在自己邮箱收到、当场验证送达。
+  // ⚠️ 审核通过后务必把这个 secret 删掉 / 设回非 'true' —— 否则未来的信会被立即发出,破坏产品核心。
+  // secret 改了即时生效,无需重新部署。
+  const DEMO = Deno.env.get('DELIVER_DEMO_MODE') === 'true';
+  const { data: letters, error } = DEMO
+    ? await supabase
+        .from('letters')
+        .select('id, owner_id, body, deliver_on, reveal_token, sealed_at')
+        .is('delivered_at', null)
+    : await supabase.rpc('due_letters');
 
   if (error) {
     return json({ error: error.message }, 500);
