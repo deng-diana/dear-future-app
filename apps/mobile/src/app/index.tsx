@@ -224,6 +224,8 @@ export default function WriteScreen() {
         video_url: videoUrl,
         tier: sealTier,       // null = 免费;'words'/'photos'/'video' = 付款档位
         transactionId,        // 付款时从 purchaseTier() 拿到的商店交易 ID
+        // 设备的 IANA 时区(写信此刻所在地);用于在送达日的本地 19:00 送达。
+        deliver_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
     });
 

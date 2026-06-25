@@ -12,23 +12,15 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 const FROM_DOMAIN = 'mail.dearfuture.space';
 const READ_BASE = 'https://dear-future-app.vercel.app';
 
-// 演示/测试模式:为 true 时,不管送达日是哪天,只要没送过就立刻发(封存即送达)。
-// ⚠️ 比赛结束后改回 false —— 否则未来的信会被立即发出,破坏产品核心逻辑。
-const DEMO_MODE = false;
-
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // 今天(UTC)的日期,'YYYY-MM-DD'。
-  const today = new Date().toISOString().slice(0, 10);
-
-  // 查"还没送过"的信;非演示模式才额外要求"送达日 <= 今天"。
-  let q = supabase
-    .from('letters')
-    .select('id, owner_id, body, deliver_on, reveal_token, sealed_at')
-    .is('delivered_at', null);
-  if (!DEMO_MODE) q = q.lte('deliver_on', today);
-  const { data: letters, error } = await q;
+  // 找出"现在到期"的信:由 SQL 函数 due_letters() 决定到期与否——
+  // 它按每个用户自己的时区,在 deliver_on 当天的本地 19:00(7pm)到点才放行;
+  // 没有时区(老信)降级为 UTC 7pm。delivered_at 已填的会被它过滤掉(防重发)。
+  // 注:旧的 DEMO_MODE(封存即送达)已随这次改造移除——到期判定现在完全在 SQL 端。
+  // due_letters() 返回完整 letters 行,所以 id/owner_id/body/deliver_on/reveal_token/sealed_at 都在。
+  const { data: letters, error } = await supabase.rpc('due_letters');
 
   if (error) {
     return json({ error: error.message }, 500);

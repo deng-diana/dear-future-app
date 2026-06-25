@@ -91,6 +91,8 @@ Deno.serve(async (req: Request) => {
   let video_url: string | null = null;
   let tier: 'words' | 'photos' | 'video' | null;
   let transactionId: string | undefined;
+  // deliver_tz = the writer's IANA timezone (e.g. 'Europe/London'), used to deliver at LOCAL 7pm.
+  let deliver_tz: string | null = null;
 
   try {
     const raw = await req.json() as {
@@ -100,6 +102,7 @@ Deno.serve(async (req: Request) => {
       video_url?: unknown;
       tier?: unknown;
       transactionId?: unknown;
+      deliver_tz?: unknown;
     };
     body = String(raw.body ?? '');
     deliver_on = String(raw.deliver_on ?? '');
@@ -107,8 +110,25 @@ Deno.serve(async (req: Request) => {
     video_url = raw.video_url != null ? String(raw.video_url) : null;
     tier = validateTier(raw.tier);
     transactionId = raw.transactionId != null ? String(raw.transactionId) : undefined;
+    // 先取原始值;空/缺省 → null(留待下方降级为 UTC),非空再做 IANA 时区有效性校验。
+    deliver_tz = raw.deliver_tz != null && String(raw.deliver_tz).trim() !== ''
+      ? String(raw.deliver_tz).trim()
+      : null;
   } catch (_) {
     return json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  // 校验 deliver_tz(送达时区):
+  //   - 缺省/空 → 存 null,deliver 端 due_letters() 会降级为 UTC 7pm(老逻辑,不丢信)。
+  //   - 提供了但「不是合法 IANA 时区」→ 拒绝 400。绝不让未校验的字符串进库:
+  //     due_letters() 里的 `at time zone <tz>` 遇到非法时区会直接报错,整批送达卡死。
+  // 校验方法:用合法时区构造 Intl.DateTimeFormat 不会抛错,非法时区抛 RangeError。
+  if (deliver_tz !== null) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: deliver_tz });
+    } catch (_) {
+      return json({ error: 'Invalid timezone' }, 400);
+    }
   }
 
   // ── 第四步:服务器端输入验证 ──
@@ -198,6 +218,7 @@ Deno.serve(async (req: Request) => {
         photo_url: null, // 免费封存不允许媒体
         video_url: null,
         seal_tier: 'free',
+        deliver_tz, // 写信人时区(用于本地 7pm 送达);缺省为 null → deliver 端降级 UTC
       });
 
     if (insertErr) {
@@ -356,6 +377,7 @@ Deno.serve(async (req: Request) => {
       photo_url: photo_url ?? null,
       video_url: video_url ?? null,
       seal_tier: tier,
+      deliver_tz, // 写信人时区(用于本地 7pm 送达);缺省为 null → deliver 端降级 UTC
     });
 
   if (insertErr) {
