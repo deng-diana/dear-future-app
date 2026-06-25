@@ -435,7 +435,7 @@ export default function WriteScreen() {
           {/* A7: 装饰性信封图片,对屏幕阅读器隐藏 */}
           <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
           {/* A2: accessibilityLiveRegion="assertive" 确保 Android TalkBack 也能立即播报;ref 用于 iOS VoiceOver 焦点 */}
-          <Text ref={sealedHeadingRef} style={styles.sealedText} accessibilityLiveRegion="assertive">Sealed</Text>
+          <Text ref={sealedHeadingRef} style={styles.sealedText} accessibilityLiveRegion="assertive">Your letter is sealed</Text>
           <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
         </View>
 
