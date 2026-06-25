@@ -211,10 +211,24 @@ export default function WriteScreen() {
     if (mediaVideo) {
       // 取「即时后台压缩」的结果:任务是为这个 uri 起的 → await 它(已压完则瞬间 resolve,
       // 还在压则只等这个进行中的任务,绝不重压);万一没起过(罕见)→ 现在压一次兜底。
-      const compressedUri =
-        videoCompRef.current?.srcUri === mediaVideo.uri
-          ? await videoCompRef.current.promise
-          : await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+      // 用 try/catch 包住:即便那个后台 Promise 异常 reject,也绝不让它把 prepareMedia 抛崩
+      //(否则 handleSealSheet 里 setBusy(false) 被跳过 → 按钮永远转圈)。退一步重压;再不行
+      // 用原片,交给下面 uploadMedia 的 50MB 守卫温和拒绝。compressVideoToFit 内部本就全程
+      // try/catch、几乎不会 reject,这里是双保险。
+      let compressedUri: string;
+      try {
+        compressedUri =
+          videoCompRef.current?.srcUri === mediaVideo.uri
+            ? await videoCompRef.current.promise
+            : await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+      } catch (e) {
+        console.warn('[media] 后台压缩任务异常,封存时重试:', e);
+        try {
+          compressedUri = await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+        } catch {
+          compressedUri = mediaVideo.uri; // 兜底用原片;太大会被 uploadMedia 的守卫拦下
+        }
+      }
       videoUrl = await uploadMedia(mediaVideo, folder, 0, compressedUri);
       // null 可能是"视频太大"(uploadMedia 已弹自己的提示)或网络失败 —— 都中止。
       if (!videoUrl) {

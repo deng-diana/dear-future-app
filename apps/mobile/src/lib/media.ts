@@ -85,9 +85,12 @@ export async function compressVideoToFit(uri: string, durationSec: number | unde
   if (!compress) return uri;
 
   const dur = durationSec && durationSec > 0 ? durationSec : 300; // 拿不到时长 → 按 5 分钟(最保守)
-  // 首档码率:让「软目标 × ~1.8 倍超标」后体积仍 ≈ TARGET,让绝大多数视频「一压命中」(单遍即过)。
-  // 实测超标 ≈ 1.8×(设 1.2 Mbps → 得 ~2.2 Mbps),据此放保守些,留出余量给阶梯当罕见安全网。
-  const firstBps = Math.round(Math.min(1_500_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 1.8)));
+  // 首档码率:按时长算「要塞进 TARGET 的总码率」,再除以 ~2(补偿编码器软目标超标,实测 ≈1.8×:
+  // 设 1.2 Mbps → 得 ~2.2 Mbps),让绝大多数视频「单遍命中」。注意:
+  //   - 短片(≲2min)结果超过 1.5 Mbps 上限 → 被夹到 1.5M(不影响画质);
+  //   - 长片(如 4min)按时长得到更低的码率(~700k),更可能一遍压进 44MB。
+  // 不管夹成多少,后面的「降档阶梯 + 上传前 50MB 守卫」才是真正的体积保证(本行只为「快/少重编码」)。
+  const firstBps = Math.round(Math.min(1_500_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 2.0)));
 
   // 降档阶梯:分辨率↓ + 码率↓,越往后越狠;靠后才丢音轨(尽量保留人声)。
   const ladder: { maxSize: number; bitrate: number; stripAudio?: boolean }[] = [
