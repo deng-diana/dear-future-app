@@ -15,7 +15,7 @@ import Dateline from '@/components/Dateline';
 import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
 import Splash from '@/components/Splash';
-import { DEMO_MODE, MIN_SEAL_DAYS } from '@/constants/rules';
+import { MIN_SEAL_DAYS } from '@/constants/rules';
 import { colors, fonts } from '@/theme';
 import { compressVideoToFit, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier, TIERS } from '@/lib/purchases';
@@ -292,11 +292,10 @@ export default function WriteScreen() {
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
 
-    if (DEMO_MODE) {
-      // 演示模式:封存后立刻触发送达云函数 → 几秒内邮箱就收到这封信。
-      // fire-and-forget:不阻塞封存动画,后台把信发出去。
-      supabase.functions.invoke('deliver').catch(() => {});
-    }
+    // 封存成功后顺手 nudge 一下 deliver(fire-and-forget,不阻塞封存动画)。
+    // 生产环境无害:deliver 只送「已到期」的信 —— 刚封的未来信不会被送。
+    // 审核期把服务器端 deliver 设成即时模式(DEMO_MODE),这一下就让审核员的信「秒到」邮箱。
+    supabase.functions.invoke('deliver').catch(() => {});
     setSealing(true); // 写库成功 → 先播封存仪式动画,动画结束再切"已封存"屏
   }
 
