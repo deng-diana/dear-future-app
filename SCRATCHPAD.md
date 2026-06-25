@@ -13,10 +13,22 @@ several MORE app-side fixes landed that need a **build 7** (NOT in build 6):
   directly. [[reunite-newarch-compressor-skip]]
 - `6ec399e` video "too large" message now shows real MB (self-diagnosing).
 - `5d02fde` keyboard-up footer gap tightened + slimmer primary button.
-So: **cut build 7** (bundles the above) → full device regression incl. VIDEO
-seal → then attach to the "1.0 Prepare for Submission" version, fill the App
-Store listing (copy in `docs/app-store-submission.md`), App Privacy + Age
-Rating, App Review notes + demo login → submit for review.
+Build 7 ALSO carries `7983940` — the client side of timezone-aware delivery
+(sends `deliver_tz` at seal). So: **cut build 7** (bundles the above) → full
+device regression incl. VIDEO seal → then attach to the "1.0 Prepare for
+Submission" version, fill the App Store listing (copy in
+`docs/app-store-submission.md`), App Privacy + Age Rating, App Review notes +
+demo login → submit for review.
+
+**TO DEPLOY (server side, before/independent of build 7) — local-time delivery:**
+1. Run `supabase/sql/2026-06-25-local-time-delivery.sql` in SQL Editor (adds
+   `letters.deliver_tz`, creates `due_letters()`, reschedules cron daily→HOURLY).
+   Verify cron `schedule = '0 * * * *'`.
+2. `supabase functions deploy deliver` AND `supabase functions deploy seal-letter`
+   (migration FIRST — new `deliver` calls `due_letters()`).
+Safe before build 7: until the client sends `deliver_tz`, letters store null tz →
+deliver at UTC 7pm (graceful); after build 7, at the writer's local 7pm.
+Adversarially reviewed vs real PG16 — SHIP. [[reunite-delivery-cron]]
 
 **DELIVERY IS NOW LIVE (the last fatal gap — fixed this session).** The `deliver`
 Edge Function + Resend always worked, but NOTHING triggered it on a schedule, so
