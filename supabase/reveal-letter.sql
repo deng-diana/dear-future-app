@@ -11,7 +11,8 @@
 -- 两者都不是机密:就是"这封信是几点、在哪个时区写的"。
 --
 -- 安全:SECURITY DEFINER —— 以函数所有者身份运行,绕过 letters 表的 insert-only
--- RLS,但只允许"按 token 且已到送达日"读到这一封,读不到别人的信。
+-- RLS,但只允许"按 token 且这封信已投递(delivered_at 有值)"读到这一封,读不到别人的信、
+-- 也读不到还没发出去的信。
 --
 -- 应用方式:Supabase Dashboard → SQL Editor → 粘贴全部 → Run。
 -- 出现 "Success. No rows returned." 即成功。
