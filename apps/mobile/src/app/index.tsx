@@ -168,53 +168,65 @@ export default function WriteScreen() {
   // 只有当前有媒体(有更贵的档位)时,才显示"Seal as words only"备选。
   const showWordsOnlyEscape = (photos.length > 0 || video !== null) && !tierResult.isFree;
 
-  // ── 核心封存逻辑 ──
-  // 顺序:先上传媒体(如有)→ 再调 seal-letter Edge Function(服务器端验证 + 写库)。
-  // Edge Function 负责:身份验证、输入校验、免费次数检查、RevenueCat 购买验证、
-  // 防重放攻击、最终写库。客户端只做"上传媒体 + 调函数"两件事。
+  // ── 核心封存逻辑(分两步,顺序至关重要) ──
+  // 顺序:① 准备媒体(压缩 + 大小校验 + 上传,拿到公开 URL)→ ② 付款 → ③ 调
+  // seal-letter Edge Function(服务器端验证购买 + 写库)。
   //
-  // 参数:
-  //   sealTier       — 档位('words'|'photos'|'video'|null),null = 免费
-  //   transactionId  — 购买凭证 ID(付款档位必须传,免费时 undefined)
-  //   overridePhotos / overrideVideo — 用于"仅文字"备选路径(绕过当前媒体 state)
-  async function doSeal(
-    sealTier: 'words' | 'photos' | 'video' | null,
-    transactionId: string | undefined,
-    overridePhotos?: PickedMedia[],
-    overrideVideo?: PickedMedia | null,
-  ) {
-    const effectivePhotos = overridePhotos ?? photos;
-    const effectiveVideo = overrideVideo !== undefined ? overrideVideo : video;
+  // 为什么媒体必须在付款之前:压缩 / 大小校验 / 上传是会失败的步骤("视频太大"、
+  // "上传失败")。如果放在付款之后,用户会先被扣款、再被告知媒体存不进去 ——
+  // 扣了钱却没有信,这是绝不能发生的。所以先把媒体备好,任何媒体失败都在付款前暴露。
+  // Edge Function 负责:身份验证、输入校验、免费次数检查、RevenueCat 购买验证、
+  // 防重放攻击、最终写库。
 
-    setBusy(true); // 上传 + 封存期间,按钮转圈、防重复点
-
-    // ── 第一步:上传媒体(如有) ──
-    // 先把照片 / 视频传到 memories 桶(同一个随机文件夹),拿到公开 URL。
+  // prepareMedia — 在付款之前把照片 / 视频压缩 + 校验 + 上传,拿到公开 URL。
+  // 任意一步失败(大小守卫触发,或某次上传返回 null)→ 弹出错误、返回 null,调用方
+  // 据此中止流程、绝不调用 purchaseTier。成功 → 返回 { photoUrls, videoUrl }。
+  // 压缩在 uploadMedia 内部发生;这里只做 randomFolder() + 逐个 uploadMedia 的循环。
+  async function prepareMedia(
+    mediaPhotos: PickedMedia[],
+    mediaVideo: PickedMedia | null,
+  ): Promise<{ photoUrls: string[]; videoUrl: string | null } | null> {
+    // 把照片 / 视频传到 memories 桶(同一个随机文件夹),拿到公开 URL。
     const folder = randomFolder();
     const photoUrls: string[] = [];
-    for (let i = 0; i < effectivePhotos.length; i++) {
-      const u = await uploadMedia(effectivePhotos[i], folder, i);
-      // 上传失败 → 千万别封存。封存即消失,信一走用户永远发现不了图丢了。
+    for (let i = 0; i < mediaPhotos.length; i++) {
+      const u = await uploadMedia(mediaPhotos[i], folder, i);
+      // 上传失败(含视频"太大"守卫,uploadMedia 内部已弹各自的提示并返回 null)→
+      // 千万别往下走付款。封存即消失,信一走用户永远发现不了图丢了。
       if (!u) {
-        setBusy(false);
         Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
-        return; // 信还在、可重试
+        return null; // 信还在、可重试,且尚未付款
       }
       photoUrls.push(u);
     }
     let videoUrl: string | null = null;
-    if (effectiveVideo) {
-      videoUrl = await uploadMedia(effectiveVideo, folder, 0);
+    if (mediaVideo) {
+      videoUrl = await uploadMedia(mediaVideo, folder, 0);
+      // null 可能是"视频太大"(uploadMedia 已弹自己的提示)或网络失败 —— 都中止。
       if (!videoUrl) {
-        setBusy(false);
         Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
-        return; // 信还在、可重试
+        return null; // 信还在、可重试,且尚未付款
       }
     }
+    return { photoUrls, videoUrl };
+  }
 
-    // ── 第二步:调 seal-letter Edge Function ──
-    // 服务器端函数会:验证 JWT 身份、校验输入、验证购买、防重放、写库。
-    // 客户端不再直接往 letters 表 insert。
+  // finalizeSeal — 媒体已上传、(如需)已付款之后的最后一步:调 seal-letter。
+  // 这是唯一必须留在付款之后的步骤(它需要 transactionId 来验证购买)。
+  // 服务器端函数会:验证 JWT 身份、校验输入、验证购买、防重放、写库。
+  // 客户端不再直接往 letters 表 insert。
+  //
+  // 参数:
+  //   sealTier       — 档位('words'|'photos'|'video'|null),null = 免费
+  //   transactionId  — 购买凭证 ID(付款档位必须传,免费时 undefined)
+  //   media          — prepareMedia 已经上传好的公开 URL(免费 / 纯文字时为空)
+  async function finalizeSeal(
+    sealTier: 'words' | 'photos' | 'video' | null,
+    transactionId: string | undefined,
+    media: { photoUrls: string[]; videoUrl: string | null },
+  ) {
+    const { photoUrls, videoUrl } = media;
+
     const { error } = await supabase.functions.invoke('seal-letter', {
       body: {
         body: letter.trim(),
@@ -281,12 +293,24 @@ export default function WriteScreen() {
   }
 
   // SealSheet 里按下主按钮「Seal · {price}」时的逻辑。
+  // 顺序(致命修复):准备媒体(压缩 + 大小校验 + 上传)→ 付款 → 写库。
+  // 媒体的所有失败点都在付款之前暴露,杜绝"先扣款、再说视频太大 / 上传失败"。
   async function handleSealSheet() {
     if (busy) return;
 
+    setBusy(true); // 整个流程(准备媒体 + 付款 + 写库)期间,按钮转圈、防重复点
+
+    // ── 第一步:准备媒体(在任何付款之前)──
+    // 压缩 + 校验大小 + 上传,拿到公开 URL。任意一步失败 → 已弹错误,中止,绝不付款。
+    const media = await prepareMedia(photos, video);
+    if (!media) {
+      setBusy(false);
+      return; // 媒体没备好(太大 / 上传失败)→ 信还在、可重试,且尚未付款
+    }
+
     if (tierResult.isFree) {
-      // 免费:直接封存,tier = null,不需要 transactionId。
-      await doSeal(null, undefined);
+      // 免费:跳过付款,tier = null,不需要 transactionId。finalizeSeal 会 setBusy(false)。
+      await finalizeSeal(null, undefined, media);
       return;
     }
 
@@ -296,28 +320,32 @@ export default function WriteScreen() {
     // 真实 App Store 构建有密钥时不会走这条路。
     if (Platform.OS === 'web') {
       // web 演示:跳过付款,tier = null(免费路径)。
-      await doSeal(null, undefined);
+      await finalizeSeal(null, undefined, media);
       return;
     }
 
-    // 原生:先触发购买弹窗,再把凭证传给服务器验证。
-    // 顺序:上传媒体(在 doSeal 里)→ 购买弹窗(这里)→ 服务器验证 + 写库(在 doSeal 里)。
+    // ── 第二步:付款 ──
+    // 媒体此时已上传成功;现在才触发购买弹窗。
     const tier = tierResult.tier!;
     const result = await purchaseTier(tier);
 
     if (result.ok) {
-      // 付款成功 → 封存,把商店交易 ID 一起送给服务器验证。
+      // ── 第三步:付款成功 → 写库(唯一必须在付款之后的步骤,需 transactionId 验购)──
       // result.transactionId = App Store / Google Play 返回的原始交易 ID。
-      await doSeal(tier, result.transactionId);
+      await finalizeSeal(tier, result.transactionId, media);
     } else if (result.cancelled) {
-      // 用户取消付款 → 留在底单,什么都不做。
+      // 用户取消付款 → 留在底单。已上传的媒体成为存储里的孤儿文件 ——
+      // 目前可接受(后续可加 best-effort 清理:删 media.folder 下的对象);不阻塞流程。
+      setBusy(false);
       return;
     } else if (result.error === 'purchases disabled') {
       // Demo fallback:购买模块未启用(无密钥的测试构建)→ 免费路径封存。
       // Demo fallback — real App Store builds have purchases enabled.
-      await doSeal(null, undefined);
+      await finalizeSeal(null, undefined, media);
     } else {
       // 其他错误(网络失败、App Store 异常等) → 温和提示,留在底单。
+      // (媒体已上传,同样成为可接受的孤儿文件;详见上面取消分支的说明。)
+      setBusy(false);
       Alert.alert(
         'Something went wrong',
         result.error ?? 'The purchase could not be completed. Please try again.',
@@ -345,21 +373,26 @@ export default function WriteScreen() {
           text: 'Seal words only',
           // Not style:'destructive' — this is a confirmation, not a dangerous action.
           onPress: async () => {
+            if (busy) return;
+            setBusy(true); // 付款 + 写库期间转圈、防重复点
             // 确定用纯文字档位(wordsOnlyTier.tier 可能是 null 或 'words')。
-            // 用空媒体调 doSeal(覆盖当前 state,因为 setState 是异步的,doSeal 若直接读 state 会拿到旧值)。
+            // 纯文字 = 无媒体,所以没有 prepareMedia 步骤(空媒体直接写库)。
+            const emptyMedia = { photoUrls: [], videoUrl: null };
             if (wordsOnlyTier.isFree) {
-              // 纯文字 + 免费条件满足 → 免费封存。
-              await doSeal(null, undefined, [], null);
+              // 纯文字 + 免费条件满足 → 免费封存(finalizeSeal 会 setBusy(false))。
+              await finalizeSeal(null, undefined, emptyMedia);
             } else {
-              // 纯文字但需要付款(例如时间跨度 > 365 天) → 先购买再封存。
+              // 纯文字但需要付款(例如时间跨度 > 365 天) → 无媒体可丢,先购买再写库。
               const result = await purchaseTier('words');
               if (result.ok) {
-                await doSeal('words', result.transactionId, [], null);
+                await finalizeSeal('words', result.transactionId, emptyMedia);
               } else if (result.cancelled) {
+                setBusy(false);
                 return; // 取消 → 留在底单
               } else if (result.error === 'purchases disabled') {
-                await doSeal(null, undefined, [], null); // web demo fallback
+                await finalizeSeal(null, undefined, emptyMedia); // web demo fallback
               } else {
+                setBusy(false);
                 Alert.alert('Something went wrong', result.error ?? 'The purchase could not be completed.', [{ text: 'OK' }]);
               }
             }
