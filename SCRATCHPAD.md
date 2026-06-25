@@ -5,6 +5,31 @@
 
 ## ▶ 下一步从这里继续
 
+**Resume (2026-06-25 night) — SUBMITTING v1.0:** **BUILD 11 (1.0.0 (11)) is the
+SUBMIT build** (built + on TestFlight). It has: the real video fix (compressor
+2.0.2 + recompress-to-fit), EAGER background compression (compress on pick, seal
+instant), the seal-flow reorder (media before payment), local-time delivery
+client send, keyboard fix, version+Support menu, AND the App-Store-review plumbing.
+
+**Submit checklist (full detail given to founder in chat):**
+- A) Supabase: create user `review@dearfuture.space` (auto-confirm); add secrets
+  `REVIEW_LOGIN_CODE=1709389141` and `DELIVER_DEMO_MODE=true`; deploy functions
+  `review-login` + `deliver`.
+- B) When 1.0.0 (11) lands: device-test video seal + own-email seal → instant inbox.
+- C) App Store Connect: attach build 11, fill listing (copy in
+  `docs/app-store-submission.md`), App Review Info → Sign-in required ON, user
+  `review@dearfuture.space`, password `1709389141`, + the notes script (own-email
+  for delivery; sandbox IAP). Choose **Manually release**. Submit.
+
+**⚠️ AFTER APPROVAL, BEFORE pressing Release (do NOT forget — [[reunite-launch-revert-after-approval]]):**
+1. Delete the `DELIVER_DEMO_MODE` secret (else every user's future letter delivers instantly — product broken).
+2. Delete the `ALLOW_SANDBOX_PURCHASES` secret (else sandbox = free paid seals).
+3. Rotate the once-exposed `service_role` key.
+4. Then press Release.
+Review-login backdoor (`review@` + code) can stay (inert once `REVIEW_LOGIN_CODE`
+is removed/rotated) or be removed.
+
+--- older note (build 8 era) below, superseded ---
 **Resume (2026-06-25 night):** **BUILD 8 (1.0.0 (8)) is built + auto-submitted to
 TestFlight** — it is the one to test. Builds 6/7 video still failed; build 8 has
 the REAL video fix + a version footer to end build-confusion. When build 8 lands:
