@@ -5,7 +5,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AccountButton from '@/components/AccountButton';
 import BottomSheet from '@/components/BottomSheet';
@@ -71,6 +71,13 @@ const LADDER = [
 ] as const;
 
 export default function WriteScreen() {
+  // 安全区内边距(刘海 / Home 指示条的真实高度)。
+  // insets.top 用作 KeyboardAvoidingView 的 keyboardVerticalOffset:KAV 顶边被 SafeAreaView
+  // 的顶部内边距往下推了 insets.top,'padding' 行为只按 KAV 自身坐标算重叠,会少抬这一截 ——
+  // 把这一截作为 offset 补回去,Finish 按钮才能完全浮在键盘之上。
+  // insets.bottom 在键盘收起时给底部栏垫开 Home 指示条的高度(键盘弹起时由键盘自身让位)。
+  const insets = useSafeAreaInsets();
+
   const [letter, setLetter] = useState('Dear future me,\n\n'); // 信里写了什么(开屏即预填称呼,可编辑)
   const [sealing, setSealing] = useState(false); // 正在播封存仪式动画?
   const [sealed, setSealed] = useState(false); // 封存了没?
@@ -207,23 +214,21 @@ export default function WriteScreen() {
 
     setBusy(false);
     if (error) {
-      // error.message 是 Edge Function 返回的 JSON 里的 error 字段或 HTTP 错误。
-      // 先尝试解析是否是"免费次数已用完"这个特殊情况。
-      let msg: string = error.message ?? 'Something went wrong. Please try again.';
-      try {
-        // supabase.functions.invoke 把响应体序列化成 error.message 字符串;
-        // 如果 Edge Function 返回 JSON { error: 'free_seal_already_used', message: '...' },
-        // 我们要解析出 message 字段展示给用户。
-        const parsed = JSON.parse(msg) as { error?: string; message?: string };
-        if (parsed.error === 'free_seal_already_used') {
-          msg = parsed.message ?? 'Your free seal has already been used. Please choose a paid tier.';
-        } else if (parsed.message) {
-          msg = parsed.message;
-        } else if (parsed.error) {
-          msg = parsed.error;
+      // invoke 失败时 error 是 FunctionsHttpError,它的 .message 只是笼统的
+      // "Edge Function returned a non-2xx status code" —— 真正的服务器拒绝原因
+      // (JSON { error, message })在 error.context(原始 Response)里。
+      // 先读 context 的响应体,拿到服务器的真实原因,否则用户只看到一句没用的笼统报错。
+      let msg = 'Something went wrong. Please try again.';
+      const res = (error as { context?: Response }).context;
+      if (res && typeof res.json === 'function') {
+        try {
+          const parsed = (await res.json()) as { error?: string; message?: string };
+          msg = parsed.message ?? parsed.error ?? msg;
+        } catch {
+          msg = error.message ?? msg; // 响应体不是 JSON → 退回 error.message
         }
-      } catch {
-        // msg 本身就是普通字符串,直接用
+      } else if (error.message) {
+        msg = error.message;
       }
       console.log('封存失败:', msg);
       Alert.alert('Could not seal', msg, [{ text: 'OK' }]);
@@ -446,12 +451,16 @@ export default function WriteScreen() {
 
   // 岔路口②:还没封存 → 写信 + 选附件 + 「Finish」(日期 / 封存以弹层形式出现)。
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+    // 只让 SafeAreaView 处理顶部安全区;底部安全区(Home 指示条)交给底部栏自己垫,
+    // 这样 KeyboardAvoidingView 的底边能贴到屏幕真实底部,'padding' 才能算对键盘重叠。
+    <SafeAreaView style={styles.screen} edges={['top']}>
       {/* 干净纯色底(#FAE6C9)—— 去掉纸张质感 + 呼吸层(用户要求)。 */}
       <View style={styles.flex}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          // KAV 顶边被顶部安全区往下推了 insets.top —— 把这一截补给键盘重叠计算,Finish 才不被遮。
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
           {/* 可滚动的信纸:头像 + 邮戳 + 分割线 + 正文一起滚动。写得越多越往上退,腾出更大的写信区(用户要求:日期/头像不必一直钉在顶部)。 */}
           <ScrollView
             style={styles.flex}
@@ -492,7 +501,9 @@ export default function WriteScreen() {
           {/* 底部固定栏:附件按钮 + Finish。固定在键盘上方,绝不被键盘遮住(用户要求)。
               还没写字时整条隐藏 —— 守"一张干净的纸"。 */}
           {canSeal ? (
-            <View style={styles.footer}>
+            // 底部栏自己垫开 Home 指示条:键盘收起时 Finish 不压在指示条上;
+            // 键盘弹起时 KAV 把整条抬到键盘之上,这截内边距也跟着一起抬。
+            <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>
               {/* 已选的照片:一排小"相片",固定在 ＋Photos 上方、完整可见,让用户加完即可确认(不被遮挡、无需下拉)。 */}
               {photos.length ? (
                 <View style={styles.thumbs}>
