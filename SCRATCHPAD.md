@@ -5,30 +5,35 @@
 
 ## ▶ 下一步从这里继续
 
-**Resume (2026-06-25 late):** Build 6 was built + tested on device. Since then,
-several MORE app-side fixes landed that need a **build 7** (NOT in build 6):
-- `84a5bc5` **video compression fix (CRITICAL)** — compression never ran on
-  device (New-Arch / TurboModule made `NativeModules.Compressor` null → check
-  always false). Even a 36s clip was rejected. Now requires-and-calls the lib
-  directly. [[reunite-newarch-compressor-skip]]
-- `6ec399e` video "too large" message now shows real MB (self-diagnosing).
-- `5d02fde` keyboard-up footer gap tightened + slimmer primary button.
-Build 7 ALSO carries `7983940` — the client side of timezone-aware delivery
-(sends `deliver_tz` at seal). So: **cut build 7** (bundles the above) → full
-device regression incl. VIDEO seal → then attach to the "1.0 Prepare for
-Submission" version, fill the App Store listing (copy in
-`docs/app-store-submission.md`), App Privacy + Age Rating, App Review notes +
-demo login → submit for review.
+**Resume (2026-06-25 night):** **BUILD 8 (1.0.0 (8)) is built + auto-submitted to
+TestFlight** — it is the one to test. Builds 6/7 video still failed; build 8 has
+the REAL video fix + a version footer to end build-confusion. When build 8 lands:
+in TestFlight tap **Update** → open app → tap avatar → footer must read
+**`Reunite 1.0.0 (8)`** (else not updated) → then test 36s VIDEO seal (should
+compress + upload + seal), keyboard, account menu (Support + version).
 
-**TO DEPLOY (server side, before/independent of build 7) — local-time delivery:**
-1. Run `supabase/sql/2026-06-25-local-time-delivery.sql` in SQL Editor (adds
-   `letters.deliver_tz`, creates `due_letters()`, reschedules cron daily→HOURLY).
-   Verify cron `schedule = '0 * * * *'`.
-2. `supabase functions deploy deliver` AND `supabase functions deploy seal-letter`
-   (migration FIRST — new `deliver` calls `due_letters()`).
-Safe before build 7: until the client sends `deliver_tz`, letters store null tz →
-deliver at UTC 7pm (graceful); after build 7, at the writer's local 7pm.
-Adversarially reviewed vs real PG16 — SHIP. [[reunite-delivery-cron]]
+Key fixes IN build 8 (not in 6/7):
+- `2633b96` **video CRITICAL real fix** — `react-native-compressor` 1.19.2 had NO
+  New-Arch native impl (no codegenConfig); SDK56 forces New Arch (reanimated 4
+  needs it) → compression dead on device. Upgraded to **2.0.2** (real New-Arch
+  TurboModule). Also added Support row + version footer (expo-application).
+  [[reunite-newarch-compressor-skip]]
+- `<reorder>` **seal flow: media compress+upload now BEFORE payment** — never
+  charge-then-fail with "too large"/"upload failed". Only seal-letter stays
+  post-payment (needs txId; retryable).
+- build 7's: `7983940` deliver_tz client send (timezone delivery), `5d02fde`
+  keyboard footer, `6ec399e` video size-in-message.
+
+After build 8 verifies on device → attach to "1.0 Prepare for Submission", fill
+the App Store listing (copy in `docs/app-store-submission.md`), App Privacy + Age
+Rating, App Review notes + demo login → submit for review.
+
+**Local-time delivery (server side) — DEPLOYED ✅ this session.** Migration
+`2026-06-25-local-time-delivery.sql` ran (column + `due_letters()` + cron now
+HOURLY `0 * * * *`, verified); `deliver` + `seal-letter` redeployed. Until a
+build with `deliver_tz` send is installed, letters store null tz → UTC 7pm
+(graceful); build 8 carries the client send. Adversarially reviewed vs real
+PG16 — SHIP. [[reunite-delivery-cron]]
 
 **DELIVERY IS NOW LIVE (the last fatal gap — fixed this session).** The `deliver`
 Edge Function + Resend always worked, but NOTHING triggered it on a schedule, so
