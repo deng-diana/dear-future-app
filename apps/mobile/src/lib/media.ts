@@ -90,15 +90,6 @@ async function compressVideoIfNeeded(uri: string): Promise<string> {
   }
 }
 
-// 太大就提示并拒绝;拿不到大小(undefined)就放行。
-function tooBig(size: number | undefined, max: number, label: string): boolean {
-  if (typeof size === 'number' && size > max) {
-    Alert.alert(`${label} too large`, `Please choose one under ${Math.round(max / 1024 / 1024)} MB.`);
-    return true;
-  }
-  return false;
-}
-
 // 选多张照片(从相册,可多选)。remaining = 还能再加几张(调用方传 MAX_PHOTOS - 已选)。
 export async function pickPhotos(remaining: number): Promise<PickedMedia[]> {
   const res = await ImagePicker.launchImageLibraryAsync({
@@ -142,7 +133,10 @@ export async function pickVideo(): Promise<PickedMedia | null> {
     // allowsEditing intentionally omitted — see comment above.
   });
   if (res.canceled || !res.assets?.[0]) return null;
-  if (tooBig(res.assets[0].fileSize, MAX_VIDEO_BYTES, 'Video')) return null;
+  // Raw file size is intentionally NOT checked here.
+  // A 5-min phone video can be 200-400 MB raw, but compressVideoIfNeeded()
+  // in uploadMedia() squeezes it to ~45 MB (720p / 1.2 Mbps).
+  // The real 50 MB ceiling is enforced POST-compression in uploadMedia().
   // asset.duration unit is milliseconds (ms); convert to seconds and round.
   const durationSec =
     typeof res.assets[0].duration === 'number'
