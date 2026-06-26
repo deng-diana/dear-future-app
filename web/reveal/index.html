@@ -17,7 +17,7 @@
     --wax:   var(--brand);        /* music button colour */
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { background:var(--ivory); color:var(--ink); }
+  html, body { background:var(--ivory); color:var(--ink); overflow-x:hidden; }
   body { min-height:100vh; display:flex; justify-content:center; -webkit-font-smoothing:antialiased; }
   .wrap { width:100%; max-width:620px; padding:14vh 28px 18vh; }
 
@@ -118,6 +118,13 @@
   .reveal.p1  { animation-delay:1.0s; }
   .reveal.p2  { animation-delay:1.3s; }
   .reveal.p3  { animation-delay:1.6s; }
+  /* p4–p9 continue the cascade for the 5–10 photo pile */
+  .reveal.p4  { animation-delay:1.85s; }
+  .reveal.p5  { animation-delay:2.05s; }
+  .reveal.p6  { animation-delay:2.25s; }
+  .reveal.p7  { animation-delay:2.45s; }
+  .reveal.p8  { animation-delay:2.65s; }
+  .reveal.p9  { animation-delay:2.85s; }
   .reveal.d1v { animation-delay:1.9s; }
   .reveal.d2  { animation-delay:2.6s; }
   .reveal.d3  { animation-delay:3.4s; }
@@ -283,6 +290,35 @@
     .polaroid--photo:first-child { margin-left: 0; }
   }
 
+  /* ── Scattered pile (5–10 photos) ──
+     A fan of ten prints is a mess; a loose pile reads like a box of memories
+     tipped onto the paper. Flex-wrap + per-print tilt/jitter (set inline by JS)
+     + negative margins so neighbours and rows tuck under one another. z-index
+     rises with index so later prints sit on top — a layered stack, not a grid. */
+  .photo-pile {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    max-width: 600px;
+    margin: 56px auto 0;
+    padding: 22px 14px 38px;
+    overflow: visible;
+  }
+  .polaroid--pile {
+    width: min(176px, 30%);
+    margin: -10px -14px;            /* neighbours + rows overlap into a pile */
+    padding: 10px 10px 26px;
+    transform-origin: center;
+    animation-name: photoFadeIn;    /* opacity-only: keep the inline tilt intact */
+  }
+  @media (max-width: 600px) {
+    .photo-pile { max-width: 100%; padding: 18px 8px 32px; }
+    /* Exactly 2 per row: the 3rd print's margin-box clears the viewport by a wide
+       margin so flexbox wraps cleanly (never crams 3 and clips the right edge). */
+    .polaroid--pile { width: min(158px, 45%); margin: -8px -6px; padding: 8px 8px 20px; }
+  }
+
   /* ── Ambient music toggle (opt-in) ──
      浏览器禁止自动出声,所以做成一个安静的小按钮:点一下才播放。
      默认隐藏,信加载成功后由 JS 显示;音乐文件缺失则保持隐藏(不留破图)。 */
@@ -427,20 +463,38 @@
     // `total` is how many photos there are in this strip.
     // Returns an HTML string, or '' if url is falsy.
     // SECURITY: every URL goes through esc() AND has already passed safeMediaUrl() via parsePhotoUrls().
-    function photoPolaroid(url, index, total) {
+    // `pile` = true for 5–10 photos (scattered-pile layout); false = overlapping fan (≤4).
+    function photoPolaroid(url, index, total, pile) {
       if (!url) return '';
       var safe = esc(url);          // XSS guard: attribute injection prevention
+      var pClass = 'p' + index;     // animation stagger: p0…p9
+      var win =
+        '<div class="polaroid-window">' +
+          '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" />' +
+        '</div>';
+      if (pile) {
+        // Deterministic tilt + vertical jitter by index → looks tossed, not gridded,
+        // and stays identical on every reload (no Math.random).
+        var tilts = [-6, 4, -3, 7, -8, 3, -5, 6, -2, 5];
+        var jitter = [0, -9, 7, -4, 9, -6, 4, -10, 2, -3];
+        var rot = tilts[index % tilts.length];
+        var ty = jitter[index % jitter.length];
+        return (
+          '<figure class="polaroid polaroid--pile reveal ' + pClass + '"' +
+            ' style="transform: rotate(' + rot + 'deg) translateY(' + ty + 'px); z-index:' + (index + 1) + ';">' +
+            win +
+          '</figure>'
+        );
+      }
+      // Fan (≤4): leftmost −15° … rightmost +15°, overlapping.
       var angles = fanAngles(total);
-      var rot = angles[index] || 0; // degrees, e.g. -15, -5, 0, 5, 15
-      var pClass = 'p' + index;     // animation stagger: p0, p1, p2, p3
+      var rotF = angles[index] || 0;
       return (
         '<figure class="polaroid polaroid--photo reveal ' + pClass + '"' +
-          ' data-fan-rot="' + rot + '"' +
+          ' data-fan-rot="' + rotF + '"' +
           ' data-fan-z="' + index + '"' +
           ' style="z-index:' + (index + 1) + ';">' +
-          '<div class="polaroid-window">' +
-            '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" />' +
-          '</div>' +
+          win +
         '</figure>'
       );
     }
@@ -541,9 +595,11 @@
 
         // Build the overlapping fan strip; each polaroid is an inline <figure>
         // (no extra wrapper div per photo — the strip flex container handles layout).
+        // ≤4 photos → overlapping fan; 5–10 → scattered pile (different container).
+        const pile = photoUrls.length >= 5;
         const photoHtml = photoUrls.length > 0
-          ? '<div class="photo-strip" style="--n:' + photoUrls.length + '">' +
-              photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length); }).join('') +
+          ? '<div class="' + (pile ? 'photo-pile' : 'photo-strip') + '" style="--n:' + photoUrls.length + '">' +
+              photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length, pile); }).join('') +
             '</div>'
           : '';
 
@@ -586,10 +642,10 @@
         // print gracefully instead of leaving a broken-image box — same "no broken
         // art" rule as the music button. Belt-and-braces: we also eager-load now,
         // and we catch images that already failed before this listener attached.
-        var pImgs = root.querySelectorAll('.polaroid--photo .polaroid-media');
+        var pImgs = root.querySelectorAll('img.polaroid-media');
         Array.prototype.forEach.call(pImgs, function (img) {
           function hide() {
-            var fig = img.closest('.polaroid--photo');
+            var fig = img.closest('.polaroid');
             if (fig) fig.style.display = 'none';
           }
           if (img.complete && img.naturalWidth === 0) hide();

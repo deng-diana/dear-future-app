@@ -43,7 +43,11 @@ box — same rule as the music button); (3) reworked the narrow-screen CSS: phot
 stay ONE fanned row that scales by count (`--n` set in JS, width
 `min(168px, 96vw/(n*0.8+0.2))`, overlap 20%), breakpoint 600px — instead of the old
 `flex-wrap:wrap` scatter. Verified on the iOS simulator (real Safari, mock harness) for
-3/4 photos + a 404 photo. NOT yet deployed to Vercel.
+3/4 photos + a 404 photo. Then added a count-adaptive
+layout: ≤4 photos keep the overlapping fan; 5–10 photos render as a scattered
+"pile" (flex-wrap + per-index tilt/jitter, 3-col desktop / 2-col mobile, p4–p9
+stagger). Re-verified fan(3,4), pile(5,6,10) and a 404-in-pile at 390px + 1300px
+(headless Chrome). NOT yet deployed to Vercel.
 
 --- earlier (2026-06-25 night) — pre-submit prep, now done ---
 
