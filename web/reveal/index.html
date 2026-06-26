@@ -267,11 +267,19 @@
     filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
   }
 
-  /* Task 1: narrow phones — wrap fan and shrink photos so corners don't clip.
-     Raised to 430px to cover iPhone 12-15 (390px) and Plus/Pixel (393-414px). */
-  @media (max-width: 430px) {
-    .photo-strip { flex-wrap: wrap; gap: 12px; }
-    .polaroid--photo { width: min(150px, 40vw); margin-left: -26px; }
+  /* Narrow screens: keep the prints as ONE fanned row — never wrap into a
+     scattered stack. Each print's width scales with the photo count (--n, set
+     in JS) so 1–4 prints always fit the viewport; overlap is a fixed 20% of
+     the print width. Raised to 600px because 3 prints at the desktop 170px size
+     already overflow below ~470px and 4 below ~600px. */
+  @media (max-width: 600px) {
+    .photo-strip { flex-wrap: nowrap; padding-left: 10px; padding-right: 10px; }
+    .polaroid--photo {
+      --w: min(168px, calc(96vw / (var(--n, 3) * 0.8 + 0.2)));
+      width: var(--w);
+      margin-left: calc(var(--w) * -0.2);
+      padding: 2.2vw 2.2vw 5vw;
+    }
     .polaroid--photo:first-child { margin-left: 0; }
   }
 
@@ -431,7 +439,7 @@
           ' data-fan-z="' + index + '"' +
           ' style="z-index:' + (index + 1) + ';">' +
           '<div class="polaroid-window">' +
-            '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" loading="lazy" />' +
+            '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" />' +
           '</div>' +
         '</figure>'
       );
@@ -534,7 +542,7 @@
         // Build the overlapping fan strip; each polaroid is an inline <figure>
         // (no extra wrapper div per photo — the strip flex container handles layout).
         const photoHtml = photoUrls.length > 0
-          ? '<div class="photo-strip">' +
+          ? '<div class="photo-strip" style="--n:' + photoUrls.length + '">' +
               photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length); }).join('') +
             '</div>'
           : '';
@@ -573,6 +581,20 @@
             '<div class="body">' + esc(letter.body) + '</div>' +
           '</div>' +
           '<div class="star reveal ' + tailClass + '">&#10022;</div>';
+
+        // If a photo fails to load (storage object missing / expired), hide that
+        // print gracefully instead of leaving a broken-image box — same "no broken
+        // art" rule as the music button. Belt-and-braces: we also eager-load now,
+        // and we catch images that already failed before this listener attached.
+        var pImgs = root.querySelectorAll('.polaroid--photo .polaroid-media');
+        Array.prototype.forEach.call(pImgs, function (img) {
+          function hide() {
+            var fig = img.closest('.polaroid--photo');
+            if (fig) fig.style.display = 'none';
+          }
+          if (img.complete && img.naturalWidth === 0) hide();
+          else img.addEventListener('error', hide);
+        });
 
         // 信显示成功 → 亮出音乐按钮(温柔邀请)。
         initMusic();

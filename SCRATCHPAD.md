@@ -5,11 +5,53 @@
 
 ## ▶ 下一步从这里继续
 
-**Resume (2026-06-25 night) — SUBMITTING v1.0:** **BUILD 11 (1.0.0 (11)) is the
-SUBMIT build** (built + on TestFlight). It has: the real video fix (compressor
-2.0.2 + recompress-to-fit), EAGER background compression (compress on pick, seal
-instant), the seal-flow reorder (media before payment), local-time delivery
-client send, keyboard fix, version+Support menu, AND the App-Store-review plumbing.
+**Resume (2026-06-26) — v1.0 SUBMITTED, WAITING FOR REVIEW ✅.** Build 11
+(1.0.0 (11)) was submitted to App Review on 2026-06-26 (~15:07 BST). Status in
+App Store Connect: "1.0 Waiting for Review". Apple emails dengdan01@gmail.com
+when done (up to ~48h). Release is set to **Manual** — approval does NOT auto-go-live.
+
+**THE NEXT ACTION when the approval email arrives — do the revert BEFORE pressing
+Release (see ⚠️ block below + [[reunite-launch-revert-after-approval]]).** Then
+press Release.
+
+**Deferred (post-launch, not blocking):**
+- ImprovMX free forwarding so `privacy@dearfuture.space` (Support page) + `unsubscribe@`
+  actually receive. Namecheap's own forwarding can't coexist with Resend's `send.mail`
+  MX (mode is either/or), but ImprovMX puts its MX on root `@` — no clash. ~10 min.
+- Promotional Text: drafted candidates in chat (170-char limit, editable anytime,
+  no review). Pick one and paste.
+- Clean up RevenueCat leftover `words` package + the dead `purchaseTier('words')`
+  branch (harmless; unreachable since text is always free).
+
+**What got done this session (2026-06-26):** filled the entire App Store Connect
+listing field-by-field with the founder (App Privacy 5 data types, Age Rating 4+,
+Pricing Free + all countries, IAPs: deleted the unused `reunite.seal.words`, attached
+`photos`/`video`; verified RevenueCat packages `photos`/`video` map correctly — the
+"Could not check" status is normal pre-approval). Restored Resend DNS after a
+Namecheap mail-mode switch (kept 3 TXT + re-added `send.mail` MX
+`feedback-smtp.eu-west-1.amazonses.com` pri 10). Generated 5 App Store screenshots
+from the founder's 1179×2556 captures, resized to 1242×2688 (sips, zero-stretch
+crop) in `~/Desktop/app store/resized/`.
+
+**Reveal page photo fix (web/reveal/index.html) — 2026-06-26.** Founder saw the 3rd
+polaroid render as a broken-image box on desktop, and photos scatter (not a row) on
+mobile. Root cause of the broken 3rd: `loading="lazy"` on the fan polaroids — with the
+overlap/transform layout the browser deferred the 3rd image's load. Fixes: (1) removed
+`loading="lazy"` (≤4 above-the-fold hero images — eager is correct); (2) added a JS
+`error`/already-failed guard that hides any photo whose image fails to load (no broken
+box — same rule as the music button); (3) reworked the narrow-screen CSS: photos now
+stay ONE fanned row that scales by count (`--n` set in JS, width
+`min(168px, 96vw/(n*0.8+0.2))`, overlap 20%), breakpoint 600px — instead of the old
+`flex-wrap:wrap` scatter. Verified on the iOS simulator (real Safari, mock harness) for
+3/4 photos + a 404 photo. NOT yet deployed to Vercel.
+
+--- earlier (2026-06-25 night) — pre-submit prep, now done ---
+
+**BUILD 11 (1.0.0 (11)) is the SUBMIT build** (built + on TestFlight). It has: the
+real video fix (compressor 2.0.2 + recompress-to-fit), EAGER background compression
+(compress on pick, seal instant), the seal-flow reorder (media before payment),
+local-time delivery client send, keyboard fix, version+Support menu, AND the
+App-Store-review plumbing.
 
 **Submit checklist (full detail given to founder in chat):**
 - A) Supabase: create user `review@dearfuture.space` (auto-confirm); add secrets
