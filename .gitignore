@@ -31,3 +31,6 @@ apps/mobile/dist/
 
 # Supabase CLI temp
 supabase/.temp/
+
+# Personal learning course (not committed — private study notes)
+docs/course/
