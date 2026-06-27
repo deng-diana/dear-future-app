@@ -56,12 +56,6 @@ function formatDuration(secs: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// 两个日期之间相差多少天(按"整天",不管时分秒)。
-function daysBetween(a: Date, b: Date): number {
-  const msPerDay = 1000 * 60 * 60 * 24;
-  return Math.round((b.getTime() - a.getTime()) / msPerDay);
-}
-
 // Pricing ladder shown in the SealSheet — three static info boxes (not tappable).
 // These are informational only; the Seal button + "Seal as words only" link do the acting.
 const LADDER = [
@@ -148,18 +142,16 @@ export default function WriteScreen() {
   const videoSeconds = video?.durationSec ?? 0;
 
   // 根据当前草稿内容计算定价档位(纯计算,实时响应)。
-  const horizonDays = daysBetween(startOfDay(new Date(todayStamp)), effectiveDate);
   const tierResult = useMemo(
     () =>
       tierFor({
         photoCount: photos.length,
         videoSeconds,
-        horizonDays,
         // TODO: server-authoritative freeSealUsed — v1 固定传 false,
         // 等 Edge Function 接好后改从服务器读取。
         freeSealUsed: false,
       }),
-    [photos.length, videoSeconds, horizonDays],
+    [photos.length, videoSeconds],
   );
 
   // 去掉媒体后的"纯文字"档位(用于判断要不要显示"Seal as words only"选项)。
@@ -168,10 +160,9 @@ export default function WriteScreen() {
       tierFor({
         photoCount: 0,
         videoSeconds: 0,
-        horizonDays,
         freeSealUsed: false,
       }),
-    [horizonDays],
+    [],
   );
   // 只有当前有媒体(有更贵的档位)时,才显示"Seal as words only"备选。
   const showWordsOnlyEscape = (photos.length > 0 || video !== null) && !tierResult.isFree;

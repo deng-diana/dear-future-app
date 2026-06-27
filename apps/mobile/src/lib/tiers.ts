@@ -13,7 +13,6 @@ import { TIERS, type SealTier } from './purchases';
 export interface TierInput {
   photoCount: number;    // 已附加的照片数量
   videoSeconds: number;  // 已附加视频的时长(秒);没有视频就传 0
-  horizonDays: number;   // 封存天数(送达日 - 今天,单位天)
   freeSealUsed: boolean; // 这个账号的免费封存次数是否已用过
   // TODO: server-authoritative freeSealUsed — v1 里调用方固定传 false,
   //       等 Edge Function(服务器端函数)接好后,再从服务器读取真实值。
@@ -41,7 +40,7 @@ export function tierFor(input: TierInput): TierResult {
 
   // ── 规则 1:无媒体 → 永久免费 ──
   // 策略(用户决定):纯文字胶囊永远免费、不限次数。文字存 25 年成本极低,
-  // 收费只对真正占存储/带宽的媒体(照片/视频)。horizonDays / freeSealUsed 不再影响文字档。
+  // 收费只对真正占存储/带宽的媒体(照片/视频)。freeSealUsed 不再影响文字档。
   if (!hasMedia) {
     return {
       tier: null,
