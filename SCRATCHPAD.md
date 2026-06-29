@@ -5,14 +5,32 @@
 
 ## ▶ 下一步从这里继续
 
-**Resume (2026-06-26) — v1.0 SUBMITTED, WAITING FOR REVIEW ✅.** Build 11
-(1.0.0 (11)) was submitted to App Review on 2026-06-26 (~15:07 BST). Status in
-App Store Connect: "1.0 Waiting for Review". Apple emails dengdan01@gmail.com
-when done (up to ~48h). Release is set to **Manual** — approval does NOT auto-go-live.
+**Resume (2026-06-29) — v1.0 APPROVED BY APPLE 🎉, mid-revert before Release.**
+Build 11 was approved on 2026-06-29. Doing the pre-Release revert
+([[reunite-launch-revert-after-approval]]):
+- ✅ Deleted secret `DELIVER_DEMO_MODE` (CLI `secrets unset`, verified gone).
+- ✅ Deleted secret `ALLOW_SANDBOX_PURCHASES` (verified gone).
+- ✅ service_role rotation — **SKIPPED on purpose.** Key was never leaked (not in
+  git, no `.env` committed; only a private in-session screenshot). Project is on
+  LEGACY keys, where rotating service_role = regenerate JWT secret = ALSO kills the
+  anon key baked into build 11 + cron SQL + reveal page → would break the live app.
+  Cost ≫ benefit. Future optional hardening: migrate to new "Secret API keys" then
+  rotate independently. [[reunite-launch-revert-after-approval]]
+- ⏳ THEN press **Release** in App Store Connect (cleared to go — revert complete).
+Post-launch optional: ImprovMX forwarding for privacy@dearfuture.space; paste the
+chosen Promotional Text.
 
-**THE NEXT ACTION when the approval email arrives — do the revert BEFORE pressing
-Release (see ⚠️ block below + [[reunite-launch-revert-after-approval]]).** Then
-press Release.
+**Teaching track (parallel):** walking the founder through a 5-day RN full-stack
+course using Reunite as the case study (`docs/course/README.md`, gitignored).
+Day 1 done (RN mental model, components, Hooks, Rules-of-Hooks crash → added
+ESLint with react-hooks guardrail, commit `3e093aa`). Day 2 in progress (covered:
+why a backend exists, BaaS, RLS insert-only = "封存即消失", why client insert was
+locked + server-side payment verification in `seal-letter`, JWT/IDOR owner_id).
+Teaching style MUST be first-principles + ELI12 + one tiny step at a time — see
+[[dan-dyslexia-small-steps]] (he got frustrated by dense/jargon-heavy delivery).
+Also: email delivery template was redesigned this session (sealed-letter card +
+dynamic "N days ago") — DEPLOYED but `supabase/functions/deliver/index.ts` is
+still UNCOMMITTED pending his final sign-off.
 
 **Deferred (post-launch, not blocking):**
 - ImprovMX free forwarding so `privacy@dearfuture.space` (Support page) + `unsubscribe@`
