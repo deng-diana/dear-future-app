@@ -53,12 +53,18 @@ Deno.serve(async () => {
       ? new Date(letter.sealed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
       : null;
     const subject = writtenDate ? `A letter from the you of ${writtenDate}` : 'A letter you left for yourself';
-    const wroteLine = writtenDate
-      ? `Some time ago — on <strong>${writtenDate}</strong> — you sat down and wrote a letter.`
-      : `Some time ago, you sat down and wrote a letter.`;
-    const wroteLineText = writtenDate
-      ? `Some time ago — on ${writtenDate} — you sat down and wrote a letter.`
-      : `Some time ago, you sat down and wrote a letter.`;
+    // "312 days ago — on June 27, 2026 —": the span makes you FEEL the time that
+    // passed; the exact date anchors it. Same-day delivery (demo) drops the
+    // redundant "Today —" and just leads with the date.
+    const ago = letter.sealed_at ? timeAgo(daysSince(letter.sealed_at)) : null;
+    const leadHtml = ago && ago !== 'Today'
+      ? `${ago} — on <strong>${writtenDate}</strong> —`
+      : writtenDate ? `On <strong>${writtenDate}</strong>,` : 'Some time ago,';
+    const leadText = ago && ago !== 'Today'
+      ? `${ago} — on ${writtenDate} —`
+      : writtenDate ? `On ${writtenDate},` : 'Some time ago,';
+    const wroteLine = `${leadHtml} you sat down and wrote yourself this letter.`;
+    const wroteLineText = `${leadText} you sat down and wrote yourself this letter.`;
 
     // 发邮件:发件人显示名「You, in 20XX」,带看信链接 + 底部夹纯文字全文(保命副本)。
     const emailRes = await fetch('https://api.resend.com/emails', {
@@ -91,8 +97,24 @@ Deno.serve(async () => {
               `<p style="margin:0 0 1.1em;">Not to anyone else. To you, today.</p>` +
               `<p style="margin:0 0 1.1em;">You asked for it to find you on this exact day. So here it is.</p>` +
               `<p style="margin:0 0 1.8em;">Take a quiet moment. Then, when you're ready, meet the person you used to be.</p>` +
-              `<p style="margin:0 0 0.6em;text-align:center;"><a href="${readUrl}" style="display:inline-block;background:#B26B24;color:#FBEFDB;text-decoration:none;padding:14px 34px;font-size:16px;">Open your letter</a></p>` +
-              `<p style="margin:0 0 2em;text-align:center;font-size:13px;color:#927C5E;font-style:italic;">It opens slowly, the way it was sealed.</p>` +
+              // A "sealed letter" card instead of a flat button: wax seal on the left,
+              // "Open" beside it — a wide, envelope-like (landscape) shape. Email-safe:
+              // table layout + inline styles + PNG (not SVG). The seal keeps its TRUE 2:3
+              // ratio (52x78) so it is never squished. Bulletproof alt: if images are
+              // blocked, the alt text + the visible "Open your letter" still read and the
+              // whole card stays clickable.
+              `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0.6em auto 1.4em;"><tr><td style="background:#FFF3D9;border-radius:6px;padding:18px 30px;">` +
+                `<a href="${readUrl}" style="text-decoration:none;color:#B26B24;display:block;">` +
+                  `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+                    `<td valign="middle" style="padding-right:12px;">` +
+                      `<img src="https://dear-future-app.vercel.app/assets/seal-stamp.png" width="52" height="78" alt="Open your letter" style="display:block;width:52px;height:78px;border:0;outline:none;" />` +
+                    `</td>` +
+                    `<td valign="middle" style="text-align:left;">` +
+                      `<div style="font-family:Georgia,serif;font-size:18px;color:#B26B24;">Open your letter</div>` +
+                    `</td>` +
+                  `</tr></table>` +
+                `</a>` +
+              `</td></tr></table>` +
               `<p style="margin:0;font-size:13px;color:#927C5E;">You wrote this with Reunite and chose today for it to return. No one else has read it. No one else ever will.</p>` +
               `<hr style="border:none;border-top:1px solid #E3CDB4;margin:2em 0;">` +
               `<p style="margin:0 0 1em;font-size:12px;color:#9C8769;font-style:italic;">Your own words, kept here for safekeeping — no link, no app, nothing to open. They are simply yours, for as long as this inbox lasts.</p>` +
@@ -138,4 +160,19 @@ function json(body: unknown, status = 200): Response {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// 距封信过了多少天。纯函数:输入封信时间戳(ISO 字符串),输出整数天。
+// 原理:日期 = 距 1970 的毫秒数;两时间相减得毫秒差,÷ 一天的毫秒数 = 天数。
+const MS_PER_DAY = 86_400_000;
+function daysSince(sealedAt: string): number {
+  const elapsed = Date.now() - new Date(sealedAt).getTime();
+  return Math.max(0, Math.round(elapsed / MS_PER_DAY)); // 不为负;四舍五入到整天
+}
+
+// 把天数变成一句"多久以前"。纯函数,处理单复数与边界(0 天 / 1 天)。
+function timeAgo(days: number): string {
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return `${days} days ago`; // e.g. "312 days ago"
 }
