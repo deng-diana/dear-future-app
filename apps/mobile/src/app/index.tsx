@@ -131,6 +131,10 @@ export default function WriteScreen() {
 
   // 用户选的送达日;还没选时为 null,跟着 earliest 走。
   const [deliverOn, setDeliverOn] = useState<Date | null>(null);
+  // Which pricing tier the user tapped on the Seal sheet. null = follow content.
+  // Tapping a paid tier reveals an "add media" prompt; the real seal price still
+  // follows the content (no media = free), so this is purely a guidance affordance.
+  const [pickedTierKey, setPickedTierKey] = useState<'words' | 'photos' | 'video' | null>(null);
   // 真正生效的日期:没选过就用 earliest;选过、但因跨午夜早于了 earliest,也夹回 earliest。
   const effectiveDate = deliverOn && deliverOn.getTime() >= earliest.getTime() ? deliverOn : earliest;
 
@@ -166,6 +170,15 @@ export default function WriteScreen() {
   );
   // 只有当前有媒体(有更贵的档位)时,才显示"Seal as words only"备选。
   const showWordsOnlyEscape = (photos.length > 0 || video !== null) && !tierResult.isFree;
+
+  // ── Seal-sheet tier selection (guidance only; real price follows content) ──
+  const hasMedia = photos.length > 0 || video !== null;
+  const contentTierKey = tierResult.tier ?? 'words';
+  // Highlight the tier that will actually be sealed once there's media; before any
+  // media, highlight what the user tapped (so a tapped paid tier lights up).
+  const highlightTierKey = hasMedia ? contentTierKey : (pickedTierKey ?? 'words');
+  // Tapped a paid tier but nothing to charge for yet → show the gentle add-media prompt.
+  const showAddMediaPrompt = !hasMedia && (pickedTierKey === 'photos' || pickedTierKey === 'video');
 
   // ── 核心封存逻辑(分两步,顺序至关重要) ──
   // 顺序:① 准备媒体(压缩 + 大小校验 + 上传,拿到公开 URL)→ ② 付款 → ③ 调
@@ -450,11 +463,20 @@ export default function WriteScreen() {
       });
   }
 
+  // Tap a pricing tier on the Seal sheet: record the pick. A paid tier reveals the
+  // "add media" prompt below (when there is no media yet). The actual seal price
+  // still follows the content, so tapping a paid tier never charges by itself.
+  function onTapTier(key: 'words' | 'photos' | 'video') {
+    if (busy) return;
+    setPickedTierKey(key);
+  }
+
   // 封存之后想再写一封:清空内容 + 清掉附件,回到全新写信屏(但仍保持登录)。
   function writeAnother() {
     setLetter('Dear future me,\n\n');
     setDeliverOn(null);
     setSealed(false);
+    setPickedTierKey(null);
     setPhotos([]);
     setVideo(null);
     // 再写一封:清掉上一封的后台压缩任务,状态回 idle。
@@ -720,37 +742,48 @@ export default function WriteScreen() {
         {/* 分割线:细金 */}
         <View style={styles.sealSheetDivider} />
 
-        {/* Three-box pricing ladder — purely informational, not tappable. */}
-        {/* Active box = the tier this capsule currently falls into. */}
-        {(() => {
-          const activeTierKey = tierResult.tier ?? 'words';
-          // Free first-capsule: activeTierKey stays 'words' but priceHint is 'Free'.
-          const priceForSlot = (key: 'words' | 'photos' | 'video') =>
-            key === activeTierKey ? tierResult.priceHint : TIERS[key].priceHint;
-          return (
-            <View style={styles.sealSheetLadder}>
-              {LADDER.map(({ key, label, lines }) => {
-                const active = key === activeTierKey;
-                const price = priceForSlot(key);
-                return (
-                  <View
-                    key={key}
-                    style={[styles.ladderBox, active && styles.ladderBoxActive]}
-                    accessibilityRole="text"
-                    accessibilityLabel={`${TIERS[key].label}, ${price}, ${TIERS[key].description}${active ? '. This is your capsule.' : ''}`}>
-                    <Text style={[styles.ladderLabel, active && styles.ladderLabelActive]}>{label}</Text>
-                    {lines.map((l) => (
-                      <Text key={l} style={[styles.ladderLine, active && styles.ladderLineActive]}>{l}</Text>
-                    ))}
-                    <Text numberOfLines={1} style={[styles.ladderPrice, active && styles.ladderPriceActive]}>{price}</Text>
-                  </View>
-                );
-              })}
+        {/* Three-box pricing ladder — TAPPABLE. Tap a paid tier and we help you add
+            the media it needs; the real price still follows the content (no media =
+            free), so tapping a paid tier never charges you by itself. */}
+        <View style={styles.sealSheetLadder}>
+          {LADDER.map(({ key, label, lines }) => {
+            const active = key === highlightTierKey;
+            const price = TIERS[key].priceHint;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => onTapTier(key)}
+                disabled={busy}
+                style={[styles.ladderBox, active && styles.ladderBoxActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${TIERS[key].label}, ${price}, ${TIERS[key].description}`}>
+                <Text style={[styles.ladderLabel, active && styles.ladderLabelActive]}>{label}</Text>
+                {lines.map((l) => (
+                  <Text key={l} style={[styles.ladderLine, active && styles.ladderLineActive]}>{l}</Text>
+                ))}
+                <Text numberOfLines={1} style={[styles.ladderPrice, active && styles.ladderPriceActive]}>{price}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* One-time, NOT a subscription — clears the reviewer's / user's confusion. */}
+        <Text style={styles.oneTimeNote}>One-time — each paid tier is a single charge for this one capsule, never a subscription.</Text>
+
+        {/* Tapped a paid tier but no media yet → gently offer to add it (or seal free). */}
+        {showAddMediaPrompt ? (
+          <View style={styles.addMediaPrompt}>
+            <Text style={styles.addMediaHint}>Add photos or a video to seal with this tier.</Text>
+            <View style={styles.addMediaRow}>
+              <Button variant="link" label="+ Add photos" onPress={addPhotos} disabled={busy} style={styles.addMediaBtn} textStyle={styles.addMediaBtnText} />
+              <Button variant="link" label="+ Add a video" onPress={addVideo} disabled={busy} style={styles.addMediaBtn} textStyle={styles.addMediaBtnText} />
             </View>
-          );
-        })()}
-        {/* Show the warm "first capsule is on us" line only when the seal is free. */}
-        {/* For paid tiers, the three boxes already convey the info. */}
+            <Text style={styles.addMediaFallback}>Or seal your words for free below.</Text>
+          </View>
+        ) : null}
+
+        {/* Warm reason line only when the seal is free. */}
         {tierResult.isFree ? (
           <Text style={styles.sealSheetReason}>{tierResult.reason}</Text>
         ) : null}
@@ -943,6 +976,23 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     paddingVertical: 10,
   },
+  // "One-time — not a subscription" caption under the pricing ladder.
+  oneTimeNote: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.textMutedSoft,
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  // Gentle "add media" prompt shown when a paid tier is tapped with no media yet.
+  addMediaPrompt: { alignSelf: 'stretch', alignItems: 'center', marginTop: 12, gap: 6 },
+  addMediaHint: { fontFamily: fonts.regular, fontSize: 13, color: colors.textBody, textAlign: 'center' },
+  addMediaRow: { flexDirection: 'row', gap: 22, marginTop: 2 },
+  addMediaBtn: { paddingVertical: 6 },
+  addMediaBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brandDark },
+  addMediaFallback: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: 'center' },
 
   // 封存后那一屏:内容居中 + 按钮沉底(对齐设计图)。
   sealedScreen: {
