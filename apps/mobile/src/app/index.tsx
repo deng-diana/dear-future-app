@@ -4,8 +4,9 @@
 
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import AccountButton from '@/components/AccountButton';
 import BottomSheet from '@/components/BottomSheet';
@@ -17,7 +18,7 @@ import SignIn from '@/components/SignIn';
 import Splash from '@/components/Splash';
 import { MIN_SEAL_DAYS } from '@/constants/rules';
 import { colors, fonts } from '@/theme';
-import { compressVideoToFit, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
+import { compressVideoToFit, getVideoThumbnail, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier, TIERS } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
 import { tierFor } from '@/lib/tiers';
@@ -64,6 +65,9 @@ const LADDER = [
   { key: 'video',  label: 'Rich Media',           lines: ['up to 10 photos', '<5min video'] },
 ] as const;
 
+// Tier ordering by "how much media" — used to explain why a tap can't switch tiers.
+const TIER_RANK = { words: 0, photos: 1, video: 2 } as const;
+
 export default function WriteScreen() {
   // 安全区内边距(刘海 / Home 指示条的真实高度)。
   // insets.top 用作 KeyboardAvoidingView 的 keyboardVerticalOffset:KAV 顶边被 SafeAreaView
@@ -103,6 +107,8 @@ export default function WriteScreen() {
   const videoCompRef = useRef<{ srcUri: string; promise: Promise<string> } | null>(null);
   // videoStatus 只给 UI 用:'preparing' 显示「Preparing…」,'ready' 表示压好了。
   const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'ready' | 'error'>('idle');
+  // A poster frame from the picked video → shown instantly as a thumbnail while it compresses.
+  const [videoThumb, setVideoThumb] = useState<string | null>(null);
 
   // 开场页:启动时先显示 Splash,点 Start 才进入写信页(只此一条出场路径,绝不自动跳转)。
   const [showSplash, setShowSplash] = useState(true);
@@ -131,10 +137,12 @@ export default function WriteScreen() {
 
   // 用户选的送达日;还没选时为 null,跟着 earliest 走。
   const [deliverOn, setDeliverOn] = useState<Date | null>(null);
-  // Which pricing tier the user tapped on the Seal sheet. null = follow content.
-  // Tapping a paid tier reveals an "add media" prompt; the real seal price still
-  // follows the content (no media = free), so this is purely a guidance affordance.
-  const [pickedTierKey, setPickedTierKey] = useState<'words' | 'photos' | 'video' | null>(null);
+  // The tier the user tapped on the Seal sheet (intent). Lets a paid tier light up
+  // BEFORE any media exists, so we can then guide them to add a photo or a video.
+  const [selectedTierKey, setSelectedTierKey] = useState<'words' | 'photos' | 'video' | null>(null);
+  // Inline explanation shown when a tap can't switch tiers (e.g. too many photos for
+  // the $2.99 tier). Cleared automatically whenever the media changes (see effect below).
+  const [tierHint, setTierHint] = useState<string | null>(null);
   // 真正生效的日期:没选过就用 earliest;选过、但因跨午夜早于了 earliest,也夹回 earliest。
   const effectiveDate = deliverOn && deliverOn.getTime() >= earliest.getTime() ? deliverOn : earliest;
 
@@ -169,16 +177,18 @@ export default function WriteScreen() {
     [],
   );
   // 只有当前有媒体(有更贵的档位)时,才显示"Seal as words only"备选。
-  const showWordsOnlyEscape = (photos.length > 0 || video !== null) && !tierResult.isFree;
-
-  // ── Seal-sheet tier selection (guidance only; real price follows content) ──
+  // ── Seal-sheet: the tiers are a live mirror of the capsule's content ──
   const hasMedia = photos.length > 0 || video !== null;
   const contentTierKey = tierResult.tier ?? 'words';
-  // Highlight the tier that will actually be sealed once there's media; before any
-  // media, highlight what the user tapped (so a tapped paid tier lights up).
-  const highlightTierKey = hasMedia ? contentTierKey : (pickedTierKey ?? 'words');
-  // Tapped a paid tier but nothing to charge for yet → show the gentle add-media prompt.
-  const showAddMediaPrompt = !hasMedia && (pickedTierKey === 'photos' || pickedTierKey === 'video');
+  // With media, the highlighted tier follows the content (honest). Before any media,
+  // it follows what the user tapped, so a chosen paid tier stays lit while we guide.
+  const effectiveTierKey = hasMedia ? contentTierKey : (selectedTierKey ?? 'words');
+  const buttonPrice = hasMedia ? tierResult.priceHint : TIERS[effectiveTierKey].priceHint;
+  // Chose a paid tier but nothing to charge for yet → we must guide, not seal-free silently.
+  const paidSelectedNoMedia = !hasMedia && (selectedTierKey === 'photos' || selectedTierKey === 'video');
+  // Adding/removing media changes the real tier, so any stale "can't switch" hint clears.
+  useEffect(() => { setTierHint(null); }, [photos.length, video]);
+  useEffect(() => { if (!video) setVideoThumb(null); }, [video]);
 
   // ── 核心封存逻辑(分两步,顺序至关重要) ──
   // 顺序:① 准备媒体(压缩 + 大小校验 + 上传,拿到公开 URL)→ ② 付款 → ③ 调
@@ -394,12 +404,10 @@ export default function WriteScreen() {
     const mediaDesc = mediaParts.join(' and ');
 
     Alert.alert(
-      'Seal with words only?',
-      `The Words tier holds text only, so ${mediaDesc} can't travel in this capsule. ` +
-        "They stay safe in your phone's library — nothing is deleted from your device. " +
-        'Only your words will be sealed.',
+      'Seal words only?',
+      `Your ${mediaDesc} won't be included — but nothing is deleted; ${photos.length + (video ? 1 : 0) > 1 ? 'they stay' : 'it stays'} safe in your phone.`,
       [
-        { text: 'Keep writing', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Seal words only',
           // Not style:'destructive' — this is a confirmation, not a dangerous action.
@@ -448,6 +456,9 @@ export default function WriteScreen() {
     const m = await pickVideo();
     if (!m) return;
     setVideo(m);
+    // Instant poster frame for the thumbnail (best-effort; null → graceful blank cell).
+    setVideoThumb(null);
+    getVideoThumbnail(m.uri).then(setVideoThumb).catch(() => {});
     // 选好的那一刻就在后台启动压缩,用户继续写信;封存时直接 await 这个任务。
     // (web / Expo Go 上 compressVideoToFit 是 no-op,Promise 立刻 resolve 原 uri。)
     const promise = compressVideoToFit(m.uri, m.durationSec);
@@ -463,12 +474,72 @@ export default function WriteScreen() {
       });
   }
 
-  // Tap a pricing tier on the Seal sheet: record the pick. A paid tier reveals the
-  // "add media" prompt below (when there is no media yet). The actual seal price
-  // still follows the content, so tapping a paid tier never charges by itself.
+  // The video's thumbnail cell (shown in the media strips like a photo): poster frame +
+  // a small film badge, a spinning ring while it compresses, and a ✕ to remove.
+  function renderVideoThumb() {
+    if (!video) return null;
+    return (
+      <View style={styles.thumbWrap}>
+        {videoThumb ? (
+          <Image source={{ uri: videoThumb }} style={styles.thumb} />
+        ) : (
+          <View style={[styles.thumb, styles.videoThumbBlank]} />
+        )}
+        {videoStatus === 'preparing' ? (
+          <View style={styles.videoThumbOverlay}>
+            <ActivityIndicator size="small" color={colors.brand} />
+          </View>
+        ) : (
+          // A centered play button = the universal "this is a video" cue (clearer than a
+          // tiny corner film icon). pointerEvents:none so it never eats the ✕ / taps.
+          <View style={styles.videoPlayWrap} pointerEvents="none">
+            <View style={styles.videoPlayDisc}>
+              <Ionicons name="play" size={16} color={colors.surfacePaper} style={styles.videoPlayIcon} />
+            </View>
+          </View>
+        )}
+        <Pressable
+          onPress={() => { setVideo(null); videoCompRef.current = null; setVideoStatus('idle'); }}
+          disabled={busy}
+          hitSlop={14}
+          style={styles.thumbRemove}
+          accessibilityRole="button"
+          accessibilityLabel="Remove video">
+          <Text style={styles.thumbRemoveText}>✕</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Tap a pricing tier on the Seal sheet. The tiers mirror your content, so a tap
+  // changes the content, not a hidden "selection":
+  //  - a paid tier → open the photo picker (a video can follow via the row below);
+  //  - Words (when you have media) → confirm, drop the media, seal words only.
   function onTapTier(key: 'words' | 'photos' | 'video') {
     if (busy) return;
-    setPickedTierKey(key);
+    setTierHint(null);
+    if (key === 'words') {
+      if (hasMedia) handleWordsOnly();   // drop media → seal words only (confirm)
+      else setSelectedTierKey('words');
+      return;
+    }
+    // Paid tier tapped.
+    if (!hasMedia) {
+      // No media yet → select it; the guidance below helps them add photos/video.
+      setSelectedTierKey(key);
+      return;
+    }
+    // Media present: the tier follows the content, so a tap can't just "switch".
+    // Explain why + how to fix — no dead taps.
+    const diff = TIER_RANK[key] - TIER_RANK[contentTierKey];
+    if (diff < 0) {
+      // Content outgrew this cheaper tier (e.g. >4 photos, tapping the $2.99 box).
+      setTierHint('Photos & Short Video fits up to 4 photos and a 30-second video. Remove some to switch to $2.99.');
+    } else if (diff > 0) {
+      // Tapped a richer tier than the current media warrants.
+      setTierHint('Rich Media holds up to 10 photos and a video up to 5 minutes — add more to switch to $5.99.');
+    }
+    // diff === 0: already on this tier, nothing to do.
   }
 
   // 封存之后想再写一封:清空内容 + 清掉附件,回到全新写信屏(但仍保持登录)。
@@ -476,7 +547,8 @@ export default function WriteScreen() {
     setLetter('Dear future me,\n\n');
     setDeliverOn(null);
     setSealed(false);
-    setPickedTierKey(null);
+    setSelectedTierKey(null);
+    setTierHint(null);
     setPhotos([]);
     setVideo(null);
     // 再写一封:清掉上一封的后台压缩任务,状态回 idle。
@@ -615,7 +687,7 @@ export default function WriteScreen() {
             // 键盘弹起时 KAV 把整条抬到键盘之上,这截内边距也跟着一起抬。
             <View style={[styles.footer, { paddingBottom: keyboardShown ? 8 : 20 + insets.bottom }]}>
               {/* 已选的照片:一排小"相片",固定在 ＋Photos 上方、完整可见,让用户加完即可确认(不被遮挡、无需下拉)。 */}
-              {photos.length ? (
+              {(photos.length > 0 || video) ? (
                 <View style={styles.thumbs}>
                   {photos.map((p, idx) => (
                     <View key={p.uri + idx} style={styles.thumbWrap}>
@@ -632,42 +704,28 @@ export default function WriteScreen() {
                       </Pressable>
                     </View>
                   ))}
+                  {renderVideoThumb()}
                 </View>
               ) : null}
 
               {/* 可选附件:照片(可多选,最多 10 张)+ 1 段视频。安静一行,守"写信为主"。 */}
               {/* A9: 媒体按钮加上 hitSlop 和 accessibilityLabel */}
               <View style={styles.mediaRow}>
-                {/* 未满 10 张:显示 ＋ Photos;满 10 张:显示安静提示文字(不显示按钮)。 */}
+                {/* Same icon+label style as the Seal sheet — one media control across the app. */}
                 {photos.length < MAX_PHOTOS ? (
-                  <Pressable onPress={addPhotos} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add photos">
-                    <Text style={styles.mediaAdd}>＋ Photos</Text>
+                  <Pressable style={styles.mediaGhostBtn} onPress={addPhotos} disabled={busy} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10 }} accessibilityLabel="Add photos">
+                    <Ionicons name="images-outline" size={18} color={colors.brand} />
+                    <Text style={styles.mediaGhostLabel}>Photos</Text>
                   </Pressable>
                 ) : (
                   <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
                 )}
-                {video ? (
-                  <Pressable
-                    onPress={() => {
-                      setVideo(null);
-                      // 删掉视频:忘掉后台压缩任务(srcUri 守卫会忽略它迟到的结果),状态回 idle。
-                      videoCompRef.current = null;
-                      setVideoStatus('idle');
-                    }}
-                    disabled={busy}
-                    accessibilityRole="button"
-                    hitSlop={{ top: 14, bottom: 14 }}
-                    accessibilityLabel="Remove video">
-                    {/* 压缩中显示「Preparing…」,压好/其它显示「🎬 ✕」。点任意一处都可移除。 */}
-                    <Text style={videoStatus === 'preparing' ? styles.mediaPreparing : styles.mediaOn}>
-                      {videoStatus === 'preparing' ? '🎬  Preparing…' : '🎬  ✕'}
-                    </Text>
+                {!video ? (
+                  <Pressable style={styles.mediaGhostBtn} onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10 }} accessibilityLabel="Add a video">
+                    <Ionicons name="film-outline" size={18} color={colors.brand} />
+                    <Text style={styles.mediaGhostLabel}>Video</Text>
                   </Pressable>
-                ) : (
-                  <Pressable onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 14, bottom: 14 }} accessibilityLabel="Add a video">
-                    <Text style={styles.mediaAdd}>＋ Video</Text>
-                  </Pressable>
-                )}
+                ) : null}
               </View>
 
               {/* 写完了 → 进入选日期那一屏(这里不封存、不问登录)。 */}
@@ -706,16 +764,8 @@ export default function WriteScreen() {
               loading={busy}
               style={styles.sealButtonInSheet}
             />
-
-            {/* 想再改改信 → 关底单回到写信屏(草稿与附件都还在)。 */}
-            <Button
-              variant="link"
-              label="← Keep writing"
-              onPress={() => setStep('write')}
-              disabled={busy}
-              style={styles.backLink}
-              textStyle={styles.backLinkText}
-            />
+            {/* No "Keep writing" button — swipe down or tap outside the sheet returns to
+                writing (onClose → step 'write'). The grabber handle hints at the gesture. */}
           </>
         ) : (
           <>
@@ -742,12 +792,15 @@ export default function WriteScreen() {
         {/* 分割线:细金 */}
         <View style={styles.sealSheetDivider} />
 
-        {/* Three-box pricing ladder — TAPPABLE. Tap a paid tier and we help you add
-            the media it needs; the real price still follows the content (no media =
-            free), so tapping a paid tier never charges you by itself. */}
+        {/* Title line + tier boxes are ONE group. The sheet's own gap:18 would otherwise
+            push them apart, so we wrap them and control the inner spacing ourselves. */}
+        <View style={styles.pricingGroup}>
+        <Text style={styles.oneTimeNote}>A one-time charge, never a subscription.</Text>
+        {/* Pricing tiers = a live mirror of your capsule (highlight = current tier).
+            Tap a paid tier to add its media; tap Words to keep it text-only. */}
         <View style={styles.sealSheetLadder}>
           {LADDER.map(({ key, label, lines }) => {
-            const active = key === highlightTierKey;
+            const active = key === effectiveTierKey;
             const price = TIERS[key].priceHint;
             return (
               <Pressable
@@ -767,54 +820,92 @@ export default function WriteScreen() {
             );
           })}
         </View>
+        {/* A gentle "can't switch to this tier" notice — faint warm callout, left-aligned,
+            with a warm accent bar so it reads as an explanation, not scattered text.
+            Kept INSIDE pricingGroup so it hugs the tier boxes (the sheet's gap:18 would
+            otherwise push it far below). */}
+        {tierHint ? (
+          <View style={styles.tierNotice}>
+            <Text style={styles.tierNoticeText}>{tierHint}</Text>
+          </View>
+        ) : null}
+        </View>
 
-        {/* One-time, NOT a subscription — clears the reviewer's / user's confusion. */}
-        <Text style={styles.oneTimeNote}>One-time — each paid tier is a single charge for this one capsule, never a subscription.</Text>
-
-        {/* Tapped a paid tier but no media yet → gently offer to add it (or seal free). */}
-        {showAddMediaPrompt ? (
-          <View style={styles.addMediaPrompt}>
-            <Text style={styles.addMediaHint}>Add photos or a video to seal with this tier.</Text>
-            <View style={styles.addMediaRow}>
-              <Button variant="link" label="+ Add photos" onPress={addPhotos} disabled={busy} style={styles.addMediaBtn} textStyle={styles.addMediaBtnText} />
-              <Button variant="link" label="+ Add a video" onPress={addVideo} disabled={busy} style={styles.addMediaBtn} textStyle={styles.addMediaBtnText} />
-            </View>
-            <Text style={styles.addMediaFallback}>Or seal your words for free below.</Text>
+        {/* Media preview: what you added, each removable. */}
+        {(photos.length > 0 || video) ? (
+          <View style={[styles.thumbs, styles.thumbsSeal]}>
+            {photos.map((p, idx) => (
+              <View key={p.uri + idx} style={styles.thumbWrap}>
+                <Image source={{ uri: p.uri }} style={styles.thumb} />
+                <Pressable
+                  onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                  disabled={busy}
+                  hitSlop={14}
+                  style={styles.thumbRemove}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo">
+                  <Text style={styles.thumbRemoveText}>✕</Text>
+                </Pressable>
+              </View>
+            ))}
+            {renderVideoThumb()}
           </View>
         ) : null}
 
-        {/* Warm reason line only when the seal is free. */}
-        {tierResult.isFree ? (
-          <Text style={styles.sealSheetReason}>{tierResult.reason}</Text>
+        {/* Empty PAID state → a prominent "add a moment" well: a hairline paper well with
+            two quiet outline buttons (line icon + label). Design-reviewed: no filled card,
+            no shadow, icon-left-of-label, so it reads like paper, not an upload widget. */}
+        {paidSelectedNoMedia ? (
+          <>
+            <View style={styles.mediaWell}>
+              <Text style={styles.wellHint}>Add photos or a video for this tier.</Text>
+              <View style={styles.wellButtons}>
+                <Pressable style={styles.mediaBtn} onPress={addPhotos} disabled={busy} accessibilityRole="button" accessibilityLabel="Add photos">
+                  <Ionicons name="images-outline" size={19} color={colors.brand} />
+                  <Text style={styles.mediaBtnLabel}>Photos</Text>
+                </Pressable>
+                <Pressable style={styles.mediaBtn} onPress={addVideo} disabled={busy} accessibilityRole="button" accessibilityLabel="Add a video">
+                  <Ionicons name="film-outline" size={19} color={colors.brand} />
+                  <Text style={styles.mediaBtnLabel}>Video</Text>
+                </Pressable>
+              </View>
+            </View>
+            {/* A quiet, un-underlined fallback to the free words-only path (not a loud link). */}
+            <Pressable onPress={handleSealSheet} disabled={busy} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10 }} style={styles.wellFreeWrap}>
+              <Text style={styles.wellFree}>Or seal your words alone for free.</Text>
+            </Pressable>
+          </>
         ) : null}
 
-        {/* 主按钮:Seal · $X.XX 或 Seal · Free */}
-        <Button
-          label={`Seal · ${tierResult.priceHint}`}
-          onPress={handleSealSheet}
-          loading={busy}
-          style={styles.sealButtonInSheet}
-        />
-
-        {/* 次选:只有有媒体(更贵档位)时才显示 —— 去掉媒体改用纯文字封存。
-            A10: 加上 hitSlop + paddingVertical 让触摸区至少达到 ~44pt */}
-        {showWordsOnlyEscape ? (
-          <Pressable onPress={handleWordsOnly} disabled={busy} accessibilityRole="button" hitSlop={{ top: 12, bottom: 12 }} style={styles.escapeWrap}>
-            <Text style={styles.sealSheetEscape}>
-              Seal as words only · {wordsOnlyTier.priceHint}
-            </Text>
-          </Pressable>
+        {/* Has-media → thumbnails show above; a quiet add-more row (a video can follow photos). */}
+        {hasMedia ? (
+          <View style={styles.sealMediaRow}>
+            {photos.length < MAX_PHOTOS ? (
+              <Pressable style={styles.mediaGhostBtn} onPress={addPhotos} disabled={busy} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10 }} accessibilityLabel="Add photos">
+                <Ionicons name="images-outline" size={18} color={colors.brand} />
+                <Text style={styles.mediaGhostLabel}>Photos</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.mediaCap}>That's all 10 — a full capsule.</Text>
+            )}
+            {!video ? (
+              <Pressable style={styles.mediaGhostBtn} onPress={addVideo} disabled={busy} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10 }} accessibilityLabel="Add a video">
+                <Ionicons name="film-outline" size={18} color={colors.brand} />
+                <Text style={styles.mediaGhostLabel}>Video</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
 
-        {/* 返回继续写:回到日历那一步(同一底单内换内容,草稿 + 附件都在)。 */}
-        <Button
-          variant="link"
-          label="← Keep writing"
-          onPress={() => setStep('date')}
-          disabled={busy}
-          style={styles.backLink}
-          textStyle={styles.backLinkText}
-        />
+        {/* Primary Seal button — hidden in the empty-paid state (nothing to charge yet). */}
+        {paidSelectedNoMedia ? null : (
+          <Button
+            label={`Seal · ${buttonPrice}`}
+            onPress={handleSealSheet}
+            loading={busy}
+            style={styles.sealButtonInSheet}
+          />
+        )}
           </>
         )}
       </BottomSheet>
@@ -883,6 +974,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   thumbRemoveText: { color: colors.backgroundPaper, fontSize: 10, lineHeight: 12 },
+  // Video thumbnail extras: blank placeholder (before the poster frame loads), a small
+  // film badge, and a translucent overlay that holds the "compressing" spinner.
+  videoThumbBlank: { alignItems: 'center', justifyContent: 'center' },
+  // Centered play button (the "this is a video" cue). A soft dark disc so a white
+  // triangle stays legible on any poster frame; the triangle nudged right for optical centering.
+  videoPlayWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayDisc: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(43,34,26,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayIcon: { marginLeft: 2 },
+  videoThumbOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(251,246,236,0.6)',
+    borderRadius: 4,
+  },
 
   // 底单(遮罩 / 圆角 / 抓手 / 滑入+下拉手势)已收进 BottomSheet 组件,这里只留内容样式。
   dateHero: {
@@ -976,23 +1101,66 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     paddingVertical: 10,
   },
-  // "One-time — not a subscription" caption under the pricing ladder.
+  // Wraps the title line + tier boxes as one unit so the sheet's gap:18 doesn't
+  // separate them; the small marginBottom on oneTimeNote is the only inner gap.
+  pricingGroup: { alignSelf: 'stretch' },
+  // Small left-aligned heading for the pricing group; sits close above the tier boxes.
   oneTimeNote: {
     fontFamily: fonts.regular,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.textMutedSoft,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colors.textBody,
     alignSelf: 'stretch',
-    textAlign: 'center',
+    textAlign: 'left',
+    marginBottom: 8,
+  },
+  // Add-more row (has media), left-aligned to match the thumbnails above it.
+  sealMediaRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 22, marginTop: 10, alignSelf: 'stretch' },
+  // Left-align the seal-sheet thumbnail strip (the sheet centres its children by default).
+  thumbsSeal: { alignSelf: 'stretch' },
+  // Ghost add-media button (icon + label, no border/fill) — same icons as the empty-state well.
+  mediaGhostBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44 },
+  mediaGhostLabel: { fontFamily: fonts.regular, fontSize: 14, letterSpacing: 0.3, color: colors.brandDark },
+  mediaGhostOn: { color: colors.brandText },
+  // Gentle "can't switch to this tier" notice: faint warm-orange wash + accent bar, left-aligned.
+  tierNotice: {
+    alignSelf: 'stretch',
+    backgroundColor: '#F3D6B4',        // warm peach wash — a touch more saturated so it reads as a real notice
+    borderLeftWidth: 3,
+    borderLeftColor: '#C2703A',        // warm terracotta accent
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     marginTop: 10,
   },
-  // Gentle "add media" prompt shown when a paid tier is tapped with no media yet.
-  addMediaPrompt: { alignSelf: 'stretch', alignItems: 'center', marginTop: 12, gap: 6 },
-  addMediaHint: { fontFamily: fonts.regular, fontSize: 13, color: colors.textBody, textAlign: 'center' },
-  addMediaRow: { flexDirection: 'row', gap: 22, marginTop: 2 },
-  addMediaBtn: { paddingVertical: 6 },
-  addMediaBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brandDark },
-  addMediaFallback: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: 'center' },
+  tierNoticeText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textBody, textAlign: 'left' },
+  // "Add a moment" well (empty paid tier): a hairline paper well — no shadow, no material card.
+  mediaWell: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surfacePaper,
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+  },
+  wellHint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textMutedSoft, textAlign: 'left', marginBottom: 13 },
+  wellButtons: { flexDirection: 'row', gap: 14, alignSelf: 'stretch' },
+  // Quiet outline button (line icon + label), no fill, no shadow.
+  mediaBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
+  mediaBtnLabel: { fontFamily: fonts.regular, fontSize: 13, letterSpacing: 0.5, color: colors.brandDark },
+  // Whisper-quiet fallback to the free words-only path.
+  wellFreeWrap: { alignSelf: 'center', marginTop: 12 },
+  wellFree: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMutedSoft, textAlign: 'center' },
 
   // 封存后那一屏:内容居中 + 按钮沉底(对齐设计图)。
   sealedScreen: {

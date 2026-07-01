@@ -5,18 +5,25 @@
 
 ## ▶ 下一步从这里继续
 
-**Resume (2026-06-29) — v1.0 APPROVED BY APPLE 🎉, mid-revert before Release.**
-Build 11 was approved on 2026-06-29. Doing the pre-Release revert
-([[reunite-launch-revert-after-approval]]):
-- ✅ Deleted secret `DELIVER_DEMO_MODE` (CLI `secrets unset`, verified gone).
-- ✅ Deleted secret `ALLOW_SANDBOX_PURCHASES` (verified gone).
-- ✅ service_role rotation — **SKIPPED on purpose.** Key was never leaked (not in
-  git, no `.env` committed; only a private in-session screenshot). Project is on
-  LEGACY keys, where rotating service_role = regenerate JWT secret = ALSO kills the
-  anon key baked into build 11 + cron SQL + reveal page → would break the live app.
-  Cost ≫ benefit. Future optional hardening: migrate to new "Secret API keys" then
-  rotate independently. [[reunite-launch-revert-after-approval]]
-- ⏳ THEN press **Release** in App Store Connect (cleared to go — revert complete).
+**Resume (2026-07-01) — v1.0 REJECTED (2.1a), fixed, preparing Build 12 resubmit.**
+The earlier "approved" was a FALSE ALARM (Dan misread a different project).
+Build 11 was then **rejected** — Guideline 2.1(a): reviewer "could not select the
+paid options". Root cause: the seal-sheet tier cards looked tappable but weren't →
+**fixed** (tiers now selectable + reachable; add-media well; Words-only confirm).
+Since then a round of UX polish + a video-thumbnail feature landed (see today's
+session block). Both review-accommodation secrets (`DELIVER_DEMO_MODE`,
+`ALLOW_SANDBOX_PURCHASES`) are ON again and MUST stay on while in review; revert
+only after a REAL approval ([[reunite-launch-revert-after-approval]]; service_role
+rotation = SKIP, legacy-keys reason unchanged).
+
+**Next concrete action:** Dan does one manual gate on the current dev build — seal a
+real iPhone video, open the web reveal in a browser, confirm it PLAYS (closes the
+HEVC-in-reveal worry; `media.ts` already forces `compressionMethod:'manual'` = H.264,
+so it should). If it plays → cut **Build 12** (EAS) with the paid-tier fix + thumbnail
+→ resubmit. Do NOT add more video-pipeline changes before resubmit — two senior
+reviewers agreed single-pass rewrite / #4 upload-retry / real progress-bar are all
+fast-follow, not blocking (and #4 is a non-issue: architecture is upload-THEN-seal,
+so a failed upload aborts the seal, nothing is ever lost).
 Post-launch optional: ImprovMX forwarding for privacy@dearfuture.space; paste the
 chosen Promotional Text.
 
@@ -40,6 +47,28 @@ still UNCOMMITTED pending his final sign-off.
   no review). Pick one and paste.
 - Clean up RevenueCat leftover `words` package + the dead `purchaseTier('words')`
   branch (harmless; unreachable since text is always free).
+
+**What got done this session (2026-07-01):** seal-sheet UX polish + video-thumbnail
+feature, ahead of the Build 12 resubmit. Landed in one commit:
+- **Video thumbnail cell** — a picked video now shows a square poster-frame thumbnail
+  (via new `expo-video-thumbnails`) alongside the photo thumbs, with a spinning ring
+  while it compresses and a ✕ to remove. The corner film icon was replaced with a
+  **centered ▶ play button** (clearer "this is a video" cue; requested — the corner
+  icon was illegible).
+- **Video compression speed** — first-pass target bitrate made more conservative
+  (`media.ts`: ÷2.5 not ÷2.0, ceiling 1.2 Mbps not 1.5) so high-detail clips (screen
+  recordings) hit the 44 MB target in ONE pass instead of re-encoding 3–5× down the
+  ladder. Confirmed compression runs once (eager on pick, awaited at seal) — no
+  double-compress bug. Bigger single-pass rewrite deferred to fast-follow.
+- **"Seal words only?" confirm dialog** — copy cut from 3 sentences to 1; button
+  `Keep writing` → `Cancel` (it's no longer the writing screen at that point).
+- **Tier "can't switch" notice** — moved inside the pricing group so it hugs the tier
+  boxes (the sheet's `gap:18` was pushing it far below); background saturation bumped
+  (`#FAEAD9` → `#F3D6B4`) so it reads as a real notice.
+- **AccountButton** — version footer simplified to `Version 1.0.0`, left-aligned.
+- Verified with the founder: **payment code is 100% untouched** (`purchaseTier`,
+  RevenueCat `Purchases.*`, `seal-letter` verify, `used_transactions`, `finalizeSeal`
+  — zero lines in the diff). tsc + eslint green (0 errors).
 
 **What got done this session (2026-06-26):** filled the entire App Store Connect
 listing field-by-field with the founder (App Privacy 5 data types, Age Rating 4+,

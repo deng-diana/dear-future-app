@@ -10,9 +10,22 @@
 //       配合后台任务让用户可以离开 app 继续传。
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Alert, Platform } from 'react-native';
 
 import { supabase } from './supabase';
+
+// Grab a poster frame from a video for an instant thumbnail (shown while it compresses).
+// Best-effort: any failure (web / codec) just returns null and the UI falls back gracefully.
+export async function getVideoThumbnail(uri: string): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  try {
+    const { uri: thumb } = await VideoThumbnails.getThumbnailAsync(uri, { time: 200, quality: 0.6 });
+    return thumb;
+  } catch (_) {
+    return null;
+  }
+}
 
 // durationSec = 视频时长(秒),从 ImagePicker asset.duration(毫秒)四舍五入而来。
 // 供 tierFor() 判断定价档位用——如果 picker 没有返回时长,则为 undefined。
@@ -90,7 +103,10 @@ export async function compressVideoToFit(uri: string, durationSec: number | unde
   //   - 短片(≲2min)结果超过 1.5 Mbps 上限 → 被夹到 1.5M(不影响画质);
   //   - 长片(如 4min)按时长得到更低的码率(~700k),更可能一遍压进 44MB。
   // 不管夹成多少,后面的「降档阶梯 + 上传前 50MB 守卫」才是真正的体积保证(本行只为「快/少重编码」)。
-  const firstBps = Math.round(Math.min(1_500_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 2.0)));
+  // 除以 2.5(原 2.0)+ 上限 1.2 Mbps(原 1.5):把第一遍目标码率压得更保守,让高细节内容
+  // (录屏等,超标可达 ~2.5×)也能「一遍命中」44MB,免去重压 3-5 遍的漫长等待。
+  // 1.2 Mbps @ 720p 对手机/邮件观看画质无感;真正的体积保证仍是下面的降档阶梯 + 50MB 守卫。
+  const firstBps = Math.round(Math.min(1_200_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 2.5)));
 
   // 降档阶梯:分辨率↓ + 码率↓,越往后越狠;靠后才丢音轨(尽量保留人声)。
   const ladder: { maxSize: number; bitrate: number; stripAudio?: boolean }[] = [

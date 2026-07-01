@@ -133,7 +133,7 @@ export default function AccountButton({ email, onSignOut }: Props) {
             <View style={styles.divider} />
             {/* 版本号脚注:显示真实的原生版本 + build 号,方便确认装的是哪个 build(也利于排查 / 审核)。 */}
             <Text style={styles.version}>
-              Reunite {Application.nativeApplicationVersion ?? '?'} ({Application.nativeBuildVersion ?? '?'})
+              Version {Application.nativeApplicationVersion ?? '?'}
             </Text>
           </Pressable>
         </Pressable>
@@ -178,5 +178,5 @@ const styles = StyleSheet.create({
   // 删账号:破坏性操作,保持红色(dangerDeep)+ 垃圾桶图标。
   deleteAccount: { fontSize: 15, color: colors.dangerDeep },
   // 版本号脚注:小号、静默色、居中。
-  version: { fontSize: 12, color: colors.textMutedLight, textAlign: 'center', marginTop: 4 },
+  version: { fontSize: 12, color: colors.textMutedLight, textAlign: 'left', marginTop: 4 },
 });
