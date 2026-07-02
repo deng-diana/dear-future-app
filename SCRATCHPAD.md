@@ -16,15 +16,16 @@ session block). Both review-accommodation secrets (`DELIVER_DEMO_MODE`,
 only after a REAL approval ([[reunite-launch-revert-after-approval]]; service_role
 rotation = SKIP, legacy-keys reason unchanged).
 
-**Next concrete action (2026-07-02):** **Build 12 is built + uploaded + live in
-TestFlight**, and Dan tested it on a real iPhone — paid tiers ARE selectable (the
-2.1a fix is verified), a sealed video delivers and plays. So we are RESUBMITTING
-Build 12 as-is. Dan does this in App Store Connect: iOS Submission page → `Edit` →
-swap build 11 → 12 → (optional) paste the reply message drafted in chat → click
-`Resubmit to App Review`. Then wait ~24–48h. Video-poster-on-web was fixed WEB-ONLY
-(no build): reveal `<video>` now carries `#t=0.1` so it paints a real frame as the
-poster — deployed to Vercel + verified live. Both review-accommodation secrets stay
-ON while in review.
+**Next concrete action (2026-07-02):** ✅ **DONE — Build 12 RESUBMITTED, status "1.0
+Waiting for Review".** Reply to App Review posted (explains one-time content-matched
+pricing, not a subscription). Now just wait ~24–48h for Apple's email. Build 12
+carries the 2.1a fix (paid tiers selectable) + video thumbnail/play-button + faster
+compression; Dan verified on a real iPhone via TestFlight (tiers selectable, sealed
+video delivers + plays). Video-poster-on-web was fixed WEB-ONLY (no build): reveal
+`<video>` now carries `#t=0.1` so it paints a real frame as the poster — deployed to
+Vercel + verified live. Both review-accommodation secrets stay ON while in review.
+**When Apple APPROVES:** revert both secrets + then press Release
+([[reunite-launch-revert-after-approval]]; service_role rotation = SKIP).
 Post-launch optional: ImprovMX forwarding for privacy@dearfuture.space; paste the
 chosen Promotional Text.
 
