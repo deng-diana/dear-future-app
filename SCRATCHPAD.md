@@ -16,14 +16,15 @@ session block). Both review-accommodation secrets (`DELIVER_DEMO_MODE`,
 only after a REAL approval ([[reunite-launch-revert-after-approval]]; service_role
 rotation = SKIP, legacy-keys reason unchanged).
 
-**Next concrete action:** Dan does one manual gate on the current dev build — seal a
-real iPhone video, open the web reveal in a browser, confirm it PLAYS (closes the
-HEVC-in-reveal worry; `media.ts` already forces `compressionMethod:'manual'` = H.264,
-so it should). If it plays → cut **Build 12** (EAS) with the paid-tier fix + thumbnail
-→ resubmit. Do NOT add more video-pipeline changes before resubmit — two senior
-reviewers agreed single-pass rewrite / #4 upload-retry / real progress-bar are all
-fast-follow, not blocking (and #4 is a non-issue: architecture is upload-THEN-seal,
-so a failed upload aborts the seal, nothing is ever lost).
+**Next concrete action (2026-07-02):** **Build 12 is built + uploaded + live in
+TestFlight**, and Dan tested it on a real iPhone — paid tiers ARE selectable (the
+2.1a fix is verified), a sealed video delivers and plays. So we are RESUBMITTING
+Build 12 as-is. Dan does this in App Store Connect: iOS Submission page → `Edit` →
+swap build 11 → 12 → (optional) paste the reply message drafted in chat → click
+`Resubmit to App Review`. Then wait ~24–48h. Video-poster-on-web was fixed WEB-ONLY
+(no build): reveal `<video>` now carries `#t=0.1` so it paints a real frame as the
+poster — deployed to Vercel + verified live. Both review-accommodation secrets stay
+ON while in review.
 Post-launch optional: ImprovMX forwarding for privacy@dearfuture.space; paste the
 chosen Promotional Text.
 
@@ -40,6 +41,16 @@ dynamic "N days ago") — DEPLOYED but `supabase/functions/deliver/index.ts` is
 still UNCOMMITTED pending his final sign-off.
 
 **Deferred (post-launch, not blocking):**
+- **Seal sheet — "locked" style for an over-capacity paid tier (v1.0.1 polish).**
+  When media exceeds a paid tier's capacity (e.g. 5 photos > the $2.99 "Photos &
+  Short Video" cap of 4), that tier currently looks identically tappable but only
+  shows a "Remove some to switch" hint. Make it clearer: render the over-capacity
+  tier in a muted/"locked" style from the start (so the eye knows it's not currently
+  available), BUT keep it tappable so a tap always re-shows the how-to-unlock hint;
+  un-mute automatically once media fits. Chosen over Dan's first idea ("first tap
+  allowed → then greyed non-tappable") because a box that goes un-tappable feels like
+  a bug and can no longer explain itself. NOT a review blocker — Apple didn't cite it
+  and the tiers already work; ship in a later update, not before the Build 12 resubmit.
 - ImprovMX free forwarding so `privacy@dearfuture.space` (Support page) + `unsubscribe@`
   actually receive. Namecheap's own forwarding can't coexist with Resend's `send.mail`
   MX (mode is either/or), but ImprovMX puts its MX on root `@` — no clash. ~10 min.

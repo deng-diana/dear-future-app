@@ -509,7 +509,10 @@
         '<div class="polaroid-wrap reveal d1v">' +
           '<figure class="polaroid polaroid--video">' +
             '<div class="polaroid-window">' +
-              '<video class="polaroid-media polaroid-media--video" src="' + safe + '" controls preload="metadata">' +
+              // src carries a #t=0.1 media fragment: iOS Safari (and others) seek to that
+              // frame and paint it as the poster, so the video shows a real captured frame
+              // instead of a blank box — no separate poster image / server work needed.
+              '<video class="polaroid-media polaroid-media--video" src="' + safe + '#t=0.1" controls preload="metadata" playsinline>' +
                 'Your browser does not support HTML5 video.' +
               '</video>' +
             '</div>' +
