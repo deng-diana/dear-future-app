@@ -6,6 +6,14 @@ import { MIN_SEAL_DAYS } from '@/constants/rules';
 
 // 自制的 Courier Prime 月历:纯 React Native,iOS / Web 都能跑(不依赖原生组件)。
 // 故意做得克制、留白多、方角、无图片 —— 像一张纸上手画的日历。
+//
+// 2026-07 升级(创始人拍板,双 UX 专家共识,原型见 /playground/date):
+//   1. 「誓言快捷键」—— 日历上方一行 One year · Three years · Five years · Ten years,
+//      点一下 = 选中「N 年后的今天」并把日历翻到那个月(仍可微调)。文字不用数字:
+//      "Three years" 是誓言,"3 years" 是参数;且和满屏日历数字在视觉上区分开。
+//   2. 月年标题可点 —— 点 "July 2027" 原地切换成「选年 → 选月 → 回到日」的跳转流,
+//      解决"选 3 年后要按 36 下箭头"的痛;远日期(孩子 18 岁生日等)一步直达。
+//   可点暗号统一用金色点状下划线(非胶囊按钮 —— 品牌禁软件壳);热区用 hitSlop 撑到 44pt。
 type Props = {
   value: Date | null; // 当前选中的送达日(还没选就是 null)
   minDate: Date; // 最早可选日(早于它的天都灰掉、不可点)
@@ -24,17 +32,37 @@ function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+// N 年后的「同月同日」;2月29日 + 1年 这类不存在的日子,夹到当月最后一天(2月28日)。
+function addYears(base: Date, n: number): Date {
+  const d = startOfDay(base);
+  const y = d.getFullYear() + n;
+  const daysInTarget = new Date(y, d.getMonth() + 1, 0).getDate();
+  return new Date(y, d.getMonth(), Math.min(d.getDate(), daysInTarget));
+}
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // 单字母即可
 
+// 誓言快捷键:覆盖绝大多数真实封存日期(整年纪念日)。
+const VOWS = [
+  { label: 'One year', years: 1 },
+  { label: 'Three years', years: 3 },
+  { label: 'Five years', years: 5 },
+  { label: 'Ten years', years: 10 },
+] as const;
+
 export default function Calendar({ value, minDate, onChange }: Props) {
   const min = startOfDay(minDate); // 归零的下限,后面所有比较都用它
+  const today = startOfDay(new Date()); // 誓言快捷键以「今天」为锚(N 年后的今天)
 
   // viewMonth = 当前显示月份的"1 号"。初值:有选中就用选中的月,否则用下限的月。
   const [viewMonth, setViewMonth] = useState<Date>(() => {
     const base = value ?? minDate;
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
+  // 跳转流:day = 正常日历;year = 选年;month = 选月(pendingYear 记住刚选的年)。
+  const [mode, setMode] = useState<'day' | 'year' | 'month'>('day');
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
 
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
@@ -60,6 +88,18 @@ export default function Calendar({ value, minDate, onChange }: Props) {
     setViewMonth(new Date(year, month + 1, 1));
   }
 
+  // 誓言快捷键:选中 N 年后的今天 + 把日历翻到那个月(研究指出的坑:两者缺一不可)。
+  function pickVow(years: number) {
+    const d = addYears(today, years);
+    onChange(d);
+    setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    setMode('day');
+    setPendingYear(null);
+  }
+
+  // 年份九宫格:下限年 → +10(共 11 个,3 列)。
+  const yearOptions = Array.from({ length: 11 }, (_, i) => min.getFullYear() + i);
+
   // 拼出 6 行 × 7 列的格子:前面补 firstWeekday 个空格,再排 1..daysInMonth。
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstWeekday; i++) cells.push(null);
@@ -68,71 +108,159 @@ export default function Calendar({ value, minDate, onChange }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* 头部:‹  June 2026  › */}
-      <View style={styles.header}>
-        {/* A6: 翻页箭头加上无障碍标签(屏幕阅读器报出"Previous month" / "Next month") */}
-        <Pressable onPress={goPrev} disabled={!canGoPrev} hitSlop={10} style={styles.chevronHit} accessibilityRole="button" accessibilityLabel="Previous month">
-          <Text style={[styles.chevron, !canGoPrev && styles.chevronHidden]}>‹</Text>
-        </Pressable>
-        <Text style={styles.monthLabel}>
-          {MONTHS[month]} {year}
-        </Text>
-        <Pressable onPress={goNext} hitSlop={10} style={styles.chevronHit} accessibilityRole="button" accessibilityLabel="Next month">
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
-      </View>
-
-      {/* Weekday header: S M T W T F S — same 7-column row structure as grid rows */}
-      <View style={styles.weekRow}>
-        {WEEKDAYS.map((w, i) => (
-          <View key={i} style={styles.cell}>
-            <Text style={styles.weekday}>{w}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Date grid: explicit rows of exactly 7 cells; flex:1 per cell avoids
-          floating-point percentage wrap that caused the phantom empty row. */}
-      <View style={styles.grid}>
-        {Array.from({ length: 6 }, (_, rowIdx) => {
-          const rowCells = cells.slice(rowIdx * 7, rowIdx * 7 + 7);
+      {/* 誓言快捷键:micro-label + 一行安静的可点文字(金色点状下划线 = 可点暗号)。 */}
+      <Text style={styles.microLabel}>MEET YOURSELF IN</Text>
+      <View style={styles.vowRow}>
+        {VOWS.map((v) => {
+          const target = addYears(today, v.years);
+          const current = value != null && sameDay(target, value);
           return (
-            <View key={rowIdx} style={styles.gridRow}>
-              {rowCells.map((day, colIdx) => {
-                const cellKey = rowIdx * 7 + colIdx;
-                if (day === null) {
-                  return <View key={cellKey} style={styles.cell} />; // blank spacer, not tappable
-                }
-                const thisDate = new Date(year, month, day);
-                const disabled = startOfDay(thisDate).getTime() < min.getTime(); // before min → grey, untappable
-                const selected = value != null && sameDay(thisDate, value); // is this the chosen day?
-
-                return (
-                  <Pressable
-                    key={cellKey}
-                    style={styles.cell}
-                    disabled={disabled}
-                    onPress={() => onChange(new Date(year, month, day))}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${MONTHS[month]} ${day}, ${year}`}
-                    accessibilityState={{ disabled, selected }}>
-                    {/* A6: accessibilityLabel lets screen readers announce the full date (e.g. "June 22, 2027") */}
-                    <View style={[styles.dayCircle, selected && styles.dayCircleSelected]}>
-                      <Text style={[styles.dayText, disabled && styles.dayTextDisabled, selected && styles.dayTextSelected]}>{day}</Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Pressable
+              key={v.years}
+              onPress={() => pickVow(v.years)}
+              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Deliver in ${v.label.toLowerCase()}, ${MONTHS[target.getMonth()]} ${target.getDate()}, ${target.getFullYear()}`}
+              accessibilityState={{ selected: current }}>
+              <Text style={[styles.vowText, current && styles.vowTextCurrent]}>{v.label}</Text>
+            </Pressable>
           );
         })}
       </View>
 
-      {/* 最短封存天数提示:仅在视图月含有灰色(不可选)日期时显示,翻过去就消失。 */}
-      {showHint && (
-        <Text style={styles.hintText}>
-          A letter needs at least {MIN_SEAL_DAYS} {MIN_SEAL_DAYS === 1 ? 'day' : 'days'} to travel — the nearest day is {formattedMin}.
-        </Text>
+      {/* 头部:day 模式 = ‹ July 2027 ›(标题可点进跳转流);year/month 模式 = 流程标题(点了回到日历)。 */}
+      {mode === 'day' ? (
+        <View style={styles.header}>
+          {/* A6: 翻页箭头加上无障碍标签(屏幕阅读器报出"Previous month" / "Next month") */}
+          <Pressable onPress={goPrev} disabled={!canGoPrev} hitSlop={10} style={styles.chevronHit} accessibilityRole="button" accessibilityLabel="Previous month">
+            <Text style={[styles.chevron, !canGoPrev && styles.chevronHidden]}>‹</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setMode('year')}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Change month and year">
+            <Text style={[styles.monthLabel, styles.tappableLabel]}>
+              {MONTHS[month]} {year}
+            </Text>
+          </Pressable>
+          <Pressable onPress={goNext} hitSlop={10} style={styles.chevronHit} accessibilityRole="button" accessibilityLabel="Next month">
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.header}>
+          <View style={styles.chevronHit} />
+          <Pressable
+            onPress={() => { setMode('day'); setPendingYear(null); }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back to the calendar">
+            <Text style={styles.monthLabel}>
+              {mode === 'year' ? 'Choose a year' : `${pendingYear} · choose a month`}
+            </Text>
+          </Pressable>
+          <View style={styles.chevronHit} />
+        </View>
+      )}
+
+      {mode === 'day' && (
+        <>
+          {/* Weekday header: S M T W T F S — same 7-column row structure as grid rows */}
+          <View style={styles.weekRow}>
+            {WEEKDAYS.map((w, i) => (
+              <View key={i} style={styles.cell}>
+                <Text style={styles.weekday}>{w}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Date grid: explicit rows of exactly 7 cells; flex:1 per cell avoids
+              floating-point percentage wrap that caused the phantom empty row. */}
+          <View style={styles.grid}>
+            {Array.from({ length: 6 }, (_, rowIdx) => {
+              const rowCells = cells.slice(rowIdx * 7, rowIdx * 7 + 7);
+              return (
+                <View key={rowIdx} style={styles.gridRow}>
+                  {rowCells.map((day, colIdx) => {
+                    const cellKey = rowIdx * 7 + colIdx;
+                    if (day === null) {
+                      return <View key={cellKey} style={styles.cell} />; // blank spacer, not tappable
+                    }
+                    const thisDate = new Date(year, month, day);
+                    const disabled = startOfDay(thisDate).getTime() < min.getTime(); // before min → grey, untappable
+                    const selected = value != null && sameDay(thisDate, value); // is this the chosen day?
+
+                    return (
+                      <Pressable
+                        key={cellKey}
+                        style={styles.cell}
+                        disabled={disabled}
+                        onPress={() => onChange(new Date(year, month, day))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${MONTHS[month]} ${day}, ${year}`}
+                        accessibilityState={{ disabled, selected }}>
+                        {/* A6: accessibilityLabel lets screen readers announce the full date (e.g. "June 22, 2027") */}
+                        <View style={[styles.dayCircle, selected && styles.dayCircleSelected]}>
+                          <Text style={[styles.dayText, disabled && styles.dayTextDisabled, selected && styles.dayTextSelected]}>{day}</Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })}
+          </View>
+
+          {/* 最短封存天数提示:仅在视图月含有灰色(不可选)日期时显示,翻过去就消失。 */}
+          {showHint && (
+            <Text style={styles.hintText}>
+              A letter needs at least {MIN_SEAL_DAYS} {MIN_SEAL_DAYS === 1 ? 'day' : 'days'} to travel — the nearest day is {formattedMin}.
+            </Text>
+          )}
+        </>
+      )}
+
+      {/* 选年:下限年 → +10,3 列。格子复用 day 的尺寸节奏,不引入新视觉。 */}
+      {mode === 'year' && (
+        <View style={styles.jumpGrid}>
+          {yearOptions.map((y) => (
+            <Pressable
+              key={y}
+              style={styles.jumpCell}
+              onPress={() => { setPendingYear(y); setMode('month'); }}
+              accessibilityRole="button"
+              accessibilityLabel={`Year ${y}`}>
+              <Text style={[styles.jumpText, y === year && styles.jumpTextCurrent]}>{y}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* 选月:12 个月,3 列;整月早于下限的灰掉(和灰色日期同语言)。 */}
+      {mode === 'month' && pendingYear != null && (
+        <View style={styles.jumpGrid}>
+          {MONTHS.map((m, idx) => {
+            const monthEnd = new Date(pendingYear, idx + 1, 0); // 该月最后一天
+            const disabled = startOfDay(monthEnd).getTime() < min.getTime();
+            return (
+              <Pressable
+                key={m}
+                style={styles.jumpCell}
+                disabled={disabled}
+                onPress={() => {
+                  setViewMonth(new Date(pendingYear, idx, 1));
+                  setMode('day');
+                  setPendingYear(null);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${m} ${pendingYear}`}
+                accessibilityState={{ disabled }}>
+                <Text style={[styles.jumpText, disabled && styles.dayTextDisabled]}>{m.slice(0, 3)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       )}
     </View>
   );
@@ -146,12 +274,47 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
 
+  // 誓言快捷键:小字距 micro-label + 居中一行(窄屏自动折两行)。
+  microLabel: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    letterSpacing: 2.4,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  vowRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    columnGap: 18,
+    rowGap: 10,
+    marginBottom: 22,
+  },
+  // 可点暗号:金色点状下划线(iOS 支持 dotted;安卓退化为实线,同样安静)。
+  vowText: {
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    color: colors.textBody,
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'dotted',
+    textDecorationColor: colors.accentGold,
+    paddingBottom: 2,
+  },
+  vowTextCurrent: { color: colors.brandText },
+
   // 头部行:左右箭头 + 居中的"月 年"。
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   chevronHit: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   chevron: { fontFamily: fonts.regular, fontSize: 24, color: colors.brand, lineHeight: 26 },
   chevronHidden: { opacity: 0 }, // 到下限月就藏起左箭头(占位不跳动)
   monthLabel: { fontFamily: fonts.regular, fontSize: 18, color: colors.textHeading },
+  // 月年标题的可点暗号:与誓言行同一套点状下划线。
+  tappableLabel: {
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'dotted',
+    textDecorationColor: colors.accentGold,
+  },
 
   // Weekday header: one row of 7 flex:1 cells, same structure as each grid row.
   weekRow: { flexDirection: 'row', marginBottom: 4 },
@@ -170,6 +333,12 @@ const styles = StyleSheet.create({
   dayText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
   dayTextDisabled: { color: colors.textDisabled }, // 早于下限:更浅的禁用色,明显区分可选/不可选(disabled WCAG 豁免)
   dayTextSelected: { color: colors.background }, // 选中:奶白字
+
+  // 选年/选月的九宫格:3 列,复用 day 的行高节奏;高度与 6 行日历相当,切换不跳动太大。
+  jumpGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  jumpCell: { width: '33.33%', minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+  jumpText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
+  jumpTextCurrent: { color: colors.brandText },
 
   // 最短天数提示:小字、静默色、左对齐,不挤压网格布局。
   hintText: {
