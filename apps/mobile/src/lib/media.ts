@@ -64,6 +64,7 @@ type CompressVideoFn = (
     bitrate?: number;   // 目标比特率(bps)
     minimumFileSizeForCompress?: number; // 小于此大小(字节)跳过压缩
     stripAudio?: boolean; // true = 去掉音轨(最后几档省体积用)
+    progressDivider?: number; // 进度回调的节流:每前进 N% 才回调一次(防高频刷 UI)
   },
   onProgress?: (progress: number) => void,
 ) => Promise<string>;
@@ -92,29 +93,34 @@ function getCompressVideoFn(): CompressVideoFn | null {
 //
 // EXPORTED:供「即时后台压缩」用 —— 选好视频那一刻 index.tsx 就在后台启动它,
 // 用户继续写信;封存时直接 await 这个已在跑(或已完成)的 Promise,封存不再卡压缩。
-export async function compressVideoToFit(uri: string, durationSec: number | undefined): Promise<string> {
+export async function compressVideoToFit(
+  uri: string,
+  durationSec: number | undefined,
+  // 真实压缩进度(0..1),来自编码器本身 —— UI 用它画进度环/百分比。
+  // 罕见的第 2 遍重压会把整体进度映射到 50%..100%(诚实:确实还没完)。
+  onProgress?: (progress: number) => void,
+): Promise<string> {
   if (Platform.OS === 'web') return uri;
   const compress = getCompressVideoFn();
   if (!compress) return uri;
 
   const dur = durationSec && durationSec > 0 ? durationSec : 300; // 拿不到时长 → 按 5 分钟(最保守)
-  // 首档码率:按时长算「要塞进 TARGET 的总码率」,再除以 ~2(补偿编码器软目标超标,实测 ≈1.8×:
-  // 设 1.2 Mbps → 得 ~2.2 Mbps),让绝大多数视频「单遍命中」。注意:
-  //   - 短片(≲2min)结果超过 1.5 Mbps 上限 → 被夹到 1.5M(不影响画质);
-  //   - 长片(如 4min)按时长得到更低的码率(~700k),更可能一遍压进 44MB。
-  // 不管夹成多少,后面的「降档阶梯 + 上传前 50MB 守卫」才是真正的体积保证(本行只为「快/少重编码」)。
-  // 除以 2.5(原 2.0)+ 上限 1.2 Mbps(原 1.5):把第一遍目标码率压得更保守,让高细节内容
-  // (录屏等,超标可达 ~2.5×)也能「一遍命中」44MB,免去重压 3-5 遍的漫长等待。
-  // 1.2 Mbps @ 720p 对手机/邮件观看画质无感;真正的体积保证仍是下面的降档阶梯 + 50MB 守卫。
-  const firstBps = Math.round(Math.min(1_200_000, Math.max(500_000, (TARGET_VIDEO_BYTES * 8) / dur / 2.5)));
+  // 首档码率 = (总预算 − 音轨) ÷ 2.5:
+  //   - 音轨 ~128 kbps AAC 也占体积,旧公式没算它 → 长视频(≥4min)第一遍会差一口气而超标;
+  //   - ÷2.5 补偿编码器「软目标」超标(高细节内容实测可达 ~2.5×);
+  //   - 上限 1.2 Mbps @ 720p,手机/邮件观看画质无感;下限 500 kbps 保底可看。
+  // 目标:让几乎所有 ≤5min 的视频「一遍命中」——重压才是慢的根源。
+  const firstBps = Math.round(
+    Math.min(1_200_000, Math.max(500_000, ((TARGET_VIDEO_BYTES * 8) / dur - 128_000) / 2.5)),
+  );
 
-  // 降档阶梯:分辨率↓ + 码率↓,越往后越狠;靠后才丢音轨(尽量保留人声)。
+  // 降档阶梯 5→2(2026-07 提速):数学上第一档几乎总命中(见上),原 3-5 档是永远
+  // 跑不到的死重量 —— 但每多跑一档 = 整段视频再编码一遍(几十秒~几分钟)。
+  // 只留一个「绝望档」兜底(更低分辨率 + 丢音轨);它若被触发说明参数失调,看 perf 日志。
+  // 体积的最终保证从来不是阶梯,而是上传前的 50 MB 守卫。
   const ladder: { maxSize: number; bitrate: number; stripAudio?: boolean }[] = [
     { maxSize: 720, bitrate: firstBps },
-    { maxSize: 640, bitrate: Math.round(firstBps * 0.7) },
-    { maxSize: 540, bitrate: Math.round(firstBps * 0.5) },
-    { maxSize: 432, bitrate: Math.max(350_000, Math.round(firstBps * 0.4)), stripAudio: true },
-    { maxSize: 360, bitrate: Math.max(300_000, Math.round(firstBps * 0.3)), stripAudio: true },
+    { maxSize: 540, bitrate: Math.max(350_000, Math.round(firstBps * 0.5)), stripAudio: true },
   ];
 
   // ── perf 打点:量出真正的瓶颈(压缩几秒 / 几遍 / 原片多大),别靠猜优化 ──
@@ -128,14 +134,23 @@ export async function compressVideoToFit(uri: string, durationSec: number | unde
   for (const step of ladder) {
     pass += 1;
     const tPass = Date.now();
+    // 整体进度映射:第 1 遍 = 0..100%;罕见的第 2 遍 = 50%..100%(从头重压,但对用户
+    // 诚实地表现为「后半程」,不归零 —— 归零的进度条比没有进度条更吓人)。
+    const base = pass === 1 ? 0 : 0.5;
+    const span = pass === 1 ? 1 : 0.5;
     try {
-      const out = await compress(uri, {     // 每档都从「原片」重压,不在已压文件上反复压(免画质叠损)
-        compressionMethod: 'manual',
-        maxSize: step.maxSize,
-        bitrate: step.bitrate,
-        stripAudio: step.stripAudio,
-        minimumFileSizeForCompress: 0,      // 既然进了这条路,一律压
-      });
+      const out = await compress(
+        uri, // 每档都从「原片」重压,不在已压文件上反复压(免画质叠损)
+        {
+          compressionMethod: 'manual',
+          maxSize: step.maxSize,
+          bitrate: step.bitrate,
+          stripAudio: step.stripAudio,
+          minimumFileSizeForCompress: 0,    // 既然进了这条路,一律压
+          progressDivider: 2,               // 每 2% 回调一次,足够顺滑又不刷爆 JS 线程
+        },
+        onProgress ? (p) => onProgress(Math.min(1, base + p * span)) : undefined,
+      );
       best = out;
       const info = await FileSystem.getInfoAsync(out);
       const size = info.exists ? info.size : undefined;
@@ -280,10 +295,14 @@ export async function uploadMedia(
   folder: string,
   index: number = 0,
   precompressedUri?: string,
+  // 可选的自定义文件名(不含扩展名)。「选片即传」用它:照片增删后 index 会漂移,
+  // 唯一文件名(如 photo-x7f2k9)保证提前传上去的文件永远不会互相覆盖。
+  fileName?: string,
 ): Promise<string | null> {
   try {
     const isPhoto = media.kind === 'photo';
-    const path = isPhoto ? `${folder}/photo-${index}.jpg` : `${folder}/video.mp4`;
+    const name = fileName ?? (isPhoto ? `photo-${index}` : 'video');
+    const path = isPhoto ? `${folder}/${name}.jpg` : `${folder}/${name}.mp4`;
     const contentType = isPhoto ? 'image/jpeg' : 'video/mp4';
 
     if (Platform.OS === 'web') {

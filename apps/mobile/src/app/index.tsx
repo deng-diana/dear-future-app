@@ -68,6 +68,12 @@ const LADDER = [
 // Tier ordering by "how much media" — used to explain why a tap can't switch tiers.
 const TIER_RANK = { words: 0, photos: 1, video: 2 } as const;
 
+// 生成唯一的上传文件名(如 photo-x7f2k9)。模块级纯工具 —— 组件内直接调 Math.random
+// 会被 React Compiler 判为「渲染期不纯」而报错,提出来则只在事件处理器里执行。
+function randomName(prefix: 'photo' | 'video'): string {
+  return prefix + '-' + Math.random().toString(36).slice(2, 10);
+}
+
 export default function WriteScreen() {
   // 安全区内边距(刘海 / Home 指示条的真实高度)。
   // insets.top 用作 KeyboardAvoidingView 的 keyboardVerticalOffset:KAV 顶边被 SafeAreaView
@@ -109,6 +115,26 @@ export default function WriteScreen() {
   const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'ready' | 'error'>('idle');
   // A poster frame from the picked video → shown instantly as a thumbnail while it compresses.
   const [videoThumb, setVideoThumb] = useState<string | null>(null);
+  // 编码器的真实压缩进度(0..1)—— 缩略图上显示百分比,替代干转的圈。
+  const [videoProgress, setVideoProgress] = useState(0);
+
+  // ── 选片即传(eager upload,2026-07 提速核心)──
+  // 老流程:点 Seal 后才开始逐张上传照片 + 上传 44MB 视频 → 用户盯着转圈 25-45 秒。
+  // 新流程:照片选好那一刻、视频压完那一刻,就在后台悄悄上传;点 Seal 时基本都已传完,
+  // prepareMedia 只是「收集结果」,等待近乎为零。上传目录整封信共用一个(uploadFolderRef),
+  // 文件名用随机串(照片增删后序号会漂移,唯一名字永不互相覆盖)。
+  // 用户中途放弃 → 留下孤儿文件,可接受(桶已清空过;后续加清理 cron)。
+  const uploadFolderRef = useRef<string>(randomFolder());
+  // 每张照片的后台上传任务:uri → Promise<公开 URL | null(失败,封存时并行重试)>。
+  const photoUploadsRef = useRef<Map<string, Promise<string | null>>>(new Map());
+  // 视频的「压缩→上传」整链任务(srcUri 守卫同 videoCompRef)。
+  const videoUploadRef = useRef<{ srcUri: string; promise: Promise<string | null> } | null>(null);
+
+  // busy 期间按钮下方的阶段文案:让 20 秒的等待「看得懂」,而不是无名转圈。
+  const [busyPhase, setBusyPhase] = useState<'media' | 'purchase' | 'sealing' | null>(null);
+
+  // 已付款但封存失败的凭证:重试时直接复用,绝不二次扣款(修复:老逻辑重试会再买一次)。
+  const pendingTxRef = useRef<{ tier: 'words' | 'photos' | 'video'; transactionId: string } | null>(null);
 
   // 开场页:启动时先显示 Splash,点 Start 才进入写信页(只此一条出场路径,绝不自动跳转)。
   const [showSplash, setShowSplash] = useState(true);
@@ -208,42 +234,64 @@ export default function WriteScreen() {
     mediaPhotos: PickedMedia[],
     mediaVideo: PickedMedia | null,
   ): Promise<{ photoUrls: string[]; videoUrl: string | null } | null> {
-    // 把照片 / 视频传到 memories 桶(同一个随机文件夹),拿到公开 URL。
-    const folder = randomFolder();
-    const photoUrls: string[] = [];
-    for (let i = 0; i < mediaPhotos.length; i++) {
-      const u = await uploadMedia(mediaPhotos[i], folder, i);
-      // 上传失败(含视频"太大"守卫,uploadMedia 内部已弹各自的提示并返回 null)→
-      // 千万别往下走付款。封存即消失,信一走用户永远发现不了图丢了。
-      if (!u) {
-        Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
-        return null; // 信还在、可重试,且尚未付款
-      }
-      photoUrls.push(u);
+    // 2026-07 提速:媒体早在「选片即传」时就开始上传了(见 addPhotos/addVideo)。
+    // 这里只是收集那些后台任务的结果 —— 都传完了就秒回;个别失败的并行重试一次。
+    const folder = uploadFolderRef.current;
+    const results = await Promise.all(
+      mediaPhotos.map(async (m) => {
+        const eager = photoUploadsRef.current.get(m.uri);
+        const url = eager ? await eager : null;
+        if (url) return url;
+        // 后台没传过 / 传失败 → 现在重试(全部并行;换一个新随机名,避开半成品文件冲突)。
+        const retry = uploadMedia(m, folder, 0, undefined, randomName('photo')).catch(
+          () => null,
+        );
+        photoUploadsRef.current.set(m.uri, retry);
+        return retry;
+      }),
+    );
+    if (results.some((u) => !u)) {
+      // 上传失败 → 千万别往下走付款。封存即消失,信一走用户永远发现不了图丢了。
+      Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
+      return null; // 信还在、可重试,且尚未付款
     }
+    const photoUrls = results as string[];
     let videoUrl: string | null = null;
     if (mediaVideo) {
-      // 取「即时后台压缩」的结果:任务是为这个 uri 起的 → await 它(已压完则瞬间 resolve,
-      // 还在压则只等这个进行中的任务,绝不重压);万一没起过(罕见)→ 现在压一次兜底。
-      // 用 try/catch 包住:即便那个后台 Promise 异常 reject,也绝不让它把 prepareMedia 抛崩
-      //(否则 handleSealSheet 里 setBusy(false) 被跳过 → 按钮永远转圈)。退一步重压;再不行
-      // 用原片,交给下面 uploadMedia 的 50MB 守卫温和拒绝。compressVideoToFit 内部本就全程
-      // try/catch、几乎不会 reject,这里是双保险。
-      let compressedUri: string;
-      try {
-        compressedUri =
-          videoCompRef.current?.srcUri === mediaVideo.uri
-            ? await videoCompRef.current.promise
-            : await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
-      } catch (e) {
-        console.warn('[media] 后台压缩任务异常,封存时重试:', e);
+      // 首选:取「选片即传」整链(压缩→上传)的结果 —— 通常早已传完,秒回。
+      if (videoUploadRef.current?.srcUri === mediaVideo.uri) {
         try {
-          compressedUri = await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+          videoUrl = await videoUploadRef.current.promise;
         } catch {
-          compressedUri = mediaVideo.uri; // 兜底用原片;太大会被 uploadMedia 的守卫拦下
+          videoUrl = null; // 后台链异常 → 走下面的现场兜底
         }
       }
-      videoUrl = await uploadMedia(mediaVideo, folder, 0, compressedUri);
+      if (!videoUrl) {
+        // 兜底(后台链没起过 / 失败):复用压缩结果(有就秒取,没有就现在压),再上传一次。
+        // 全程 try/catch:绝不让异常把 prepareMedia 抛崩(否则 setBusy(false) 被跳过 → 按钮永远转圈)。
+        let compressedUri: string;
+        try {
+          compressedUri =
+            videoCompRef.current?.srcUri === mediaVideo.uri
+              ? await videoCompRef.current.promise
+              : await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+        } catch (e) {
+          console.warn('[media] 后台压缩任务异常,封存时重试:', e);
+          try {
+            compressedUri = await compressVideoToFit(mediaVideo.uri, mediaVideo.durationSec);
+          } catch {
+            compressedUri = mediaVideo.uri; // 兜底用原片;太大会被 uploadMedia 的守卫拦下
+          }
+        }
+        // 换一个新随机名重传(避开后台半成品文件的路径冲突)。
+        videoUrl = await uploadMedia(
+          mediaVideo,
+          folder,
+          0,
+          compressedUri,
+          randomName('video'),
+        );
+      }
       // null 可能是"视频太大"(uploadMedia 已弹自己的提示)或网络失败 —— 都中止。
       if (!videoUrl) {
         Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
@@ -284,6 +332,7 @@ export default function WriteScreen() {
     });
 
     setBusy(false);
+    setBusyPhase(null);
     if (error) {
       // invoke 失败时 error 是 FunctionsHttpError,它的 .message 只是笼统的
       // "Edge Function returned a non-2xx status code" —— 真正的服务器拒绝原因
@@ -306,6 +355,8 @@ export default function WriteScreen() {
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
 
+    // 封存成功 → 这封信的付款凭证已消费,清掉(下一封是全新的购买)。
+    pendingTxRef.current = null;
     // 封存成功后顺手 nudge 一下 deliver(fire-and-forget,不阻塞封存动画)。
     // 生产环境无害:deliver 只送「已到期」的信 —— 刚封的未来信不会被送。
     // 审核期把服务器端 deliver 设成即时模式(DEMO_MODE),这一下就让审核员的信「秒到」邮箱。
@@ -340,17 +391,20 @@ export default function WriteScreen() {
     if (busy) return;
 
     setBusy(true); // 整个流程(准备媒体 + 付款 + 写库)期间,按钮转圈、防重复点
+    setBusyPhase('media'); // 阶段文案:让等待「看得懂」
 
-    // ── 第一步:准备媒体(在任何付款之前)──
-    // 压缩 + 校验大小 + 上传,拿到公开 URL。任意一步失败 → 已弹错误,中止,绝不付款。
+    // ── 第一步:收集媒体(在任何付款之前)──
+    // 「选片即传」通常早已传完 → 这里秒回;个别失败会并行重试。任何失败 → 中止,绝不付款。
     const media = await prepareMedia(photos, video);
     if (!media) {
       setBusy(false);
+      setBusyPhase(null);
       return; // 媒体没备好(太大 / 上传失败)→ 信还在、可重试,且尚未付款
     }
 
     if (tierResult.isFree) {
       // 免费:跳过付款,tier = null,不需要 transactionId。finalizeSeal 会 setBusy(false)。
+      setBusyPhase('sealing');
       await finalizeSeal(null, undefined, media);
       return;
     }
@@ -361,6 +415,7 @@ export default function WriteScreen() {
     // 真实 App Store 构建有密钥时不会走这条路。
     if (Platform.OS === 'web') {
       // web 演示:跳过付款,tier = null(免费路径)。
+      setBusyPhase('sealing');
       await finalizeSeal(null, undefined, media);
       return;
     }
@@ -368,25 +423,41 @@ export default function WriteScreen() {
     // ── 第二步:付款 ──
     // 媒体此时已上传成功;现在才触发购买弹窗。
     const tier = tierResult.tier!;
+
+    // 防双扣款(2026-07 修复):上一次「付了款但封存失败」留下的凭证还在 → 直接复用,
+    // 跳过购买弹窗。老逻辑重试会再买一次 —— 用户被扣两次钱,第一笔成了孤儿交易。
+    // 服务器端 used_transactions 失败时会回滚锁,所以同一笔凭证重试封存是安全的。
+    if (pendingTxRef.current?.tier === tier) {
+      setBusyPhase('sealing');
+      await finalizeSeal(tier, pendingTxRef.current.transactionId, media);
+      return;
+    }
+
+    setBusyPhase('purchase');
     const result = await purchaseTier(tier);
 
     if (result.ok) {
       // ── 第三步:付款成功 → 写库(唯一必须在付款之后的步骤,需 transactionId 验购)──
-      // result.transactionId = App Store / Google Play 返回的原始交易 ID。
+      // 先把凭证记下来:万一 finalizeSeal 失败,重试直接复用,绝不二次扣款。
+      pendingTxRef.current = { tier, transactionId: result.transactionId! };
+      setBusyPhase('sealing');
       await finalizeSeal(tier, result.transactionId, media);
     } else if (result.cancelled) {
       // 用户取消付款 → 留在底单。已上传的媒体成为存储里的孤儿文件 ——
       // 目前可接受(后续可加 best-effort 清理:删 media.folder 下的对象);不阻塞流程。
       setBusy(false);
+      setBusyPhase(null);
       return;
     } else if (result.error === 'purchases disabled') {
       // Demo fallback:购买模块未启用(无密钥的测试构建)→ 免费路径封存。
       // Demo fallback — real App Store builds have purchases enabled.
+      setBusyPhase('sealing');
       await finalizeSeal(null, undefined, media);
     } else {
       // 其他错误(网络失败、App Store 异常等) → 温和提示,留在底单。
       // (媒体已上传,同样成为可接受的孤儿文件;详见上面取消分支的说明。)
       setBusy(false);
+      setBusyPhase(null);
       Alert.alert(
         'Something went wrong',
         result.error ?? 'The purchase could not be completed. Please try again.',
@@ -450,7 +521,19 @@ export default function WriteScreen() {
   // 选照片(可多选,最多补到 10 张)/ 1 段视频(从相册)。
   async function addPhotos() {
     const picked = await pickPhotos(MAX_PHOTOS - photos.length);
-    if (picked.length) setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+    if (!picked.length) return;
+    setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+    // 选片即传:选好那一刻就在后台上传,用户继续写信;点 Seal 时早已传完。
+    for (const m of picked) {
+      if (!photoUploadsRef.current.has(m.uri)) {
+        photoUploadsRef.current.set(
+          m.uri,
+          uploadMedia(m, uploadFolderRef.current, 0, undefined, randomName('photo')).catch(
+            () => null,
+          ),
+        );
+      }
+    }
   }
   async function addVideo() {
     const m = await pickVideo();
@@ -459,14 +542,24 @@ export default function WriteScreen() {
     // Instant poster frame for the thumbnail (best-effort; null → graceful blank cell).
     setVideoThumb(null);
     getVideoThumbnail(m.uri).then(setVideoThumb).catch(() => {});
-    // 选好的那一刻就在后台启动压缩,用户继续写信;封存时直接 await 这个任务。
+    // 选好的那一刻就在后台启动压缩(带真实进度回调),用户继续写信。
     // (web / Expo Go 上 compressVideoToFit 是 no-op,Promise 立刻 resolve 原 uri。)
-    const promise = compressVideoToFit(m.uri, m.durationSec);
+    setVideoProgress(0);
+    const promise = compressVideoToFit(m.uri, m.durationSec, (p) => {
+      // srcUri 守卫:只在「这仍是当前选中的视频」时更新进度(避免 stale 任务覆盖)。
+      if (videoCompRef.current?.srcUri === m.uri) setVideoProgress(p);
+    });
     videoCompRef.current = { srcUri: m.uri, promise };
     setVideoStatus('preparing');
+    // 压缩一落地就静默接力上传(压缩→上传整链存进 videoUploadRef,封存时直接取结果)。
+    const uploadPromise = promise
+      .then((compressed) =>
+        uploadMedia(m, uploadFolderRef.current, 0, compressed, randomName('video')),
+      )
+      .catch(() => null);
+    videoUploadRef.current = { srcUri: m.uri, promise: uploadPromise };
     promise
       .then(() => {
-        // srcUri 守卫:只在「这仍是当前选中的视频」时更新 UI(避免 stale 任务覆盖)。
         if (videoCompRef.current?.srcUri === m.uri) setVideoStatus('ready');
       })
       .catch(() => {
@@ -487,7 +580,12 @@ export default function WriteScreen() {
         )}
         {videoStatus === 'preparing' ? (
           <View style={styles.videoThumbOverlay}>
-            <ActivityIndicator size="small" color={colors.brand} />
+            {/* 真实压缩进度:编码器亲口说的百分比,不是干转的圈。进度未就绪(0)时仍显示圈。 */}
+            {videoProgress > 0 ? (
+              <Text style={styles.videoPctText}>{Math.round(videoProgress * 100)}%</Text>
+            ) : (
+              <ActivityIndicator size="small" color={colors.brand} />
+            )}
           </View>
         ) : (
           // A centered play button = the universal "this is a video" cue (clearer than a
@@ -551,8 +649,13 @@ export default function WriteScreen() {
     setTierHint(null);
     setPhotos([]);
     setVideo(null);
-    // 再写一封:清掉上一封的后台压缩任务,状态回 idle。
+    // 再写一封:清掉上一封的后台压缩/上传任务,换全新上传目录,状态回 idle。
     videoCompRef.current = null;
+    videoUploadRef.current = null;
+    photoUploadsRef.current = new Map();
+    uploadFolderRef.current = randomFolder();
+    pendingTxRef.current = null;
+    setVideoProgress(0);
     setVideoStatus('idle');
     setStep('write');
   }
@@ -899,12 +1002,26 @@ export default function WriteScreen() {
 
         {/* Primary Seal button — hidden in the empty-paid state (nothing to charge yet). */}
         {paidSelectedNoMedia ? null : (
-          <Button
-            label={`Seal · ${buttonPrice}`}
-            onPress={handleSealSheet}
-            loading={busy}
-            style={styles.sealButtonInSheet}
-          />
+          <>
+            <Button
+              label={`Seal · ${buttonPrice}`}
+              onPress={handleSealSheet}
+              loading={busy}
+              style={styles.sealButtonInSheet}
+            />
+            {/* 阶段文案:等待时告诉用户「正在发生什么」,无名转圈才是焦虑之源。 */}
+            {busy && busyPhase ? (
+              <Text style={styles.busyPhaseText}>
+                {busyPhase === 'media'
+                  ? video
+                    ? 'Preparing your video…'
+                    : 'Preparing your photos…'
+                  : busyPhase === 'purchase'
+                    ? 'Confirming your purchase…'
+                    : 'Sealing…'}
+              </Text>
+            ) : null}
+          </>
         )}
           </>
         )}
@@ -1026,6 +1143,10 @@ const styles = StyleSheet.create({
   backLinkText: { fontSize: 14, color: colors.textMuted },
   // 在底单里:把 Seal 按钮往日历那边收紧一点(BottomSheet 子项默认 gap 18,这里抵消一截)。
   sealButtonInSheet: { marginTop: 12 }, // 与上方档位框拉开一点距离(用户:按钮往下移)
+  // busy 阶段文案:按钮正下方一行安静的小字("Preparing your video… / Confirming your purchase…")。
+  busyPhaseText: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMutedLight, textAlign: 'center', marginTop: 8 },
+  // 压缩真实进度百分比(缩略图遮罩层里,替代干转的圈)。
+  videoPctText: { fontFamily: fonts.regular, fontSize: 12, fontWeight: '600', color: colors.brand },
 
   // ── SealSheet 专属样式 ──
   // 标题:大一点,居中,Courier Prime,深棕。
