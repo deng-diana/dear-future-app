@@ -5,6 +5,23 @@
 
 ## ▶ 下一步从这里继续
 
+**▶ Resume here (2026-07-04): v1.0.1 build 15 in TestFlight, awaiting Dan's smoke test → submit for review.**
+v1.0.1 contents: perf bundle (eager upload at pick, real compression %, staged
+busy copy, no-double-charge), designer 6-pack (return-email trust line, draft
+autosave, OTP resend/8-digit, human errors, a11y, splash contrast), NEW calendar
+(vow chips One/Three/Five/Ten years + tappable header year→month→day jump),
+Sentry (DSN in EAS prod; sourcemap upload disabled via SENTRY_DISABLE_AUTO_UPLOAD
+— add SENTRY_AUTH_TOKEN later for readable JS stacks), and EAS Update (OTA:
+runtimeVersion=appVersion, channel=production) + expo-haptics baked in so UI
+polish AND the v1.0.2 seal-ceremony motion ship over-the-air, no review.
+Server: deliver DEMO mode now SCOPED to DELIVER_DEMO_EMAILS
+(review@dearfuture.space + dengdan01@gmail.com) — safe to keep on with real
+users. ALLOW_SANDBOX_PURCHASES temporarily ON for TestFlight/review window;
+turn OFF after approval (sandbox only exists in TestFlight/review anyway).
+Next: Dan smoke-tests build 15 → ASC new version 1.0.1 → attach build 15 →
+submit (What's New drafted in chat). Then: Dan's UI-detail list → fix → OTA
+push post-approval. Motion playground parked at /playground (Dan will tune).
+
 **⏰ DATED REMINDER — around Sep 3, 2026: verify Apple's FIRST PAYOUT.**
 Check App Store Connect → Payments and Financial Reports (fiscal month shows
 "Paid"?) + the company Bank of China account. Under $40 total = rolls to next
