@@ -5,6 +5,14 @@
 
 ## ▶ 下一步从这里继续
 
+**⏰ DATED REMINDER — around Sep 3, 2026: verify Apple's FIRST PAYOUT.**
+Check App Store Connect → Payments and Financial Reports (fiscal month shows
+"Paid"?) + the company Bank of China account. Under $40 total = rolls to next
+month (normal, not a failure). First real sale: £2.99 (UK) on 2026-07-03,
+verified in RevenueCat production. If payout failed: ASC banking notice → fix
+details → Apple retries next cycle; money is never lost.
+
+
 **Resume (2026-07-01) — v1.0 REJECTED (2.1a), fixed, preparing Build 12 resubmit.**
 The earlier "approved" was a FALSE ALARM (Dan misread a different project).
 Build 11 was then **rejected** — Guideline 2.1(a): reviewer "could not select the
