@@ -110,10 +110,13 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       {/* 遮罩:暖调深色,点空白处关闭。 */}
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {/* A11y: 遮罩层作为可点击的"关闭"按钮,屏幕阅读器可聚焦并触发关闭。 */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
 
         {/* 底单本体:从底部升起,只圆上面两角;整块绑下拉手势。 */}
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+        {/* A11y: accessibilityViewIsModal 让 VoiceOver 把焦点锁在底单内;
+            onAccessibilityEscape 响应"双指 Z"手势关闭(VoiceOver 标准关闭手势)。 */}
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...panResponder.panHandlers} accessibilityViewIsModal onAccessibilityEscape={onClose}>
           {/* 顶部居中抓手条,暗示可下滑。 */}
           <View style={styles.handleArea}>
             <View style={styles.handle} />

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<!--
+  Reunite — date-selection playground (browser demo, NOT shipped code)
+
+  RN PORTING NOTES (maps onto apps/mobile/src/components/Calendar.tsx):
+
+  1. Chips row ("MEET YOURSELF IN · One year · Three years ...") is a NEW small
+     component rendered ABOVE <Calendar>. Each chip computes addYears(today, N)
+     with the Feb-29 -> Feb-28 clamp, then calls onChange(date). IMPORTANT
+     (viewMonth sync trap found in prior research): Calendar keeps viewMonth in
+     LOCAL state, so a preset must ALSO navigate the calendar. Either lift
+     viewMonth up to the parent, or expose a setViewMonth ref / key-remount.
+     Presets must call BOTH: onChange(d) AND setViewMonth(first-of-d's-month).
+
+  2. The month-year label in the header becomes a <Pressable> (it is a plain
+     <Text> today). Tapping cycles mode: 'day' -> 'year' -> 'month' -> 'day'.
+     Chevrons get opacity 0 (keep footprint, same trick as chevronHidden)
+     while mode !== 'day'.
+
+  3. Year grid and month grid are two extra render branches inside the SAME
+     grid area — reuse styles.cell / styles.dayText / styles.dayTextDisabled
+     verbatim, just 3 columns instead of 7. No modal, no new screen. Give the
+     grid viewport a fixed minHeight equal to the day grid (weekRow + 6 rows
+     of 44) so the footprint never jumps between modes.
+
+  4. Rule line + result line are plain <Text> below the calendar; rule line
+     renders only while viewMonth === month(minDate) && minDate.getDate() > 1.
+
+  5. 150ms opacity fade between modes: Animated.timing on the grid container
+     (fade to 0, swap mode in the callback, fade back to 1).
+
+  Colors here follow BRAND.md targets (Ivory/Bordeaux/Antique Gold), not the
+  drifted in-app palette — see the drift note at the bottom of theme/colors.ts.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reunite — choose the day</title>
+<style>
+  :root {
+    --ivory: #F4EEE4;
+    --brown: #5B4638;
+    --bordeaux: #7A1E1E;
+    --gold: #D6B26E;
+    --shadow: #EAE1D3;          /* paper-shadow hairlines */
+    --muted: #9A8871;           /* quiet secondary text */
+    --disabled: #C9BCA8;        /* untappable days */
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--ivory);
+    color: var(--brown);
+    font-family: Georgia, 'Times New Roman', serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:disabled { cursor: default; }
+
+  /* ── phone-width stage, centered on desktop ─────────────────────── */
+  .stage {
+    max-width: 390px;
+    margin: 0 auto;
+    padding: 56px 28px 48px;
+    min-height: 100vh;
+  }
+  @media (min-width: 500px) {
+    body { padding: 48px 0; }
+    .stage {
+      min-height: 0;
+      border: 1px solid var(--shadow);
+      padding-top: 64px;
+      padding-bottom: 56px;
+    }
+  }
+
+  /* ── layer 1: micro-label + chips ───────────────────────────────── */
+  .micro-label {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .chips {
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 34px;
+  }
+  .chip {
+    color: var(--brown);
+    padding: 2px 1px;
+    transition: color 120ms ease;
+  }
+  .chip:active { color: var(--bordeaux); }
+  .chip.chip-current { color: var(--bordeaux); }
+  .chip-dot {
+    color: var(--gold);
+    margin: 0 7px;
+    user-select: none;
+  }
+
+  /* ── layer 2: calendar header ───────────────────────────────────── */
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .chevron {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--bordeaux);
+    flex: none;
+  }
+  .chevron.hidden { visibility: hidden; }   /* keep footprint, no jump */
+  .header-label {
+    font-size: 18px;
+    color: var(--brown);
+    padding: 6px 2px;
+  }
+  .header-label .affordance {
+    font-size: 13px;
+    color: var(--gold);
+    margin-left: 5px;
+  }
+  .header-label.tappable .label-text {
+    border-bottom: 1px dotted var(--gold);
+    padding-bottom: 2px;
+  }
+  .header-label .label-sub { color: var(--muted); }
+
+  /* ── layer 3: the grid (day / year / month share this viewport) ─── */
+  .grid-viewport {
+    min-height: 290px;                 /* weekday row + 6 × 44px rows */
+    transition: opacity 150ms ease;
+  }
+  .grid-viewport.fading { opacity: 0; }
+
+  .week-row, .grid-row {
+    display: flex;
+  }
+  .cell {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .weekday {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .week-row { margin-bottom: 4px; }
+
+  .day-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    color: var(--brown);
+  }
+  .cell.selected .day-circle {
+    background: var(--bordeaux);
+    color: var(--ivory);
+  }
+  .cell:disabled .day-circle,
+  .cell.disabled .day-circle { color: var(--disabled); }
+
+  /* year / month grids: same cell language, 3 columns */
+  .wide-grid { padding-top: 12px; }
+  .wide-cell {
+    flex: 1;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    color: var(--brown);
+  }
+  .wide-cell.current { border-bottom: 1px dotted var(--gold); min-height: 51px; }
+  .wide-cell:disabled { color: var(--disabled); }
+  .wide-cell:active:not(:disabled) { color: var(--bordeaux); }
+
+  /* ── rule line + result line ────────────────────────────────────── */
+  .rule-line {
+    margin-top: 18px;
+    font-size: 13.5px;
+    font-style: italic;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+    min-height: 21px;                 /* reserve so it doesn't jump */
+  }
+
+  .result {
+    margin-top: 30px;
+    padding-top: 22px;
+    border-top: 1px solid var(--shadow);
+    text-align: center;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--brown);
+    min-height: 26px;
+  }
+  .result .none { color: var(--muted); font-style: italic; font-size: 15px; }
+  .result .date { color: var(--bordeaux); }
+
+  .reset-row {
+    margin-top: 26px;
+    text-align: center;
+  }
+  .reset {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px dotted var(--muted);
+    padding-bottom: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- layer 1: presets -->
+  <div class="micro-label">Meet yourself in</div>
+  <div class="chips" id="chips"></div>
+
+  <!-- layer 2: header -->
+  <div class="cal-header">
+    <button class="chevron" id="prev" aria-label="Previous month">&lsaquo;</button>
+    <button class="header-label" id="headerLabel"></button>
+    <button class="chevron" id="next" aria-label="Next month">&rsaquo;</button>
+  </div>
+
+  <!-- layer 3: the grid -->
+  <div class="grid-viewport" id="gridViewport"></div>
+
+  <div class="rule-line" id="ruleLine"></div>
+
+  <!-- layer 4: live result -->
+  <div class="result" id="result"></div>
+
+  <div class="reset-row"><button class="reset" id="reset">Reset</button></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MONTHS = ['January','February','March','April','May','June','July',
+                'August','September','October','November','December'];
+  var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+                      'Jul','Aug','Sep','Oct','Nov','Dec'];
+  var WEEKDAYS = ['S','M','T','W','T','F','S'];
+  var DAYNAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var MIN_SEAL_DAYS = 15;   // mirrors src/constants/rules.ts
+  var PRESETS = [
+    { label: 'One year',    years: 1 },
+    { label: 'Three years', years: 3 },
+    { label: 'Five years',  years: 5 },
+    { label: 'Ten years',   years: 10 }
+  ];
+
+  function startOfDay(d) {
+    var x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() &&
+           a.getMonth() === b.getMonth() &&
+           a.getDate() === b.getDate();
+  }
+  // today + N years, same day-of-month; Feb 29 -> Feb 28 (clamp to month end)
+  function addYears(base, n) {
+    var y = base.getFullYear() + n, m = base.getMonth(), d = base.getDate();
+    var lastDay = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(d, lastDay));
+  }
+
+  var today = startOfDay(new Date());
+  var minDate = new Date(today);
+  minDate.setDate(minDate.getDate() + MIN_SEAL_DAYS);
+  minDate = startOfDay(minDate);
+  var minMonthStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+
+  // ── state ──────────────────────────────────────────────────────────
+  var mode = 'day';               // 'day' | 'year' | 'month'
+  var viewYear, viewMonth;        // month currently shown by the day grid
+  var pendingYear = null;         // year picked in year mode, awaiting month
+  var selected = null;            // Date | null
+
+  function resetState() {
+    mode = 'day';
+    viewYear = minDate.getFullYear();
+    viewMonth = minDate.getMonth();
+    pendingYear = null;
+    selected = null;
+  }
+  resetState();
+
+  // ── els ────────────────────────────────────────────────────────────
+  var $chips = document.getElementById('chips');
+  var $prev = document.getElementById('prev');
+  var $next = document.getElementById('next');
+  var $label = document.getElementById('headerLabel');
+  var $viewport = document.getElementById('gridViewport');
+  var $rule = document.getElementById('ruleLine');
+  var $result = document.getElementById('result');
+
+  // ── 150ms fade between grid modes ──────────────────────────────────
+  var fadeTimer = null;
+  function switchMode(next, fn) {
+    if (fadeTimer) clearTimeout(fadeTimer);
+    $viewport.classList.add('fading');
+    fadeTimer = setTimeout(function () {
+      mode = next;
+      if (fn) fn();
+      render();
+      // next frame so the opacity transition actually plays
+      requestAnimationFrame(function () {
+        $viewport.classList.remove('fading');
+      });
+    }, 150);
+  }
+
+  // ── chips ──────────────────────────────────────────────────────────
+  function renderChips() {
+    $chips.textContent = '';
+    PRESETS.forEach(function (p, i) {
+      if (i > 0) {
+        var dot = document.createElement('span');
+        dot.className = 'chip-dot';
+        dot.textContent = '·';
+        $chips.appendChild(dot);
+      }
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = p.label;
+      var target = addYears(today, p.years);
+      if (selected && sameDay(selected, target)) b.classList.add('chip-current');
+      b.setAttribute('aria-pressed', b.classList.contains('chip-current') ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        var d = addYears(today, p.years);
+        selected = d;
+        // the sync trap: select AND navigate the calendar to that month
+        viewYear = d.getFullYear();
+        viewMonth = d.getMonth();
+        if (mode !== 'day') switchMode('day'); else render();
+      });
+      $chips.appendChild(b);
+    });
+  }
+
+  // ── header ─────────────────────────────────────────────────────────
+  function renderHeader() {
+    var canGoPrev = mode === 'day' &&
+      new Date(viewYear, viewMonth, 1).getTime() > minMonthStart.getTime();
+    $prev.classList.toggle('hidden', mode !== 'day' || !canGoPrev);
+    $next.classList.toggle('hidden', mode !== 'day');
+    $prev.disabled = mode !== 'day' || !canGoPrev;
+    $next.disabled = mode !== 'day';
+
+    $label.textContent = '';
+    $label.classList.toggle('tappable', mode === 'day');
+    var span = document.createElement('span');
+    span.className = 'label-text';
+    if (mode === 'day') {
+      span.textContent = MONTHS[viewMonth] + ' ' + viewYear;
+      $label.appendChild(span);
+      var aff = document.createElement('span');
+      aff.className = 'affordance';
+      aff.textContent = '›';
+      $label.appendChild(aff);
+      $label.setAttribute('aria-label', 'Choose a year');
+    } else if (mode === 'year') {
+      span.textContent = String(viewYear);
+      $label.appendChild(span);
+      $label.setAttribute('aria-label', 'Back to days');
+    } else { // month
+      span.textContent = pendingYear + ' ';
+      $label.appendChild(span);
+      var sub = document.createElement('span');
+      sub.className = 'label-sub';
+      sub.textContent = '· choose a month';
+      $label.appendChild(sub);
+      $label.setAttribute('aria-label', 'Back to days');
+    }
+  }
+
+  $label.addEventListener('click', function () {
+    if (mode === 'day') switchMode('year');
+    else switchMode('day', function () { pendingYear = null; });  // quiet escape hatch
+  });
+  $prev.addEventListener('click', function () {
+    if (mode !== 'day') return;
+    var m = viewMonth - 1, y = viewYear;
+    if (m < 0) { m = 11; y--; }
+    if (new Date(y, m, 1).getTime() < minMonthStart.getTime()) return;
+    viewYear = y; viewMonth = m;
+    render();
+  });
+  $next.addEventListener('click', function () {
+    if (mode !== 'day') return;
+    viewMonth++;
+    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+    render();
+  });
+
+  // ── grids ──────────────────────────────────────────────────────────
+  function renderDayGrid() {
+    var frag = document.createDocumentFragment();
+
+    var weekRow = document.createElement('div');
+    weekRow.className = 'week-row';
+    WEEKDAYS.forEach(function (w) {
+      var c = document.createElement('div');
+      c.className = 'cell';
+      var t = document.createElement('span');
+      t.className = 'weekday';
+      t.textContent = w;
+      c.appendChild(t);
+      weekRow.appendChild(c);
+    });
+    frag.appendChild(weekRow);
+
+    var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+    var cells = [];
+    for (var i = 0; i < firstWeekday; i++) cells.push(null);
+    for (var d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length < 42) cells.push(null);
+
+    for (var row = 0; row < 6; row++) {
+      var rowEl = document.createElement('div');
+      rowEl.className = 'grid-row';
+      for (var col = 0; col < 7; col++) {
+        var day = cells[row * 7 + col];
+        if (day === null) {
+          var blank = document.createElement('div');
+          blank.className = 'cell';
+          rowEl.appendChild(blank);
+          continue;
+        }
+        var thisDate = new Date(viewYear, viewMonth, day);
+        var disabled = thisDate.getTime() < minDate.getTime();
+        var isSel = selected && sameDay(thisDate, selected);
+        var btn = document.createElement('button');
+        btn.className = 'cell' + (isSel ? ' selected' : '') + (disabled ? ' disabled' : '');
+        btn.disabled = disabled;
+        btn.setAttribute('aria-label', MONTHS[viewMonth] + ' ' + day + ', ' + viewYear);
+        if (isSel) btn.setAttribute('aria-pressed', 'true');
+        var circle = document.createElement('span');
+        circle.className = 'day-circle';
+        circle.textContent = day;
+        btn.appendChild(circle);
+        btn.addEventListener('click', (function (dd) {
+          return function () {
+            selected = new Date(viewYear, viewMonth, dd);
+            render();
+          };
+        })(day));
+        rowEl.appendChild(btn);
+      }
+      frag.appendChild(rowEl);
+    }
+    return frag;
+  }
+
+  function renderYearGrid() {
+    var frag = document.createDocumentFragment();
+    var wrap = document.createElement('div');
+    wrap.className = 'wide-grid';
+    var startYear = minDate.getFullYear();
+    var years = [];
+    for (var y = startYear; y <= startYear + 10; y++) years.push(y);
+    for (var r = 0; r < Math.ceil(years.length / 3); r++) {
+      var rowEl = document.createElement('div');
+      rowEl.className = 'grid-row';
+      for (var c = 0; c < 3; c++) {
+        var idx = r * 3 + c;
+        if (idx >= years.length) {
+          var blank = document.createElement('div');
+          blank.className = 'wide-cell';
+          rowEl.appendChild(blank);
+          continue;
+        }
+        var year = years[idx];
+        var btn = document.createElement('button');
+        btn.className = 'wide-cell' + (year === viewYear ? ' current' : '');
+        btn.textContent = year;
+        btn.setAttribute('aria-label', 'Year ' + year);
+        btn.addEventListener('click', (function (yy) {
+          return function () {
+            switchMode('month', function () { pendingYear = yy; });
+          };
+        })(year));
+        rowEl.appendChild(btn);
+      }
+      wrap.appendChild(rowEl);
+    }
+    frag.appendChild(wrap);
+    return frag;
+  }
+
+  function renderMonthGrid() {
+    var frag = document.createDocumentFragment();
+    var wrap = document.createElement('div');
+    wrap.className = 'wide-grid';
+    for (var r = 0; r < 4; r++) {
+      var rowEl = document.createElement('div');
+      rowEl.className = 'grid-row';
+      for (var c = 0; c < 3; c++) {
+        var m = r * 3 + c;
+        // a month is disabled only if it ends before minDate
+        var monthEnd = new Date(pendingYear, m + 1, 0);
+        var disabled = monthEnd.getTime() < minDate.getTime();
+        var isCurrent = pendingYear === viewYear && m === viewMonth;
+        var btn = document.createElement('button');
+        btn.className = 'wide-cell' + (isCurrent && !disabled ? ' current' : '');
+        btn.disabled = disabled;
+        btn.textContent = MONTHS_SHORT[m];
+        btn.setAttribute('aria-label', MONTHS[m] + ' ' + pendingYear);
+        btn.addEventListener('click', (function (mm) {
+          return function () {
+            switchMode('day', function () {
+              viewYear = pendingYear;
+              viewMonth = mm;
+              pendingYear = null;
+            });
+          };
+        })(m));
+        rowEl.appendChild(btn);
+      }
+      wrap.appendChild(rowEl);
+    }
+    frag.appendChild(wrap);
+    return frag;
+  }
+
+  // ── rule + result lines ────────────────────────────────────────────
+  function renderRule() {
+    // only while the visible day grid contains greyed-out days
+    var show = mode === 'day' &&
+               viewYear === minDate.getFullYear() &&
+               viewMonth === minDate.getMonth() &&
+               minDate.getDate() > 1;
+    $rule.textContent = show
+      ? 'A letter needs at least ' + MIN_SEAL_DAYS + ' days to travel — the nearest day is ' +
+        MONTHS[minDate.getMonth()] + ' ' + minDate.getDate() + '.'
+      : '';
+  }
+
+  function renderResult() {
+    $result.textContent = '';
+    if (!selected) {
+      var none = document.createElement('span');
+      none.className = 'none';
+      none.textContent = 'No day chosen yet.';
+      $result.appendChild(none);
+      return;
+    }
+    $result.appendChild(document.createTextNode('Returning '));
+    var strong = document.createElement('span');
+    strong.className = 'date';
+    strong.textContent = DAYNAMES[selected.getDay()] + ', ' +
+      MONTHS[selected.getMonth()] + ' ' + selected.getDate() + ', ' +
+      selected.getFullYear();
+    $result.appendChild(strong);
+  }
+
+  // ── master render ──────────────────────────────────────────────────
+  function render() {
+    renderChips();
+    renderHeader();
+    $viewport.textContent = '';
+    if (mode === 'day') $viewport.appendChild(renderDayGrid());
+    else if (mode === 'year') $viewport.appendChild(renderYearGrid());
+    else $viewport.appendChild(renderMonthGrid());
+    renderRule();
+    renderResult();
+  }
+
+  document.getElementById('reset').addEventListener('click', function () {
+    resetState();
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

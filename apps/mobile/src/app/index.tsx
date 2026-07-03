@@ -2,6 +2,7 @@
 // 付款验证由 supabase/functions/seal-letter/index.ts 在服务器端完成——
 // 客户端只传购买凭证 ID,服务器向 RevenueCat 确认后才落库。
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -67,6 +68,10 @@ const LADDER = [
 
 // Tier ordering by "how much media" — used to explain why a tap can't switch tiers.
 const TIER_RANK = { words: 0, photos: 1, video: 2 } as const;
+
+// 草稿的本机存储键 + 开屏预填文案(判断「用户是否真的写过字」都以它为准)。
+const DRAFT_KEY = 'reunite_draft';
+const DRAFT_DEFAULT = 'Dear future me,\n\n';
 
 // 生成唯一的上传文件名(如 photo-x7f2k9)。模块级纯工具 —— 组件内直接调 Math.random
 // 会被 React Compiler 判为「渲染期不纯」而报错,提出来则只在事件处理器里执行。
@@ -154,6 +159,25 @@ export default function WriteScreen() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // ── 草稿自动保存(「真实高于体面」:写了 40 分钟的真心话,绝不能因来电/切走被杀而消失)──
+  // 启动时:本机存过草稿、且当前还是预填状态 → 恢复(绝不覆盖用户已在写的内容)。
+  useEffect(() => {
+    AsyncStorage.getItem(DRAFT_KEY)
+      .then((saved) => {
+        if (saved && saved.trim() && saved !== DRAFT_DEFAULT) {
+          setLetter((cur) => (cur === DRAFT_DEFAULT ? saved : cur));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  // 输入防抖写盘:停笔 800ms 才写一次(不逐键写);封存成功/再写一封时清除(见下)。
+  useEffect(() => {
+    const t = setTimeout(() => {
+      AsyncStorage.setItem(DRAFT_KEY, letter).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [letter]);
 
   // 最早可选的送达日 = 今天(归零到 00:00)+ MIN_SEAL_DAYS 天。
   // 用 useMemo 按"今天是哪天"缓存:同一天内复用同一个对象(不每次按键都重算),
@@ -338,7 +362,7 @@ export default function WriteScreen() {
       // "Edge Function returned a non-2xx status code" —— 真正的服务器拒绝原因
       // (JSON { error, message })在 error.context(原始 Response)里。
       // 先读 context 的响应体,拿到服务器的真实原因,否则用户只看到一句没用的笼统报错。
-      let msg = 'Something went wrong. Please try again.';
+      let msg = 'Something went sideways — your letter is safe. Please try again.';
       const res = (error as { context?: Response }).context;
       if (res && typeof res.json === 'function') {
         try {
@@ -355,8 +379,9 @@ export default function WriteScreen() {
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
 
-    // 封存成功 → 这封信的付款凭证已消费,清掉(下一封是全新的购买)。
+    // 封存成功 → 这封信的付款凭证已消费,清掉(下一封是全新的购买);本机草稿也功成身退。
     pendingTxRef.current = null;
+    AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
     // 封存成功后顺手 nudge 一下 deliver(fire-and-forget,不阻塞封存动画)。
     // 生产环境无害:deliver 只送「已到期」的信 —— 刚封的未来信不会被送。
     // 审核期把服务器端 deliver 设成即时模式(DEMO_MODE),这一下就让审核员的信「秒到」邮箱。
@@ -458,11 +483,12 @@ export default function WriteScreen() {
       // (媒体已上传,同样成为可接受的孤儿文件;详见上面取消分支的说明。)
       setBusy(false);
       setBusyPhase(null);
-      Alert.alert(
-        'Something went wrong',
-        result.error ?? 'The purchase could not be completed. Please try again.',
-        [{ text: 'OK' }],
-      );
+      // 错误文案人味化:绝不把 RevenueCat/StoreKit 的原始报错甩给用户。
+      const friendly =
+        result.error && /network|internet|offline|connection/i.test(result.error)
+          ? "You're offline. Your letter is safe — try again in a moment."
+          : "The purchase didn't go through and nothing was charged. Please try again.";
+      Alert.alert('Something went wrong', friendly, [{ text: 'OK' }]);
     }
   }
 
@@ -642,7 +668,8 @@ export default function WriteScreen() {
 
   // 封存之后想再写一封:清空内容 + 清掉附件,回到全新写信屏(但仍保持登录)。
   function writeAnother() {
-    setLetter('Dear future me,\n\n');
+    setLetter(DRAFT_DEFAULT);
+    AsyncStorage.removeItem(DRAFT_KEY).catch(() => {}); // 新的一封,旧草稿清场
     setDeliverOn(null);
     setSealed(false);
     setSelectedTierKey(null);
@@ -722,6 +749,10 @@ export default function WriteScreen() {
           {/* A2: accessibilityLiveRegion="assertive" 确保 Android TalkBack 也能立即播报;ref 用于 iOS VoiceOver 焦点 */}
           <Text ref={sealedHeadingRef} style={styles.sealedText} accessibilityLiveRegion="assertive">Your letter is sealed</Text>
           <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
+          {/* 已封存屏也轻声告知回信地址(信任的余韵;AccountButton 本就展示该地址,不违反「消失」)。 */}
+          {session?.user?.email ? (
+            <Text style={styles.sealedEmailHint}>It will return to {session.user.email}</Text>
+          ) : null}
         </View>
 
         {/* 底部按钮:与写信页 Seal 按钮同款(实心主题色、直角、近白文字),但更窄更精致。 */}
@@ -890,6 +921,10 @@ export default function WriteScreen() {
           )}
           {/* 送达日 */}
           <Text style={styles.sealSheetItem}>Returning {formatDate(effectiveDate)}</Text>
+          {/* 回到哪:付费/封存前最强的信任证据 —— 用户亲眼看到信将回到自己的邮箱。 */}
+          {session?.user?.email ? (
+            <Text style={styles.sealSheetItem}>to {session.user.email}</Text>
+          ) : null}
         </View>
 
         {/* 分割线:细金 */}
@@ -1311,5 +1346,15 @@ const styles = StyleSheet.create({
     color: colors.brandText, // B: 文字场景用 brandText 而非 brand,确保对比度 AA
     textAlign: 'center',
     paddingHorizontal: 32,
+  },
+  // 已封存屏的回信地址:比 sealedHint 更轻的一行(小一号、静默色),只是余韵不抢戏。
+  sealedEmailHint: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMutedLight,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    marginTop: 8,
   },
 });

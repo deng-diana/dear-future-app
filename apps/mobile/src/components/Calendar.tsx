@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts } from '@/theme';
+import { MIN_SEAL_DAYS } from '@/constants/rules';
 
 // 自制的 Courier Prime 月历:纯 React Native,iOS / Web 都能跑(不依赖原生组件)。
 // 故意做得克制、留白多、方角、无图片 —— 像一张纸上手画的日历。
@@ -45,6 +46,11 @@ export default function Calendar({ value, minDate, onChange }: Props) {
   // 能不能往前翻?—— 显示月若已经是下限那个月(或更早),就不能再往前。
   const minMonthStart = new Date(min.getFullYear(), min.getMonth(), 1);
   const canGoPrev = viewMonth.getTime() > minMonthStart.getTime();
+
+  // 当前视图月是否包含灰色(不可选)日期 —— 是就显示最短天数提示。
+  const showHint = viewMonth.getTime() <= minMonthStart.getTime();
+  // 格式化下限日期(如 "July 4, 2026"),用于提示文字。
+  const formattedMin = `${MONTHS[min.getMonth()]} ${min.getDate()}, ${min.getFullYear()}`;
 
   function goPrev() {
     if (!canGoPrev) return;
@@ -121,6 +127,13 @@ export default function Calendar({ value, minDate, onChange }: Props) {
           );
         })}
       </View>
+
+      {/* 最短封存天数提示:仅在视图月含有灰色(不可选)日期时显示,翻过去就消失。 */}
+      {showHint && (
+        <Text style={styles.hintText}>
+          A letter needs at least {MIN_SEAL_DAYS} {MIN_SEAL_DAYS === 1 ? 'day' : 'days'} to travel — the nearest day is {formattedMin}.
+        </Text>
+      )}
     </View>
   );
 }
@@ -157,4 +170,14 @@ const styles = StyleSheet.create({
   dayText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
   dayTextDisabled: { color: colors.textDisabled }, // 早于下限:更浅的禁用色,明显区分可选/不可选(disabled WCAG 豁免)
   dayTextSelected: { color: colors.background }, // 选中:奶白字
+
+  // 最短天数提示:小字、静默色、左对齐,不挤压网格布局。
+  hintText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'left',
+    marginTop: 6,
+    alignSelf: 'stretch',
+  },
 });

@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 21,
-    color: colors.brand,
+    color: colors.brandText, // WCAG AA: 换用更深的 brandText(#84410F)代替 brand(#B26B24),提升照片背景上的对比度。
     textAlign: 'center',
     marginTop: 14,
   },
