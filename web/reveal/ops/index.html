@@ -146,6 +146,11 @@
         banner.textContent = 'Could not load stats (' + e.message + '). Refresh to retry.'; } });
   }
   load();
+
+  // 「准实时」:页面开着时每 60 秒自动刷新一次;切回本标签页的瞬间也立刻刷新。
+  // 成本≈0:一次刷新 = 一次 Edge Function 调用(免费额度 50 万次/月,用不完)。
+  setInterval(function () { if (!document.hidden) load(); }, 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
 </script>
 </body>
 </html>
