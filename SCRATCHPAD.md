@@ -24,6 +24,11 @@ session block). Both review-accommodation secrets (`DELIVER_DEMO_MODE`,
 only after a REAL approval ([[reunite-launch-revert-after-approval]]; service_role
 rotation = SKIP, legacy-keys reason unchanged).
 
+**📣 ANNOUNCED (2026-07-03): LinkedIn launch post published** —
+https://www.linkedin.com/posts/deng-diana_im-happy-to-share-that-reunite-is-now-live-ugcPost-7478827448407633920-xbyX
+(9 photos as the post media; demo video reserved for a follow-up post later.
+First real sale verified same day: £2.99 UK → RevenueCat production tx.)
+
 **🎉 LAUNCHED (2026-07-03): Reunite v1.0 is LIVE — "Ready for Distribution".**
 Pre-release checklist all done: review secrets deleted (verified), payment chain
 audited by two agents (production purchases verified end-to-end; RevenueCat .p8
