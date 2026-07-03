@@ -101,14 +101,18 @@
   }
   .chip {
     color: var(--brown);
-    padding: 2px 1px;
-    transition: color 120ms ease;
+    /* 专家共识:金色点状下划线 = 本页已有的「可点」暗号(月份标题/年月格同款),
+       不做胶囊按钮(软件壳)。热区用透明 padding 撑到 ~44px,视觉不变。 */
+    border-bottom: 1px dotted var(--gold);
+    padding: 12px 4px 3px;
+    margin: -12px -4px 0;
+    transition: color 120ms ease, border-color 120ms ease;
   }
-  .chip:active { color: var(--bordeaux); }
-  .chip.chip-current { color: var(--bordeaux); }
+  .chip:active { color: var(--bordeaux); border-bottom-color: var(--bordeaux); }
+  .chip.chip-current { color: var(--bordeaux); border-bottom-color: var(--bordeaux); }
   .chip-dot {
     color: var(--gold);
-    margin: 0 7px;
+    margin: 0 9px;
     user-select: none;
   }
 
@@ -259,7 +263,11 @@
   <!-- layer 4: live result -->
   <div class="result" id="result"></div>
 
-  <div class="reset-row"><button class="reset" id="reset">Reset</button></div>
+  <div class="reset-row">
+    <button class="reset" id="reset">Reset</button>
+    <span class="chip-dot">·</span>
+    <button class="reset" id="labelToggle">Try digits (1 year)</button>
+  </div>
 </div>
 
 <script>
@@ -273,12 +281,15 @@
   var WEEKDAYS = ['S','M','T','W','T','F','S'];
   var DAYNAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   var MIN_SEAL_DAYS = 15;   // mirrors src/constants/rules.ts
+  // 两套文案:words = 专家推荐(誓言感,和满屏日历数字区分);digits = 创始人提议(更简洁)。
+  // 底部开关可即时切换,亲眼对比后拍板。
   var PRESETS = [
-    { label: 'One year',    years: 1 },
-    { label: 'Three years', years: 3 },
-    { label: 'Five years',  years: 5 },
-    { label: 'Ten years',   years: 10 }
+    { label: 'One year',    digits: '1 year',   years: 1 },
+    { label: 'Three years', digits: '3 years',  years: 3 },
+    { label: 'Five years',  digits: '5 years',  years: 5 },
+    { label: 'Ten years',   digits: '10 years', years: 10 }
   ];
+  var useDigits = false;
 
   function startOfDay(d) {
     var x = new Date(d);
@@ -355,7 +366,7 @@
       }
       var b = document.createElement('button');
       b.className = 'chip';
-      b.textContent = p.label;
+      b.textContent = useDigits ? p.digits : p.label;
       var target = addYears(today, p.years);
       if (selected && sameDay(selected, target)) b.classList.add('chip-current');
       b.setAttribute('aria-pressed', b.classList.contains('chip-current') ? 'true' : 'false');
@@ -602,6 +613,14 @@
 
   document.getElementById('reset').addEventListener('click', function () {
     resetState();
+    render();
+  });
+
+  // 文案 A/B:一键在「One year(专家推荐)」和「1 year(创始人提议)」之间切换。
+  var $labelToggle = document.getElementById('labelToggle');
+  $labelToggle.addEventListener('click', function () {
+    useDigits = !useDigits;
+    $labelToggle.textContent = useDigits ? 'Try words (One year)' : 'Try digits (1 year)';
     render();
   });
 
