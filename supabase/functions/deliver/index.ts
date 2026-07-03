@@ -19,20 +19,35 @@ Deno.serve(async () => {
   // 它按每个用户自己的时区,在 deliver_on 当天的本地 19:00(7pm)到点才放行;
   // 没有时区(老信)降级为 UTC 7pm。delivered_at 已填的会被它过滤掉(防重发)。
   //
-  // 审核临时开关:Supabase secret DELIVER_DEMO_MODE == 'true' 时,不看日期 ——
-  // 所有「没送过」的信立刻发,让 App Store 审核员封完信几秒就在自己邮箱收到、当场验证送达。
-  // ⚠️ 审核通过后务必把这个 secret 删掉 / 设回非 'true' —— 否则未来的信会被立即发出,破坏产品核心。
+  // 审核临时开关(2026-07 上线后改为「按账号圈定」,对真实用户永远安全):
+  // DELIVER_DEMO_MODE == 'true' 时,演示账号(DELIVER_DEMO_EMAILS,逗号分隔,
+  // 默认 review@dearfuture.space)的信不看日期、立刻发 —— 让审核员/创始人当场验证送达。
+  // 其他所有账号照常走 due_letters() 的到期规则 —— 上线后开着它也不会破坏真实用户的信。
   // secret 改了即时生效,无需重新部署。
   const DEMO = Deno.env.get('DELIVER_DEMO_MODE') === 'true';
-  const { data: letters, error } = DEMO
-    ? await supabase
-        .from('letters')
-        .select('id, owner_id, body, deliver_on, reveal_token, sealed_at')
-        .is('delivered_at', null)
-    : await supabase.rpc('due_letters');
+  const DEMO_EMAILS = (Deno.env.get('DELIVER_DEMO_EMAILS') ?? 'review@dearfuture.space')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 
+  // 永远先取「正常到期」的信;演示模式再额外补上「演示账号的未送信」(下面按邮箱过滤)。
+  const { data: dueData, error } = await supabase.rpc('due_letters');
   if (error) {
     return json({ error: error.message }, 500);
+  }
+  type LetterRow = { id: string; owner_id: string; body: string; deliver_on: string; reveal_token: string; sealed_at: string | null; _demoOnly?: boolean };
+  const letters: LetterRow[] = (dueData ?? []) as LetterRow[];
+  if (DEMO) {
+    const dueIds = new Set(letters.map((l) => l.id));
+    const { data: extra, error: e2 } = await supabase
+      .from('letters')
+      .select('id, owner_id, body, deliver_on, reveal_token, sealed_at')
+      .is('delivered_at', null);
+    if (!e2) {
+      for (const l of (extra ?? []) as LetterRow[]) {
+        if (!dueIds.has(l.id)) letters.push({ ...l, _demoOnly: true }); // 只是候选,发送前还要验邮箱
+      }
+    }
   }
 
   const results: unknown[] = [];
@@ -43,6 +58,12 @@ Deno.serve(async () => {
     const email = userRes?.user?.email;
     if (uErr || !email) {
       results.push({ id: letter.id, sent: false, reason: 'no email for owner' });
+      continue;
+    }
+
+    // 演示圈定:只因演示模式被捞出来(还没到期)的信,主人必须是演示账号;否则跳过。
+    if (letter._demoOnly && !DEMO_EMAILS.includes(email.toLowerCase())) {
+      results.push({ id: letter.id, sent: false, reason: 'demo scope: not a demo account' });
       continue;
     }
 
