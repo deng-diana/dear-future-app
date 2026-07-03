@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 创始人专属数据看板。无密钥 = 只显示一个输入框;数字全部来自 ops-stats 接口。 -->
+<meta name="robots" content="noindex, nofollow">
+<title>Reunite — Ops</title>
+<style>
+  :root {
+    --ivory: #F4EEE4; --brown: #5B4638; --soft: #6B5A4B;
+    --bordeaux: #7A1E1E; --gold: #D6B26E; --shadow: #EAE1D3;
+    --alert: #A02C2C; --ok: #3E7A4E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ivory); color: var(--brown);
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh; display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 560px; padding: 48px 24px 64px; }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: var(--soft); font-size: 14px; margin: 0 0 32px; }
+
+  /* 密钥输入(只在没存密钥/密钥错时出现) */
+  #gate { display: none; }
+  #gate input {
+    width: 100%; padding: 12px 14px; font-size: 16px; font-family: inherit;
+    border: 1px solid var(--shadow); border-radius: 8px; background: #FBF7EF; color: var(--brown);
+  }
+  #gate button {
+    margin-top: 12px; padding: 11px 22px; font-size: 15px; font-family: inherit;
+    background: var(--bordeaux); color: var(--ivory); border: 0; border-radius: 8px; cursor: pointer;
+  }
+  .err { color: var(--alert); font-size: 14px; margin-top: 10px; }
+
+  /* 看板 */
+  #board { display: none; }
+  .banner { padding: 12px 16px; border-radius: 8px; font-size: 15px; margin-bottom: 24px; }
+  .banner.ok    { background: #E8F0E8; color: var(--ok); }
+  .banner.alert { background: #F6E3E3; color: var(--alert); font-weight: 700; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card {
+    background: #FBF7EF; border: 1px solid var(--shadow); border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .card .label { font-size: 13px; color: var(--soft); margin-bottom: 6px; }
+  .card .value { font-size: 28px; font-weight: 600; }
+  .card .hint  { font-size: 12px; color: var(--soft); margin-top: 4px; }
+  .card.wide { grid-column: 1 / -1; }
+  .value .accent { color: var(--bordeaux); }
+  footer { margin-top: 28px; font-size: 12px; color: var(--soft); display: flex; justify-content: space-between; }
+  footer button { background: none; border: 0; color: var(--soft); font: inherit; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reunite · Ops</h1>
+  <p class="sub">Founder dashboard — private.</p>
+
+  <div id="gate">
+    <input id="key" type="password" placeholder="Ops key" autocomplete="off">
+    <br>
+    <button onclick="saveKey()">Open</button>
+    <div id="gateErr" class="err"></div>
+  </div>
+
+  <div id="board">
+    <div id="banner" class="banner ok"></div>
+    <div class="grid">
+      <div class="card"><div class="label">New users (24h)</div><div class="value" id="new_users_24h">–</div><div class="hint" id="total_users"></div></div>
+      <div class="card"><div class="label">Letters sealed (24h)</div><div class="value" id="letters_24h">–</div><div class="hint" id="letters_total"></div></div>
+      <div class="card"><div class="label">With photos</div><div class="value" id="with_photos">–</div></div>
+      <div class="card"><div class="label">With video</div><div class="value" id="with_video">–</div></div>
+      <div class="card"><div class="label">Paid $2.99 / $5.99</div><div class="value" id="paid">–</div></div>
+      <div class="card"><div class="label">Revenue (gross est.)</div><div class="value accent" id="revenue_usd">–</div></div>
+      <div class="card"><div class="label">Delivered (24h / total)</div><div class="value" id="delivered">–</div></div>
+      <div class="card"><div class="label">Storage used</div><div class="value" id="storage_mb">–</div><div class="hint" id="storage_hint">of 1024 MB (free tier)</div></div>
+    </div>
+    <footer>
+      <span id="stamp"></span>
+      <button onclick="forgetKey()">Sign out</button>
+    </footer>
+  </div>
+</main>
+
+<script>
+  // 统计接口(Supabase Edge Function)。密钥放在请求头,存在 localStorage,只有这台浏览器知道。
+  var API = 'https://vxvgcozpuerrjtoxwumi.supabase.co/functions/v1/ops-stats';
+  var KEY_NAME = 'reunite_ops_key';
+  // anon key = 平台的「公开门票」(App 和 reveal 页里也带着,本来就是公开的)。
+  // Edge Function 大门先验它,进门后再验真正的私钥 x-ops-key。
+  var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4dmdjb3pwdWVycmp0b3h3dW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzAyODQsImV4cCI6MjA5Njg0NjI4NH0.POL88HDZCOubSx-2b-i0HBP3CK7Sn72TZRzeKz-nuhk';
+
+  function show(id) { document.getElementById('gate').style.display = id === 'gate' ? 'block' : 'none';
+                      document.getElementById('board').style.display = id === 'board' ? 'block' : 'none'; }
+  function saveKey() {
+    var v = document.getElementById('key').value.trim();
+    if (!v) return;
+    localStorage.setItem(KEY_NAME, v);
+    load();
+  }
+  function forgetKey() { localStorage.removeItem(KEY_NAME); show('gate'); }
+  function set(id, text) { document.getElementById(id).textContent = text; }
+
+  function load() {
+    var key = localStorage.getItem(KEY_NAME);
+    if (!key) { show('gate'); return; }
+    fetch(API, { headers: { 'x-ops-key': key, 'Authorization': 'Bearer ' + ANON, 'apikey': ANON } })
+      .then(function (r) {
+        if (r.status === 401) { localStorage.removeItem(KEY_NAME); show('gate');
+          document.getElementById('gateErr').textContent = 'Wrong key.'; throw new Error('401'); }
+        if (!r.ok) throw new Error('http ' + r.status);
+        return r.json();
+      })
+      .then(function (s) {
+        show('board');
+        var overdue = s.overdue_undelivered || 0;
+        var banner = document.getElementById('banner');
+        if (overdue > 0) { banner.className = 'banner alert';
+          banner.textContent = '⚠️ ' + overdue + ' letter(s) past due and NOT delivered — investigate now.'; }
+        else { banner.className = 'banner ok';
+          banner.textContent = '✅ Delivery pipeline healthy — no overdue letters.'; }
+        set('new_users_24h', s.new_users_24h);
+        set('total_users', 'total ' + s.total_users);
+        set('letters_24h', s.letters_24h);
+        set('letters_total', 'total ' + s.letters_total);
+        set('with_photos', s.with_photos);
+        set('with_video', s.with_video);
+        set('paid', s.paid_photos + ' / ' + s.paid_video);
+        set('revenue_usd', '$' + s.revenue_usd);
+        set('delivered', s.delivered_24h + ' / ' + s.delivered_total);
+        // 存储水位:>800 MB 变红 —— 那是「该升级 Supabase Pro」的信号线。
+        var mb = s.storage_mb != null ? s.storage_mb : 0;
+        set('storage_mb', mb + ' MB');
+        if (mb > 800) {
+          document.getElementById('storage_mb').style.color = 'var(--alert)';
+          document.getElementById('storage_hint').textContent = '⚠️ near the 1 GB free cap — upgrade Supabase now';
+        }
+        set('stamp', 'Updated ' + new Date().toLocaleString());
+      })
+      .catch(function (e) { if (e.message !== '401') {
+        show('board');
+        var banner = document.getElementById('banner');
+        banner.className = 'banner alert';
+        banner.textContent = 'Could not load stats (' + e.message + '). Refresh to retry.'; } });
+  }
+  load();
+</script>
+</body>
+</html>

@@ -117,8 +117,17 @@ export async function compressVideoToFit(uri: string, durationSec: number | unde
     { maxSize: 360, bitrate: Math.max(300_000, Math.round(firstBps * 0.3)), stripAudio: true },
   ];
 
+  // ── perf 打点:量出真正的瓶颈(压缩几秒 / 几遍 / 原片多大),别靠猜优化 ──
+  const t0 = Date.now();
+  const origInfo = await FileSystem.getInfoAsync(uri);
+  const origMb = origInfo.exists && typeof origInfo.size === 'number' ? Math.round(origInfo.size / 1048576) : '?';
+  console.log(`[media][perf] compress START dur=${dur}s orig=${origMb}MB firstBps=${firstBps}`);
+
   let best = uri;
+  let pass = 0;
   for (const step of ladder) {
+    pass += 1;
+    const tPass = Date.now();
     try {
       const out = await compress(uri, {     // 每档都从「原片」重压,不在已压文件上反复压(免画质叠损)
         compressionMethod: 'manual',
@@ -130,12 +139,17 @@ export async function compressVideoToFit(uri: string, durationSec: number | unde
       best = out;
       const info = await FileSystem.getInfoAsync(out);
       const size = info.exists ? info.size : undefined;
-      console.log(`[media] 压缩档 maxSize=${step.maxSize} bitrate=${step.bitrate} → ${typeof size === 'number' ? Math.round(size / 1048576) + 'MB' : '?'}`);
-      if (typeof size === 'number' && size <= TARGET_VIDEO_BYTES) return out; // 塞进目标 → 完成
+      const secs = ((Date.now() - tPass) / 1000).toFixed(1);
+      console.log(`[media][perf] pass ${pass} maxSize=${step.maxSize} bitrate=${step.bitrate} → ${typeof size === 'number' ? Math.round(size / 1048576) + 'MB' : '?'} in ${secs}s`);
+      if (typeof size === 'number' && size <= TARGET_VIDEO_BYTES) {
+        console.log(`[media][perf] compress DONE total=${((Date.now() - t0) / 1000).toFixed(1)}s passes=${pass}`);
+        return out; // 塞进目标 → 完成
+      }
     } catch (e) {
       console.warn('[media] 该档压缩失败,尝试下一档:', e);
     }
   }
+  console.log(`[media][perf] compress END(fallback) total=${((Date.now() - t0) / 1000).toFixed(1)}s passes=${pass}`);
   return best; // 跑完阶梯仍偏大(极罕见)→ 返回最后一次;上传前 50 MB 守卫会兜底拒绝
 }
 
@@ -229,6 +243,10 @@ async function streamUpload(fileUri: string, bucket: string, path: string, conte
 
   // FileSystem.uploadAsync 做的事:打开文件 → 分块读 → 发 HTTP → 释放内存。
   // 整个过程内存占用约等于一个网络缓冲块(几十 KB),而不是整个文件。
+  // perf 打点:上传文件多大、花了几秒(和压缩耗时对比,看瓶颈在哪)。
+  const tUp = Date.now();
+  const upInfo = await FileSystem.getInfoAsync(fileUri);
+  const upMb = upInfo.exists && typeof upInfo.size === 'number' ? (upInfo.size / 1048576).toFixed(1) : '?';
   const result = await FileSystem.uploadAsync(url, fileUri, {
     httpMethod: 'POST',
     uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
@@ -239,6 +257,7 @@ async function streamUpload(fileUri: string, bucket: string, path: string, conte
       'x-upsert': 'false', // 拒绝覆盖同路径的已有文件
     },
   });
+  console.log(`[media][perf] upload ${path} ${upMb}MB in ${((Date.now() - tUp) / 1000).toFixed(1)}s status=${result.status}`);
 
   // Supabase Storage 返回 200(已存在时 409 或 400);2xx = 成功。
   if (result.status < 200 || result.status >= 300) {
