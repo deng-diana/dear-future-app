@@ -1,5 +1,6 @@
 import { CourierPrime_400Regular, CourierPrime_700Bold } from '@expo-google-fonts/courier-prime';
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
+import * as Sentry from '@sentry/react-native';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useEffect } from 'react';
@@ -10,7 +11,49 @@ import { configurePurchases, clearPurchasesUser, setPurchasesUser } from '@/lib/
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
 
-export default function RootLayout() {
+// EXPO_PUBLIC_SENTRY_DSN — Data Source Name (the address Sentry uses to receive crash reports).
+// It is a public URL (safe to expose in the bundle), but we keep it in an env var so builds
+// without the secret work unchanged (Expo Go, local dev without .env).
+// DSN = Data Source Name: the unique URL that identifies which Sentry project to send events to.
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+
+    // Never send user PII (Personally Identifiable Information — any data that can identify a person).
+    // This prevents IP addresses, user-agent strings, etc. from being attached automatically.
+    sendDefaultPii: false,
+
+    // tracesSampleRate: 0 means "record crashes only, never record performance traces."
+    // Performance tracing would send request URLs and timing — we skip it for privacy + cost.
+    tracesSampleRate: 0,
+
+    // Track whether users experience crashes during a session (anonymous session = one app open).
+    enableAutoSessionTracking: true,
+
+    // Tag events so we can tell production crashes from dev runs in the Sentry dashboard.
+    environment: __DEV__ ? 'development' : 'production',
+
+    // beforeSend: a final privacy scrub on every error event before it leaves the device.
+    // We strip request.data (request body — could contain letter text) and any "extra" fields
+    // that code elsewhere might have accidentally attached.
+    beforeSend(event) {
+      // Strip request body — this is where letter content could accidentally leak.
+      if (event.request) {
+        delete event.request.data;
+        // Also wipe cookies and headers to be safe.
+        delete event.request.cookies;
+        delete event.request.headers;
+      }
+      // Strip any arbitrary key-value extras attached by instrumentation.
+      delete event.extra;
+      return event;
+    },
+  });
+}
+
+function RootLayout() {
   const colorScheme = useColorScheme();
 
   // RevenueCat SDK 初始化:app 一启动就配置好购买管道。
@@ -59,3 +102,9 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+// Sentry.wrap() adds a Profiler boundary and a TouchEventBoundary so Sentry can
+// capture unhandled JS errors at the React tree root.
+// When SENTRY_DSN is absent, Sentry.init() was never called, so wrap() is still
+// safe to call — it just adds negligible overhead with no network activity.
+export default Sentry.wrap(RootLayout);

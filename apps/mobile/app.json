@@ -52,7 +52,14 @@
           "microphonePermission": "Reunite records sound for the short video you seal inside your letter."
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "stillkind",
+          "project": "reunite"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
