@@ -16,6 +16,17 @@ session block). Both review-accommodation secrets (`DELIVER_DEMO_MODE`,
 only after a REAL approval ([[reunite-launch-revert-after-approval]]; service_role
 rotation = SKIP, legacy-keys reason unchanged).
 
+**🎉 LAUNCHED (2026-07-03): Reunite v1.0 is LIVE — "Ready for Distribution".**
+Pre-release checklist all done: review secrets deleted (verified), payment chain
+audited by two agents (production purchases verified end-to-end; RevenueCat .p8
+key "Valid credentials"), ASC Business all Active (agreement/bank/W-8BEN-E),
+Small Business Program submitted, storage bucket emptied (full 1 GB free),
+founder /ops dashboard + alert sentinel live, promo text set.
+**Next:** launch-day smoke test — download the LIVE app, buy $2.99 with a real
+Apple ID, confirm the production transaction in RevenueCat within minutes, then
+ASC Trends next day. Then LinkedIn post. Then v1.0.1 perf bundle (todo #9) +
+double-charge-on-retry fix.
+
 **Next concrete action (2026-07-02):** ✅ **DONE — Build 12 RESUBMITTED, status "1.0
 Waiting for Review".** Reply to App Review posted (explains one-time content-matched
 pricing, not a subscription). Now just wait ~24–48h for Apple's email. Build 12
