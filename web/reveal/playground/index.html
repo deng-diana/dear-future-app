@@ -1,0 +1,620 @@
+<!doctype html>
+<!--
+  Reunite — Seal Ceremony playground (browser prototype)
+  =======================================================
+  Motion narrative (1x timeline, ms):
+      60  letter enters        fade + settle (scale .96 -> 1)
+     750  envelope appears     fade + rise 14px
+    1150  letter slides in     translateY 140px + scale -> .55, behind front pocket
+    1850  flap folds closed    rotateX 178deg -> 0, perspective 700
+    2450  seal drops           translateY -70 -> 0, scale 1.6 -> 1, overshoot bezier
+    2830  STAMP SETTLES        wax squish ring + 3px envelope jolt  <== HAPTIC HERE
+    2850-3600  sacred pause    750ms, nothing moves
+    3600  departure            lift&fade OR shrink-into-distance, slow ease-in-out
+    4700  "Your letter is sealed" fades up
+    4900  gold-dust motes      sparse, 2.5-3s, drift down like dust in evening light
+    5100  sub-line fades up
+
+  React Native (reanimated) porting notes
+  ---------------------------------------
+  - Letter enter:    opacity withTiming(550), translateY 8->0 + scale .96->1,
+                     Easing.out(Easing.cubic).
+  - Envelope in:     opacity + translateY 14->0, withTiming(450).
+  - Insert:          letter translateY 0->140 + scale 1->.55,
+                     withTiming(650, Easing.inOut(Easing.cubic)).
+                     Layering: flap zIndex 1 (open) / 5 (closing), letter 2,
+                     envelope front 4, squish 6, seal 7. Swap flap zIndex when the
+                     close starts (letter is already hidden, swap is invisible).
+  - Flap close:      rotateX 178deg->0deg, withTiming(500, Easing.inOut(Easing.cubic)).
+                     transform: [{perspective: 700}, {rotateX}] — perspective FIRST.
+  - Stamp:           seal opacity withTiming(240);
+                     translateY -70->0 withTiming(380, Easing.in(Easing.quad));
+                     scale 1.6->1 withSpring({damping: 13, stiffness: 260,
+                     overshootClamping: false}) — the small undershoot IS the press.
+  - Stamp settle:    at spring rest (~380ms after stamp start), runOnJS:
+                     Haptics.impactAsync(ImpactFeedbackStyle.Medium)  // fire ONCE here
+                     + squish ring: scale .45->1.25, opacity .55->0, withTiming(420)
+                     + envelope jolt: translateY withSequence(withTiming(3, 80ms),
+                       withTiming(0, 160ms)).
+  - Sacred pause:    withDelay(750) before departure. Hold >= 600ms. Do not trim.
+  - Departure:       variant "lift": translateY -> -340, scale -> .92, opacity -> 0,
+                     withTiming(1300, Easing.bezier(.6,.04,.3,1)).
+                     variant "shrink": translateY -> -110, scale -> .08, opacity -> 0
+                     (blur is web-only sugar; skip on RN).
+  - Feedback text:   opacity + translateY 12->0, withTiming(900,
+                     Easing.out(Easing.cubic)); sub-line delayed 400ms.
+  - Gold dust:       20-40 tiny Animated.Views (or Skia) with per-particle
+                     withRepeat sway + linear fall; alpha ramp in/out. Skip
+                     entirely when AccessibilityInfo.isReduceMotionEnabled().
+  - Reduced motion:  skip straight to feedback state with a 600ms fade (mirrors
+                     the existing SealCeremony A13 behavior).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reunite — Seal Ceremony playground</title>
+<style>
+  :root {
+    --t: 1;                      /* time multiplier: 1 = 1x, 2 = 0.5x slow-mo */
+    --ivory: #F4EEE4;
+    --ink: #5B4638;
+    --ink-soft: #6B5A4B;
+    --bordeaux: #7A1E1E;
+    --gold: #D6B26E;
+    --paper-shadow: #EAE1D3;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+  body {
+    background: #ECE4D5;                 /* desktop surround, slightly deeper */
+    font-family: Georgia, 'Cormorant Garamond', 'Times New Roman', serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* ── phone-width stage ─────────────────────────────────────────────── */
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 430px;
+    min-height: 100dvh;
+    background: var(--ivory);
+    box-shadow: 0 0 60px rgba(91, 70, 56, .10);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .stage-title {
+    padding: 16px 20px 0;
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    opacity: .45;
+  }
+
+  /* ── scene ─────────────────────────────────────────────────────────── */
+  .scene {
+    position: relative;
+    flex: 1;
+    min-height: 480px;
+    width: 100%;
+  }
+
+  .pack {
+    position: absolute;
+    inset: 0;
+    transition:
+      transform calc(1300ms * var(--t)) cubic-bezier(.6, .04, .3, 1),
+      opacity   calc(1150ms * var(--t)) ease-in,
+      filter    calc(1300ms * var(--t)) ease-in;
+  }
+
+  /* ── the letter ────────────────────────────────────────────────────── */
+  .letter {
+    position: absolute;
+    left: 50%;
+    top: 68px;
+    width: 190px;
+    height: 250px;
+    margin-left: -95px;
+    z-index: 2;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0 21px,
+        rgba(91, 70, 56, .11) 21px 22px
+      ),
+      #FBF7EF;
+    border: 1px solid rgba(91, 70, 56, .08);
+    border-radius: 3px;
+    box-shadow: 0 18px 32px rgba(91, 70, 56, .10);
+    opacity: 0;
+    transform: translateY(8px) scale(.96);
+    transition:
+      opacity   calc(550ms * var(--t)) ease,
+      transform calc(550ms * var(--t)) cubic-bezier(.22, 1, .36, 1);
+  }
+  .p-letter .letter { opacity: 1; transform: none; }
+  .p-insert .letter {
+    transform: translateY(140px) scale(.55);
+    transition: transform calc(650ms * var(--t)) cubic-bezier(.65, 0, .35, 1);
+  }
+  .letter svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ── the envelope ──────────────────────────────────────────────────── */
+  .env-box {                     /* shared geometry for all envelope layers */
+    position: absolute;
+    left: 50%;
+    top: 255px;
+    width: 250px;
+    height: 160px;
+    margin-left: -125px;
+  }
+
+  .env-appear {                  /* fade/rise applied to every envelope layer */
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity   calc(450ms * var(--t)) ease,
+      transform calc(450ms * var(--t)) cubic-bezier(.22, 1, .36, 1);
+  }
+  .p-envelope .env-appear { opacity: 1; transform: none; }
+
+  .flap-wrap { perspective: 700px; z-index: 1; }
+  .p-flap .flap-wrap { z-index: 5; }
+  .flap {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 88px;
+    background: #E2D5BF;
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform-origin: top center;
+    transform: rotateX(178deg);
+    transition: transform calc(500ms * var(--t)) cubic-bezier(.55, .06, .35, 1);
+  }
+  .p-flap .flap { transform: rotateX(0deg); }
+
+  .env-front {
+    z-index: 4;
+    background: var(--paper-shadow);
+    border: 1px solid rgba(91, 70, 56, .13);
+    border-radius: 6px;
+    box-shadow: 0 16px 28px rgba(91, 70, 56, .12);
+  }
+  .env-front::after {            /* quiet V fold on the front, tone only */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #EFE7D7;
+    clip-path: polygon(0 100%, 50% 32%, 100% 100%);
+    border-radius: 6px;
+  }
+
+  /* ── wax squish ring (fires at stamp settle) ───────────────────────── */
+  .squish {
+    position: absolute;
+    left: 50%;
+    top: 343px;                  /* flap tip: envelope top 255 + flap 88 */
+    width: 96px;
+    height: 58px;
+    margin: -29px 0 0 -48px;
+    z-index: 6;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(122, 30, 30, .40), rgba(122, 30, 30, 0));
+    opacity: 0;
+    transform: scale(.45);
+  }
+  .p-settle .squish { animation: squish calc(420ms * var(--t)) ease-out forwards; }
+  @keyframes squish {
+    0%   { opacity: .55; transform: scale(.45); }
+    100% { opacity: 0;   transform: scale(1.25); }
+  }
+
+  /* whole pack takes a tiny press when the seal lands */
+  .p-settle .pack { animation: jolt calc(240ms * var(--t)) ease-out; }
+  @keyframes jolt {
+    0%   { transform: translateY(0); }
+    35%  { transform: translateY(3px); }
+    100% { transform: translateY(0); }
+  }
+
+  /* ── the wax seal ──────────────────────────────────────────────────── */
+  .seal {
+    position: absolute;
+    left: 50%;
+    top: 295px;                  /* centers the 64x96 seal on the flap tip */
+    width: 64px;
+    height: 96px;
+    margin-left: -32px;
+    z-index: 7;
+    opacity: 0;
+    transform: translateY(-70px) scale(1.6);
+    transition:
+      transform calc(380ms * var(--t)) cubic-bezier(.34, 1.35, .5, 1),
+      opacity   calc(240ms * var(--t)) ease-out;
+    filter: drop-shadow(0 6px 10px rgba(91, 70, 56, .28));
+  }
+  .p-stamp .seal { opacity: 1; transform: none; }
+  .seal img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+  /* CSS wax disc fallback if the PNG fails to load */
+  .wax-fallback { display: none; }
+  .seal.img-failed img { display: none; }
+  .seal.img-failed .wax-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 62px; height: 62px;
+    margin: -31px 0 0 -31px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #8E2A2A, var(--bordeaux) 70%);
+    box-shadow: inset 0 0 0 3px rgba(214, 178, 110, .35), 0 3px 6px rgba(91, 70, 56, .3);
+    color: var(--gold);
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  /* ── departure variants ────────────────────────────────────────────── */
+  .v-lift.p-depart .pack   { opacity: 0; transform: translateY(-340px) scale(.92); }
+  .v-shrink.p-depart .pack { opacity: 0; transform: translateY(-110px) scale(.08); filter: blur(2px); }
+
+  /* ── feedback ──────────────────────────────────────────────────────── */
+  .feedback {
+    position: absolute;
+    left: 24px; right: 24px;
+    top: 44%;
+    text-align: center;
+    z-index: 8;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity   calc(900ms * var(--t)) ease,
+      transform calc(900ms * var(--t)) cubic-bezier(.22, 1, .36, 1);
+  }
+  .p-feedback .feedback { opacity: 1; transform: none; }
+  .feedback .star { color: var(--gold); font-size: 15px; letter-spacing: 0; }
+  .feedback h1 {
+    margin-top: 14px;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--ink);
+  }
+  .feedback .sub {
+    margin: 14px auto 0;
+    max-width: 270px;
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity   calc(900ms * var(--t)) ease,
+      transform calc(900ms * var(--t)) cubic-bezier(.22, 1, .36, 1);
+  }
+  .p-subline .feedback .sub { opacity: 1; transform: none; }
+
+  /* ── gold-dust canvas ──────────────────────────────────────────────── */
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* ── reduced motion: skip to final state with a gentle fade ────────── */
+  .reduced .pack, .reduced canvas { display: none; }
+  .reduced .feedback, .reduced .feedback .sub {
+    transition-duration: 600ms;
+  }
+
+  .no-anim, .no-anim * { transition: none !important; animation: none !important; }
+
+  /* ── playground controls (not part of the shipped ceremony) ────────── */
+  .controls {
+    padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(91, 70, 56, .12);
+    background: var(--ivory);
+    font-size: 11px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    z-index: 20;
+  }
+  .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .row .lbl {
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    opacity: .55;
+    width: 74px;
+    flex: none;
+  }
+  button {
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid rgba(91, 70, 56, .25);
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  button.on {
+    color: var(--bordeaux);
+    border-color: var(--bordeaux);
+  }
+  button.replay {
+    color: var(--ivory);
+    background: var(--bordeaux);
+    border-color: var(--bordeaux);
+    padding: 5px 18px;
+  }
+  .haptic-dot {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 9px;
+    letter-spacing: .08em;
+    opacity: .5;
+  }
+  .haptic-dot i {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(91, 70, 56, .25);
+    font-style: normal;
+  }
+  .haptic-dot.ping i {
+    background: var(--bordeaux);
+    box-shadow: 0 0 0 5px rgba(122, 30, 30, .18);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage v-lift" id="stage">
+  <div class="stage-title">Reunite &middot; seal ceremony &middot; playground</div>
+
+  <div class="scene">
+    <div class="pack">
+      <!-- letter: faint ruled paper with handwriting squiggles -->
+      <div class="letter" aria-hidden="true">
+        <svg viewBox="0 0 190 250" fill="none"
+             stroke="#6B5A4B" stroke-opacity=".34" stroke-width="1.2" stroke-linecap="round">
+          <path d="M116 36 q8 -3 16 0 t18 0 t18 0"/>
+          <path d="M24 64 q9 -4 18 0 t18 0 t18 0 t18 0 t18 0 t18 0 t18 0"/>
+          <path d="M24 86 q9 -4 18 0 t18 0 t18 0 t18 0 t18 0 t18 0"/>
+          <path d="M24 108 q9 -4 18 0 t18 0 t18 0 t18 0 t18 0 t18 0 t18 0"/>
+          <path d="M24 130 q9 -4 18 0 t18 0 t18 0 t18 0 t18 0"/>
+          <path d="M24 152 q9 -4 18 0 t18 0 t18 0 t18 0 t18 0 t18 0"/>
+          <path d="M24 174 q9 -4 18 0 t18 0 t18 0"/>
+          <path d="M108 210 q10 -6 20 -1 t22 -2"/>
+        </svg>
+      </div>
+
+      <!-- envelope: open flap behind the letter, front pocket in front of it -->
+      <div class="env-box flap-wrap env-appear"><div class="flap"></div></div>
+      <div class="env-box env-front env-appear"></div>
+
+      <!-- wax squish ring + the seal itself -->
+      <div class="squish"></div>
+      <div class="seal" id="seal" aria-hidden="true">
+        <img src="https://dear-future-app.vercel.app/assets/seal-stamp.png" alt=""
+             onerror="this.parentNode.classList.add('img-failed')">
+        <div class="wax-fallback">&#10022;</div>
+      </div>
+    </div>
+
+    <!-- feedback -->
+    <div class="feedback" role="status">
+      <div class="star">&#10022;</div>
+      <h1>Your letter is sealed</h1>
+      <p class="sub">It will find its way back to you &mdash; on a day you&rsquo;ve long forgotten.</p>
+    </div>
+
+    <canvas id="dust"></canvas>
+  </div>
+
+  <!-- playground controls -->
+  <div class="controls">
+    <div class="row">
+      <button class="replay" id="replay">Replay</button>
+      <span class="lbl" style="width:auto; margin-left:6px;">speed</span>
+      <button data-speed="1" class="on">1x</button>
+      <button data-speed="0.5">0.5x</button>
+      <span class="haptic-dot" id="haptic"><i></i>haptic</span>
+    </div>
+    <div class="row">
+      <span class="lbl">celebration</span>
+      <button data-density="0">None</button>
+      <button data-density="22" class="on">Whisper</button>
+      <button data-density="40">Festive, quiet</button>
+    </div>
+    <div class="row">
+      <span class="lbl">vanish</span>
+      <button data-vanish="v-lift" class="on">Lift &amp; fade</button>
+      <button data-vanish="v-shrink">Shrink into distance</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var stage   = document.getElementById('stage');
+  var haptic  = document.getElementById('haptic');
+  var canvas  = document.getElementById('dust');
+  var ctx     = canvas.getContext('2d');
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // playground state (nothing persisted)
+  var speed   = 1;        // 1 or 0.5
+  var density = 22;       // 0 | 22 | 40 particles
+  var vanish  = 'v-lift'; // 'v-lift' | 'v-shrink'
+
+  var PHASES = 'p-letter p-envelope p-insert p-flap p-stamp p-settle p-depart p-feedback p-subline reduced';
+  var timers = [];
+  var raf = null;
+
+  // ── timeline (1x, ms). Feedback lands at 4.7s; pause 2.85-3.6s is sacred. ──
+  var steps = [
+    [  60, function () { stage.classList.add('p-letter');   }],
+    [ 750, function () { stage.classList.add('p-envelope'); }],
+    [1150, function () { stage.classList.add('p-insert');   }],
+    [1850, function () { stage.classList.add('p-flap');     }],
+    [2450, function () { stage.classList.add('p-stamp');    }],
+    [2830, function () {                                     // stamp settles:
+      stage.classList.add('p-settle');                       // squish + jolt
+      pingHaptic();                                          // <- Haptics.impactAsync(Medium) in RN
+    }],
+    [3600, function () { stage.classList.add('p-depart');   }],
+    [4700, function () { stage.classList.add('p-feedback'); }],
+    [4900, startDust],
+    [5100, function () { stage.classList.add('p-subline');  }]
+  ];
+
+  function pingHaptic() {
+    haptic.classList.add('ping');
+    setTimeout(function () { haptic.classList.remove('ping'); }, 500);
+  }
+
+  function reset() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    stage.classList.add('no-anim');
+    PHASES.split(' ').forEach(function (c) { stage.classList.remove(c); });
+    void stage.offsetWidth;                 // force reflow so removal is instant
+    stage.classList.remove('no-anim');
+  }
+
+  function play() {
+    reset();
+    if (reduced) {
+      // reduced motion: gentle fade straight to the final state
+      timers.push(setTimeout(function () {
+        stage.classList.add('reduced', 'p-feedback', 'p-subline');
+      }, 40));
+      return;
+    }
+    var m = 1 / speed;                      // 0.5x speed => everything takes 2x
+    steps.forEach(function (s) {
+      timers.push(setTimeout(s[1], s[0] * m));
+    });
+  }
+
+  // ── gold-dust motes: sparse, slow, like dust in evening light ────────────
+  var GOLDS = ['214,178,110', '198,162,94', '228,196,132'];
+
+  function startDust() {
+    if (density === 0) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var parts = [];
+    for (var i = 0; i < density; i++) {
+      parts.push({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.42 - 10,   // upper part of the stage
+        delay: Math.random() * 700,          // staggered arrival
+        life: 2100 + Math.random() * 1100,   // 2.1-3.2s each
+        vy: 16 + Math.random() * 15,         // px/s — gravity-light
+        swayA: 5 + Math.random() * 10,
+        swayF: 0.6 + Math.random() * 1.1,
+        ph: Math.random() * 6.283,
+        r: 0.9 + Math.random() * 1.4,
+        fleck: Math.random() < 0.25,         // a few tiny paper flecks
+        rot: Math.random() * 3.14,
+        vr: (Math.random() - 0.5) * 0.9,
+        maxA: 0.3 + Math.random() * 0.4,
+        col: GOLDS[(Math.random() * GOLDS.length) | 0]
+      });
+    }
+
+    var t0 = performance.now();
+    function frame(now) {
+      var el = (now - t0) * speed;           // slow-mo slows the dust too
+      ctx.clearRect(0, 0, W, H);
+      var alive = false;
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        var t = el - p.delay;
+        if (t < 0) { alive = true; continue; }
+        if (t > p.life) continue;
+        alive = true;
+        var k = t / p.life;
+        var a = p.maxA * Math.min(1, k / 0.15) * Math.min(1, (1 - k) / 0.3);
+        var s = t / 1000;
+        var x = p.x + Math.sin(s * p.swayF * 3 + p.ph) * p.swayA;
+        var y = p.y + p.vy * s;
+        ctx.fillStyle = 'rgba(' + p.col + ',' + a.toFixed(3) + ')';
+        if (p.fleck) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(p.rot + p.vr * s);
+          ctx.fillRect(-2, -0.8, 4, 1.6);
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, p.r, 0, 6.283);
+          ctx.fill();
+        }
+      }
+      if (alive) raf = requestAnimationFrame(frame);
+      else { ctx.clearRect(0, 0, W, H); raf = null; }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  // ── controls ─────────────────────────────────────────────────────────────
+  function bindGroup(attr, apply) {
+    var btns = document.querySelectorAll('button[' + attr + ']');
+    btns.forEach(function (b) {
+      b.addEventListener('click', function () {
+        btns.forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        apply(b.getAttribute(attr));
+        play();                              // any variant change replays
+      });
+    });
+  }
+
+  document.getElementById('replay').addEventListener('click', play);
+  bindGroup('data-speed',   function (v) {
+    speed = parseFloat(v);
+    document.documentElement.style.setProperty('--t', speed === 1 ? '1' : '2');
+  });
+  bindGroup('data-density', function (v) { density = parseInt(v, 10); });
+  bindGroup('data-vanish',  function (v) {
+    stage.classList.remove('v-lift', 'v-shrink');
+    stage.classList.add(v);
+    vanish = v;
+  });
+
+  play();
+})();
+</script>
+</body>
+</html>
