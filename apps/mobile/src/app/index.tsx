@@ -389,11 +389,26 @@ export default function WriteScreen() {
     setSealing(true); // 写库成功 → 先播封存仪式动画,动画结束再切"已封存"屏
   }
 
-  // 按「完成写信」:正在忙就忽略;信不能为空;然后进入"选日期"那一屏(这里不问登录)。
+  // 写信页的日期图标:主动打开日期底单(选完回写信页,图标显示所选日期)。
+  function openDatePicker() {
+    if (busy) return;
+    Keyboard.dismiss(); // 先收键盘,免得它和弹层抢空间
+    setPickerKey((k) => k + 1); // 让日历重新挂载,月份回到当前月
+    setStep('date');
+  }
+
+  // 按「完成写信」:正在忙就忽略;信不能为空。
+  // 快速路径(创始人设计):用户已通过日期图标主动选过日期 → 跳过日期底单,直进封存单
+  //(封存单上的 Returning 行可点回来改 —— 反悔的路必须在,才允许跳)。
+  // 没主动选过 → 照旧进"选日期"那一屏(这里不问登录)。
   function handleFinish() {
     if (busy) return;
     if (!letter.trim()) return;
     Keyboard.dismiss(); // 先收键盘,免得它和弹层抢空间
+    if (deliverOn != null) {
+      handleSeal(); // 已有明确日期 → 登录检查后直进封存单
+      return;
+    }
     setPickerKey((k) => k + 1); // 让日历重新挂载,月份回到当前月
     setStep('date');
   }
@@ -860,6 +875,14 @@ export default function WriteScreen() {
                     <Text style={styles.mediaGhostLabel}>Video</Text>
                   </Pressable>
                 ) : null}
+                {/* 送达日:信封信息的第三员(创始人设计)。没选过显示 "Date";
+                    主动选过就直接显示日期(高亮),随时可点回日期底单修改。 */}
+                <Pressable style={styles.mediaGhostBtn} onPress={openDatePicker} disabled={busy} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10 }} accessibilityLabel={deliverOn ? `Delivery date ${formatDate(effectiveDate)}, tap to change` : 'Choose a delivery date'}>
+                  <Ionicons name="calendar-outline" size={18} color={colors.brand} />
+                  <Text style={[styles.mediaGhostLabel, deliverOn != null && styles.mediaGhostOn]}>
+                    {deliverOn ? formatDate(effectiveDate) : 'Date'}
+                  </Text>
+                </Pressable>
               </View>
 
               {/* 写完了 → 进入选日期那一屏(这里不封存、不问登录)。 */}
@@ -882,7 +905,7 @@ export default function WriteScreen() {
       <BottomSheet visible={step === 'date' || step === 'seal'} onClose={() => setStep('write')}>
         {step === 'date' ? (
           <>
-            <Text style={styles.dateHero}>When should it come home?</Text>
+            <Text style={styles.dateHero}>When should it return to you?</Text>
 
             {/* 标题下方一根浅浅的分割线(#EFDFC0),把标题和日历轻轻分开。 */}
             <View style={styles.dateHeroDivider} />
@@ -919,8 +942,15 @@ export default function WriteScreen() {
               a {formatDuration(videoSeconds > 0 ? videoSeconds : 0)} video
             </Text>
           )}
-          {/* 送达日 */}
-          <Text style={styles.sealSheetItem}>Returning {formatDate(effectiveDate)}</Text>
+          {/* 送达日:可点回日期底单修改(Finish 快速路径的"反悔之路"——
+              金色点线下划线 = 全 app 统一的可点暗号)。 */}
+          <Pressable
+            onPress={() => { if (!busy) { setPickerKey((k) => k + 1); setStep('date'); } }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Returning ${formatDate(effectiveDate)}, tap to change the date`}>
+            <Text style={[styles.sealSheetItem, styles.sealSheetItemTappable]}>Returning {formatDate(effectiveDate)}</Text>
+          </Pressable>
           {/* 回到哪:付费/封存前最强的信任证据 —— 用户亲眼看到信将回到自己的邮箱。 */}
           {session?.user?.email ? (
             <Text style={styles.sealSheetItem}>to {session.user.email}</Text>
@@ -1199,6 +1229,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.textMutedSoft,
+  },
+  // Returning 行的可点暗号:金色点线下划线(与日历标题/誓言快捷键同一套语言)。
+  sealSheetItemTappable: {
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'dotted',
+    textDecorationColor: colors.accentGold,
   },
   // Fine divider: full-width warm gold (slightly deeper than the date-hero one).
   sealSheetDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldMid },

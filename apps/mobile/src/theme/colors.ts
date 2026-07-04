@@ -37,6 +37,8 @@ export const palette = {
   goldMid: '#DECA9E',      // SealSheet 分割线(中等金)
   goldSoft: '#EFDFC0',     // dateHero 下方极淡分割线
   goldCursor: '#C68A3A',   // 光标/选择色(TextInput selectionColor/cursorColor)
+  sandWarm: '#FAE6C9',     // 快捷选择片(vow chips)默认底色 — 暖沙纸
+  sandGlow: '#FFDAA6',     // 快捷选择片选中底色 — 更亮的暖沙
 
   // 暖红 系 — 危险/破坏性操作
   terracottaDeep: '#A14315', // Sign Out 文字 / SignIn 错误文字 — 加深至 ≥4.5:1(AA)
@@ -105,6 +107,8 @@ export const colors = {
   border: palette.borderMid,            // 输入框底边/BottomSheet抓手条
   borderLight: palette.borderLight,     // 缩略图边框
   surfacePhoto: palette.surfacePhoto,   // 缩略图背景/卡片分割线/翘角正面
+  surfaceChip: palette.sandWarm,        // 快捷选择片(日历 vow chips 等)默认底
+  surfaceChipSelected: palette.sandGlow, // 快捷选择片选中底
   paperFleck: palette.paperFleck,       // 纸张颗粒点(极低opacity)
 } as const;
 

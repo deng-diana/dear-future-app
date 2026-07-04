@@ -1,19 +1,16 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts } from '@/theme';
-import { MIN_SEAL_DAYS } from '@/constants/rules';
 
 // 自制的 Courier Prime 月历:纯 React Native,iOS / Web 都能跑(不依赖原生组件)。
 // 故意做得克制、留白多、方角、无图片 —— 像一张纸上手画的日历。
 //
-// 2026-07 升级(创始人拍板,双 UX 专家共识,原型见 /playground/date):
-//   1. 「誓言快捷键」—— 日历上方一行 One year · Three years · Five years · Ten years,
-//      点一下 = 选中「N 年后的今天」并把日历翻到那个月(仍可微调)。文字不用数字:
-//      "Three years" 是誓言,"3 years" 是参数;且和满屏日历数字在视觉上区分开。
-//   2. 月年标题可点 —— 点 "July 2027" 原地切换成「选年 → 选月 → 回到日」的跳转流,
-//      解决"选 3 年后要按 36 下箭头"的痛;远日期(孩子 18 岁生日等)一步直达。
-//   可点暗号统一用金色点状下划线(非胶囊按钮 —— 品牌禁软件壳);热区用 hitSlop 撑到 44pt。
+// 2026-07 升级(创始人 mockup 定稿,原型演进见 /playground/date):
+//   1. 「誓言快捷键」—— 日历下方一排横滑胶囊(In 1 year … In 10 years,#FAE6C9 暖纸底),
+//      贴近拇指;点一下 = 选中「N 年后的今天」并把日历翻到那个月(仍可微调)。
+//   2. 月年标题可点(金色点状下划线)—— 点 "July 2027" 原地切换成
+//      「选年 → 选月 → 回到日」的跳转流,解决"选 3 年后要按 36 下箭头"的痛。
 type Props = {
   value: Date | null; // 当前选中的送达日(还没选就是 null)
   minDate: Date; // 最早可选日(早于它的天都灰掉、不可点)
@@ -43,12 +40,13 @@ function addYears(base: Date, n: number): Date {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // 单字母即可
 
-// 誓言快捷键:覆盖绝大多数真实封存日期(整年纪念日)。
+// 誓言快捷键(创始人定稿 2026-07-04):日历下方、横滑胶囊、贴近拇指。
 const VOWS = [
-  { label: 'One year', years: 1 },
-  { label: 'Three years', years: 3 },
-  { label: 'Five years', years: 5 },
-  { label: 'Ten years', years: 10 },
+  { label: 'In 1 year', years: 1 },
+  { label: 'In 2 years', years: 2 },
+  { label: 'In 3 years', years: 3 },
+  { label: 'In 5 years', years: 5 },
+  { label: 'In 10 years', years: 10 },
 ] as const;
 
 export default function Calendar({ value, minDate, onChange }: Props) {
@@ -74,11 +72,6 @@ export default function Calendar({ value, minDate, onChange }: Props) {
   // 能不能往前翻?—— 显示月若已经是下限那个月(或更早),就不能再往前。
   const minMonthStart = new Date(min.getFullYear(), min.getMonth(), 1);
   const canGoPrev = viewMonth.getTime() > minMonthStart.getTime();
-
-  // 当前视图月是否包含灰色(不可选)日期 —— 是就显示最短天数提示。
-  const showHint = viewMonth.getTime() <= minMonthStart.getTime();
-  // 格式化下限日期(如 "July 4, 2026"),用于提示文字。
-  const formattedMin = `${MONTHS[min.getMonth()]} ${min.getDate()}, ${min.getFullYear()}`;
 
   function goPrev() {
     if (!canGoPrev) return;
@@ -108,26 +101,6 @@ export default function Calendar({ value, minDate, onChange }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* 誓言快捷键:micro-label + 一行安静的可点文字(金色点状下划线 = 可点暗号)。 */}
-      <Text style={styles.microLabel}>MEET YOURSELF IN</Text>
-      <View style={styles.vowRow}>
-        {VOWS.map((v) => {
-          const target = addYears(today, v.years);
-          const current = value != null && sameDay(target, value);
-          return (
-            <Pressable
-              key={v.years}
-              onPress={() => pickVow(v.years)}
-              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
-              accessibilityRole="button"
-              accessibilityLabel={`Deliver in ${v.label.toLowerCase()}, ${MONTHS[target.getMonth()]} ${target.getDate()}, ${target.getFullYear()}`}
-              accessibilityState={{ selected: current }}>
-              <Text style={[styles.vowText, current && styles.vowTextCurrent]}>{v.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
       {/* 头部:day 模式 = ‹ July 2027 ›(标题可点进跳转流);year/month 模式 = 流程标题(点了回到日历)。 */}
       {mode === 'day' ? (
         <View style={styles.header}>
@@ -212,12 +185,6 @@ export default function Calendar({ value, minDate, onChange }: Props) {
             })}
           </View>
 
-          {/* 最短封存天数提示:仅在视图月含有灰色(不可选)日期时显示,翻过去就消失。 */}
-          {showHint && (
-            <Text style={styles.hintText}>
-              A letter needs at least {MIN_SEAL_DAYS} {MIN_SEAL_DAYS === 1 ? 'day' : 'days'} to travel — the nearest day is {formattedMin}.
-            </Text>
-          )}
         </>
       )}
 
@@ -262,6 +229,30 @@ export default function Calendar({ value, minDate, onChange }: Props) {
           })}
         </View>
       )}
+
+      {/* 誓言快捷键:日历下方、横滑胶囊(创始人 mockup 定稿)—— 贴近拇指,
+          背景 #FAE6C9 与 Seal 按钮明确区分。点一下 = 选中 N 年后的今天并翻到那个月。 */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.vowScroll}
+        contentContainerStyle={styles.vowScrollContent}>
+        {VOWS.map((v) => {
+          const target = addYears(today, v.years);
+          const current = value != null && sameDay(target, value);
+          return (
+            <Pressable
+              key={v.years}
+              onPress={() => pickVow(v.years)}
+              style={[styles.vowPill, current && styles.vowPillCurrent]}
+              accessibilityRole="button"
+              accessibilityLabel={`Deliver ${v.label.toLowerCase()}, ${MONTHS[target.getMonth()]} ${target.getDate()}, ${target.getFullYear()}`}
+              accessibilityState={{ selected: current }}>
+              <Text style={[styles.vowPillText, current && styles.vowPillTextCurrent]}>{v.label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -274,34 +265,18 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
 
-  // 誓言快捷键:小字距 micro-label + 居中一行(窄屏自动折两行)。
-  microLabel: {
-    fontFamily: fonts.regular,
-    fontSize: 11,
-    letterSpacing: 2.4,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 10,
+  // 誓言快捷键胶囊(日历下方,横滑):#FAE6C9 暖纸底 + 圆角;选中态加深文字。
+  vowScroll: { alignSelf: 'stretch', marginTop: 16 },
+  vowScrollContent: { gap: 10, paddingVertical: 2 },
+  vowPill: {
+    backgroundColor: colors.surfaceChip, // 语义 token(#FAE6C9 暖沙纸)
+    borderRadius: 0, // 直角 —— 与 Seal/Start 按钮同一套品牌语言
+    paddingVertical: 9,
+    paddingHorizontal: 14,
   },
-  vowRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    columnGap: 18,
-    rowGap: 10,
-    marginBottom: 22,
-  },
-  // 可点暗号:金色点状下划线(iOS 支持 dotted;安卓退化为实线,同样安静)。
-  vowText: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.textBody,
-    textDecorationLine: 'underline',
-    textDecorationStyle: 'dotted',
-    textDecorationColor: colors.accentGold,
-    paddingBottom: 2,
-  },
-  vowTextCurrent: { color: colors.brandText },
+  vowPillCurrent: { backgroundColor: colors.surfaceChipSelected }, // 选中:更亮的暖沙(#FFDAA6)
+  vowPillText: { fontFamily: fonts.regular, fontSize: 14, color: colors.textBody },
+  vowPillTextCurrent: { color: colors.brandText },
 
   // 头部行:左右箭头 + 居中的"月 年"。
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
@@ -340,13 +315,4 @@ const styles = StyleSheet.create({
   jumpText: { fontFamily: fonts.regular, fontSize: 17, color: colors.textBody },
   jumpTextCurrent: { color: colors.brandText },
 
-  // 最短天数提示:小字、静默色、左对齐,不挤压网格布局。
-  hintText: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: 'left',
-    marginTop: 6,
-    alignSelf: 'stretch',
-  },
 });

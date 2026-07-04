@@ -3,8 +3,9 @@
 // 背景是整张装饰图(纸+叶影+钢笔+怀表+信封),上面叠 logo / Reunite 切图 / 分隔线 / 标语 / 按钮。
 
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Dimensions, Image, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import Button from '@/components/Button';
 import { colors, fonts } from '@/theme';
@@ -53,17 +54,21 @@ export default function Splash({ onStart }: Props) {
           <Image source={require('@/assets/images/splash-wordmark.png')} style={styles.wordmark} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
           <Image source={require('@/assets/images/splash-divider.png')} style={styles.divider} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
           <Text style={styles.tagline}>Write to your future self.{'\n'}Meet the person you used to be.</Text>
+          {/* The Promise:标语下方、浅背景小卡 + 盾形图标(创始人定稿位置 ——
+              原先放在底部按钮上方,压在钢笔照片上看不清)。两行以内。
+              背后机制:全文送进用户自己的邮箱 + 熄灯协议(docs/THE-PROMISE.md)。 */}
         </Animated.View>
 
-        {/* 底部:承诺 + Start 按钮(与写信页同款实心主题色) */}
+        {/* 底部:Start 按钮 + 承诺小卡(按钮下方、同宽 —— 安静的收尾,不抢主角)。
+            文案 = 感情的一句 + 机制的一句:若我们关门,先送完所有信(docs/THE-PROMISE.md)。 */}
         <Animated.View style={styles.footer}>
-          {/* The Promise:一句真诚的保证 —— 信最坏的命运是「早到」,绝不是「不到」。
-              背后有真实机制:全文永远送进用户自己的邮箱 + 熄灯协议(DELIVER_FLUSH_ALL,
-              见 docs/THE-PROMISE.md)。承诺敢写在开屏,因为它是可执行的。 */}
-          <Text style={styles.promise}>
-            Whatever happens to us, your letter will reach you.{'\n'}That is the promise.
-          </Text>
           <Button label="Start" onPress={handleStart} />
+          <View style={styles.promiseWrap}>
+            <Ionicons name="shield-checkmark-outline" size={15} color={colors.brandText} />
+            <Text style={styles.promise}>
+              Whatever happens to us, your letter will reach you. If Reunite ever closes, every letter is delivered before we go.
+            </Text>
+          </View>
         </Animated.View>
       </SafeAreaView>
     </Animated.View>
@@ -93,13 +98,24 @@ const styles = StyleSheet.create({
 
   // 底部按钮容器:左右页边距更大 → 按钮更窄;离底一点
   footer: { paddingHorizontal: 64, paddingBottom: 56 },
-  // 承诺行:安静的小字,按钮上方,像信纸角落的一句手写保证。
+  // 承诺小卡:浅纸色背景 + 盾形图标 + 两行以内的小字(标语下方,不压照片)。
+  promiseWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(91, 70, 56, 0.10)', // 比页面稍深一点点的暖纸色(棕色 10% 洗染),不是白
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    alignSelf: 'stretch', // 与 Start 按钮同宽(都吃 footer 的左右边距)
+  },
   promise: {
+    flex: 1,
     fontFamily: fonts.regular,
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 17,
     color: colors.brandText,
-    textAlign: 'center',
-    marginBottom: 16,
+    textAlign: 'left',
   },
 });
