@@ -62,7 +62,7 @@ export default function Splash({ onStart }: Props) {
         {/* 底部:Start 按钮 + 承诺小卡(按钮下方、同宽 —— 安静的收尾,不抢主角)。
             文案 = 感情的一句 + 机制的一句:若我们关门,先送完所有信(docs/THE-PROMISE.md)。 */}
         <Animated.View style={styles.footer}>
-          <Button label="Start" onPress={handleStart} />
+          <Button label="Begin writing" onPress={handleStart} />
           <View style={styles.promiseWrap}>
             <Ionicons name="shield-checkmark-outline" size={15} color={colors.brandText} style={{ marginTop: 2 }} />
             <Text style={styles.promise}>

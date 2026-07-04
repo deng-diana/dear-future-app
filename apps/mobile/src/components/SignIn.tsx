@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import Button from '@/components/Button';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
+import { colors, fonts } from '@/theme';
 
 type Props = {
   onVerified: () => void; // 验证成功后,通知外面"可以封存了"
@@ -289,23 +289,24 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: colors.backgroundPaper },
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
-  title: { fontSize: 22, color: colors.textPrimary, lineHeight: 30 },
-  hint: { fontSize: 14, color: colors.textMutedMid, lineHeight: 20 },
+  title: { fontFamily: fonts.regular, fontSize: 22, color: colors.textPrimary, lineHeight: 30 },
+  hint: { fontFamily: fonts.regular, fontSize: 14, color: colors.textMutedMid, lineHeight: 20 },
   // 手滑救援行:品牌深棕、可点(样式对齐全 app 的"可点文字"语言)。
-  suggestText: { fontSize: 14, color: colors.brandText, marginTop: 10, textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: colors.accentGold },
+  suggestText: { fontFamily: fonts.regular, fontSize: 14, color: colors.brandText, marginTop: 10, textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: colors.accentGold },
   // hint 里的主题色强调(邮箱地址 / 发件人名),嵌套 Text 使用。
   hintBrand: { color: colors.brandText },
   input: {
     marginTop: 12,
     paddingVertical: 12,
+    fontFamily: fonts.regular,
     fontSize: 20,
     color: colors.textPrimary,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   codeInput: { fontSize: 26, letterSpacing: 6 },
-  error: { fontSize: 13, color: colors.danger },
-  resendNote: { fontSize: 13, color: colors.textMutedMid }, // 重发成功的软提示,与 hint 同色
+  error: { fontFamily: fonts.regular, fontSize: 13, color: colors.danger },
+  resendNote: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMutedMid }, // 重发成功的软提示,与 hint 同色
 
   footer: { paddingVertical: 16, paddingHorizontal: 24, gap: 14, alignItems: 'center' }, // 左右 24 与 body 一致 → 按钮与内容同宽
   // Button 组件默认 alignSelf:'stretch';这里再加 width:'100%' 确保 footer alignItems:'center' 不压缩它
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 17, fontWeight: '600' as const, letterSpacing: 2 },
   // 右上角关闭按钮:44pt 触区,安静的灰棕 ✕(替代原底部 "Not now" 链接)。
   closeBtn: { position: 'absolute', right: 16, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, // top 由安全区动态计算,避开状态栏
-  closeIcon: { fontSize: 20, color: colors.textMutedMid, lineHeight: 22 },
+  closeIcon: { fontFamily: fonts.regular, fontSize: 20, color: colors.textMutedMid, lineHeight: 22 },
   // (原 "Not now" 底部链接已移除 —— cancel 样式仍被两条救援链接复用)
-  cancel: { fontSize: 15, color: colors.textMutedMid },
+  cancel: { fontFamily: fonts.regular, fontSize: 15, color: colors.textMutedMid },
 });

@@ -23,14 +23,28 @@ function cityFromTimezone(): string {
 }
 
 export default function Dateline({ onLongPress }: Props) {
-  // 进屏时算一次邮戳快照,之后不再变(像写信那一刻钉住的时间)
-  const stamp = useMemo(() => {
-    const now = new Date();
-    return {
+  // 活邮戳(2026-07-04 用户反馈定稿):时间实时走 —— 写到凌晨 2:04,邮戳就该盖 2:04 AM。
+  // 那是信的一部分。每 5 秒对表一次,但只在「分钟真的变了」才触发重渲染(平时零开销);
+  // 5 秒的对表间隔也顺便覆盖了从后台切回来时的时钟追赶。
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => {
+      setNow((prev) => {
+        const n = new Date();
+        return n.getMinutes() === prev.getMinutes() && n.getHours() === prev.getHours() && n.getDate() === prev.getDate()
+          ? prev
+          : n;
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
+  const stamp = useMemo(
+    () => ({
       date: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-    };
-  }, []);
+    }),
+    [now],
+  );
 
   // 时区推断出来的城市:作为没有保存值时的兜底
   const tzCity = useMemo(cityFromTimezone, []);
@@ -65,46 +79,46 @@ export default function Dateline({ onLongPress }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* 第一行:日期(只读)。长按 = 演示用隐藏手势,回到开场页。 */}
+      {/* 第一行:Today · 日期 —— 一个安静的词消除歧义(这是「写信此刻」,不是送达日)。
+          长按 = 演示用隐藏手势,回到开场页。 */}
       <Text style={styles.line} onLongPress={onLongPress} suppressHighlighting>
-        {stamp.date}
+        Today · {stamp.date}
       </Text>
 
-      {/* 第二行:城市(可编辑)
-          不在编辑时:看起来和日期行一模一样,只有极淡的点线下划线暗示"可点"
-          点击后:切换成同样字体/大小的 TextInput */}
-      {editing ? (
-        <TextInput
-          style={[styles.line, styles.cityInput]}
-          value={draft}
-          onChangeText={(t) => {
-            setDraft(t);
-            draftRef.current = t;
-          }}
-          autoFocus
-          autoCapitalize="words"
-          returnKeyType="done"
-          selectionColor={colors.cursor}
-          onBlur={commitEdit}
-          onSubmitEditing={commitEdit}
-        />
-      ) : (
-        // A12: 城市可编辑区域 — 告知屏幕阅读器这是一个按钮(role)并说明操作(hint)
-        <Text
-          style={[styles.line, styles.cityText]}
-          onPress={() => {
-            setDraft(city);
-            setEditing(true);
-          }}
-          accessibilityRole="button"
-          accessibilityHint="Edit your city"
-          suppressHighlighting>
-          {city}
-        </Text>
-      )}
-
-      {/* 第三行:时间(只读) */}
-      <Text style={styles.line}>{stamp.time}</Text>
+      {/* 第二行:城市(可编辑)+ 时间(实时)并排 —— 邮戳收成两行,写信区更宽敞。
+          城市不在编辑时:和日期行一模一样,只有极淡的点线下划线暗示"可点"。 */}
+      <View style={styles.cityRow}>
+        {editing ? (
+          <TextInput
+            style={[styles.line, styles.cityInput]}
+            value={draft}
+            onChangeText={(t) => {
+              setDraft(t);
+              draftRef.current = t;
+            }}
+            autoFocus
+            autoCapitalize="words"
+            returnKeyType="done"
+            selectionColor={colors.cursor}
+            onBlur={commitEdit}
+            onSubmitEditing={commitEdit}
+          />
+        ) : (
+          // A12: 城市可编辑区域 — 告知屏幕阅读器这是一个按钮(role)并说明操作(hint)
+          <Text
+            style={[styles.line, styles.cityText]}
+            onPress={() => {
+              setDraft(city);
+              setEditing(true);
+            }}
+            accessibilityRole="button"
+            accessibilityHint="Edit your city"
+            suppressHighlighting>
+            {city}
+          </Text>
+        )}
+        <Text style={styles.line}> · {stamp.time}</Text>
+      </View>
     </View>
   );
 }
@@ -123,6 +137,8 @@ const styles = StyleSheet.create({
     paddingTop: 16,        // 向下一点,保持同样的页边距
   },
   line: lineBase,
+  // 城市 + 时间同一行(基线对齐;编辑态时输入框与时间并排不跳动)。
+  cityRow: { flexDirection: 'row', alignItems: 'baseline' },
   // 城市文字:和其他行完全一样,只加一条极淡的点线下划线作为"可编辑"暗示
   cityText: {
     textDecorationLine: 'underline',

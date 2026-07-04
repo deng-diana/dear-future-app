@@ -115,6 +115,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   linkText: {
+    fontFamily: fonts.regular,
     fontSize: 14,
     color: colors.textMuted, // 静默暖灰(与原 backLinkText 一致)
   },

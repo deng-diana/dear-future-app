@@ -5,7 +5,7 @@ import { Alert, Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
+import { colors, fonts } from '@/theme';
 
 type Props = {
   email: string;
@@ -169,14 +169,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  label: { fontSize: 12, color: colors.textMutedLight },
-  email: { fontSize: 15, color: colors.textPrimary, marginTop: 2 },
+  label: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMutedLight },
+  email: { fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.surfacePhoto, marginVertical: 12 },
   // 一行菜单项:图标 + 文字,横向排列。
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
-  signOut: { fontSize: 15, color: colors.textBody }, // 改正常正文色(原为 danger 红)—— 与红色 Delete 明显区分
+  signOut: { fontFamily: fonts.regular, fontSize: 15, color: colors.textBody }, // 改正常正文色(原为 danger 红)—— 与红色 Delete 明显区分
   // 删账号:破坏性操作,保持红色(dangerDeep)+ 垃圾桶图标。
-  deleteAccount: { fontSize: 15, color: colors.dangerDeep },
+  deleteAccount: { fontFamily: fonts.regular, fontSize: 15, color: colors.dangerDeep },
   // 版本号脚注:小号、静默色、居中。
-  version: { fontSize: 12, color: colors.textMutedLight, textAlign: 'left', marginTop: 4 },
+  version: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMutedLight, textAlign: 'left', marginTop: 4 },
 });

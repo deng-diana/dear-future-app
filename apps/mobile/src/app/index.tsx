@@ -633,7 +633,7 @@ export default function WriteScreen() {
           // tiny corner film icon). pointerEvents:none so it never eats the ✕ / taps.
           <View style={styles.videoPlayWrap} pointerEvents="none">
             <View style={styles.videoPlayDisc}>
-              <Ionicons name="play" size={16} color={colors.surfacePaper} style={styles.videoPlayIcon} />
+              <Ionicons name="play" size={12} color={colors.surfacePaper} style={styles.videoPlayIcon} />
             </View>
           </View>
         )}
@@ -947,32 +947,36 @@ export default function WriteScreen() {
         {/* 标题 */}
         <Text style={styles.sealSheetTitle}>Seal this capsule</Text>
 
-        {/* 信件摘要清单:只显示非零项。 */}
+        {/* 信件摘要清单(2026-07-04 紧凑版):两行说完 ——
+            第 1 行:内容(Your words · 3 photos · a 0:30 video,只列非零项);
+            第 2 行:Returning 日期(可点改期,点线下划线)· to 邮箱。 */}
         <View style={styles.sealSheetInventory}>
-          {/* 文字 —— 永远有 */}
-          <Text style={styles.sealSheetItem}>Your words</Text>
-          {/* 照片:1 张 or n 张 */}
-          {photos.length === 1 && <Text style={styles.sealSheetItem}>1 photo</Text>}
-          {photos.length > 1 && <Text style={styles.sealSheetItem}>{photos.length} photos</Text>}
-          {/* 视频:格式化成 m:ss */}
-          {video !== null && (
-            <Text style={styles.sealSheetItem}>
-              a {formatDuration(videoSeconds > 0 ? videoSeconds : 0)} video
+          <Text style={styles.sealSheetItem}>
+            {[
+              'Your words',
+              photos.length === 1 ? '1 photo' : photos.length > 1 ? `${photos.length} photos` : null,
+              video !== null ? `a ${formatDuration(videoSeconds > 0 ? videoSeconds : 0)} video` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+          <Text style={styles.sealSheetItem}>
+            {/* 嵌套 Text 的 onPress:只有 "Returning 日期" 这一段可点(改期);邮箱只是信任展示。 */}
+            <Text
+              style={styles.sealSheetItemTappable}
+              onPress={() => { if (!busy) { setPickerKey((k) => k + 1); setStep('date'); } }}
+              suppressHighlighting
+              accessibilityRole="button"
+              accessibilityLabel={`Returning ${formatDate(effectiveDate)}, tap to change the date`}>
+              Returning <Text style={styles.sealSheetItemBrand}>{formatDate(effectiveDate)}</Text>
             </Text>
-          )}
-          {/* 送达日:可点回日期底单修改(Finish 快速路径的"反悔之路"——
-              金色点线下划线 = 全 app 统一的可点暗号)。 */}
-          <Pressable
-            onPress={() => { if (!busy) { setPickerKey((k) => k + 1); setStep('date'); } }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={`Returning ${formatDate(effectiveDate)}, tap to change the date`}>
-            <Text style={[styles.sealSheetItem, styles.sealSheetItemTappable]}>Returning <Text style={styles.sealSheetItemBrand}>{formatDate(effectiveDate)}</Text></Text>
-          </Pressable>
-          {/* 回到哪:付费/封存前最强的信任证据 —— 用户亲眼看到信将回到自己的邮箱。 */}
-          {session?.user?.email ? (
-            <Text style={styles.sealSheetItem}>to <Text style={styles.sealSheetItemBrand}>{session.user.email}</Text></Text>
-          ) : null}
+            {session?.user?.email ? (
+              <>
+                {' · to '}
+                <Text style={styles.sealSheetItemBrand}>{session.user.email}</Text>
+              </>
+            ) : null}
+          </Text>
         </View>
 
         {/* 分割线:细金 */}
@@ -1119,8 +1123,8 @@ const styles = StyleSheet.create({
 
   // 顶部邮戳与信之间的分割线:两段细金线 + 中间金色星,与正文同样 32 页边距。
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 32, marginTop: 12, marginBottom: 12, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.accentGold },
-  dividerStar: { color: colors.accentGold, fontSize: 13, marginTop: -2 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.accentGold, opacity: 0.45 }, // 压浅:装饰退后,别抢正文
+  dividerStar: { fontFamily: fonts.regular, color: colors.accentGold, fontSize: 13, marginTop: -2 , opacity: 0.55 },
 
   // 整封信:打字机字体 Courier Prime,暖色墨。称呼是这封信的第一行,同字体同字号。
   // paddingTop 让第一行("Dear future me,")落在邮戳下方、原先题头开始的位置,留出干净的留白。
@@ -1147,7 +1151,7 @@ const styles = StyleSheet.create({
   // 后台压缩中:低调暖灰 + 斜体「Preparing…」,与 mediaCap 同色系,不抢戏(纸感、安静)。
   mediaPreparing: { fontSize: 14, color: colors.textMuted, fontStyle: 'italic' },
   // 10 张满额提示:静默一行,与 mediaAdd 同字号同色系,但更低调。
-  mediaCap: { fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
+  mediaCap: { fontFamily: fonts.regular, fontSize: 14, color: colors.textMutedPale, fontStyle: 'italic' },
 
   // 已选照片的缩略图:像一排小相片。横向自动换行。
   // 缩略图在底部固定栏内,横向边距由 footer(paddingHorizontal:32)提供,与 ＋Photos / Finish 对齐。
@@ -1173,7 +1177,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbRemoveText: { color: colors.backgroundPaper, fontSize: 10, lineHeight: 12 },
+  thumbRemoveText: { fontFamily: fonts.regular, color: colors.backgroundPaper, fontSize: 10, lineHeight: 12 },
   // Video thumbnail extras: blank placeholder (before the poster frame loads), a small
   // film badge, and a translucent overlay that holds the "compressing" spinner.
   videoThumbBlank: { alignItems: 'center', justifyContent: 'center' },
@@ -1189,9 +1193,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoPlayDisc: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(43,34,26,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1205,8 +1209,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(251,246,236,0.6)',
-    borderRadius: 4,
+    backgroundColor: 'rgba(28, 22, 17, 0.45)', // 暖黑蒙版:百分比在任何画面上都清晰
   },
 
   // 底单(遮罩 / 圆角 / 抓手 / 滑入+下拉手势)已收进 BottomSheet 组件,这里只留内容样式。
@@ -1229,7 +1232,7 @@ const styles = StyleSheet.create({
   // busy 阶段文案:按钮正下方一行安静的小字("Preparing your video… / Confirming your purchase…")。
   busyPhaseText: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMutedLight, textAlign: 'center', marginTop: 8 },
   // 压缩真实进度百分比(缩略图遮罩层里,替代干转的圈)。
-  videoPctText: { fontFamily: fonts.regular, fontSize: 12, fontWeight: '600', color: colors.brand },
+  videoPctText: { fontFamily: fonts.regular, fontSize: 12, fontWeight: '600', color: colors.background }, // 奶白字,配深色蒙版
 
   // ── SealSheet 专属样式 ──
   // 标题:大一点,居中,Courier Prime,深棕。
