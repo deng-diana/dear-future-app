@@ -5,7 +5,16 @@
 
 ## ▶ 下一步从这里继续
 
-**▶ Resume here (2026-07-04 夜): v1.0.1 (build 16) SUBMITTED — Waiting for Review.**
+**▶ Resume here (2026-07-04 收工): v1.0.1 (build 16) SUBMITTED — Waiting for Review. 明天:等审 + 发第一条 X post。**
+- X 首发已备好(目标:互动/反馈):主楼 = 3.5s 仪式竖屏视频
+  (`~/Desktop/reunite-ceremony-clip.mp4`)+ 提问式文案(见 chat);
+  一楼回复 = 2.5min 真人 demo(`~/Desktop/Reunite演示素材/demo_video_upload.mp4`);
+  二楼 = $5.99 陌生人付费小故事。发帖时间选英美白天;发出后认真回每条评论。
+- 真实数据(07-04 夜,已剔除创始人+审核号):5 个真实用户(24h +2)、
+  3 封信(全部 24h 内)、$5.99 收入、0 逾期未送、存储 135MB。
+- 收信页最终版已上线:每行左 −15°/右 +15° 底对齐、右图在上;
+  照片+视频的做旧滤镜与胶片颗粒全部移除(创始人:原汁原味)。
+- 过审后:手动 Release → 立刻关 ALLOW_SANDBOX_PURCHASES(唯一开关动作)。
 Founder smoke-tested build 16 on device (ceremony + haptic approved), new
 6.5" screenshots (1284×2778, alpha stripped) uploaded, What's New + promo
 text set, review account intact, Manual release selected. WHEN APPROVED:
