@@ -23,32 +23,27 @@ import { colors } from '@/theme';
 // ── Geometry ──────────────────────────────────────────────────────────────────
 
 // Envelope: aspect ratio mirrors sealed-envelope.png (120 × 79 ≈ 1.52 : 1).
-const ENV_W = 200;
-const ENV_H = Math.round((ENV_W * 79) / 120); // = 132
+// 创始人定稿:信封整体缩小一档(250→216),火漆印尺寸保持不变。
+const ENV_W = 216;
+const ENV_H = Math.round((ENV_W * 79) / 120); // = 142
 
-// Flap: V-tip at ~42 % from top matches the sealed PNG's fold crease position.
-const FLAP_H = Math.round(ENV_H * 0.42); // = 55
+// Flap: V-tip at 50 % —— 创始人定稿:封口尖到信封正中央,火漆印在中央。
+const FLAP_H = Math.round(ENV_H * 0.5); // = 83
 
 // Pack = the envelope composition (no letter paper in this design).
 const PACK_W = ENV_W;
 const PACK_H = ENV_H;
 
 // Seal stamp. The asset is portrait (≈ 2 : 3); resizeMode="contain" fills the box.
-const STAMP_W = 50;
-const STAMP_H = Math.round(STAMP_W * 1.5); // = 75
+// STAMP_W=62 scaled proportionally from 50 at ENV_W=200 → 250.
+const STAMP_W = 62;
+const STAMP_H = Math.round(STAMP_W * 1.5); // = 93
 const STAMP_X = (PACK_W - STAMP_W) / 2;
 const STAMP_Y = Math.round(FLAP_H - STAMP_H / 2);
-
-// Wax squish ring (oval, slightly wider than tall).
-const SQUISH_W = 76;
-const SQUISH_H = 46;
-const SQUISH_X = (PACK_W - SQUISH_W) / 2;
-const SQUISH_Y = Math.round(FLAP_H - SQUISH_H / 2);
 
 // Z-index layers.
 const Z_ENV_FRONT = 4;
 const Z_FLAP      = 5;
-const Z_SQUISH    = 6;
 const Z_SEAL      = 7;
 
 // Departure(封存即离开):向上飞出 + 远去缩小。
@@ -56,13 +51,14 @@ const DEPART_TRANSLATE_Y = -340;
 const DEPART_SCALE       = 0.92;
 
 // ── Timeline (ms) ─────────────────────────────────────────────────────────────
-// T=0050 信封淡入(300ms)→ T=0700 封口折合(600ms)→ T=1750 火漆下落(380ms)
-// → T=2130 落定(触感+挤压圈+微颤)→ T=2880 启程(1200ms)→ T=4080 onDone
-const T_ENV      = 50;
-const DUR_ENV    = 300;
-const T_FLAP     = 700;
-const DUR_FLAP   = 600;
-const T_STAMP    = 1750;
+// 创始人反馈:前半段节奏加快。信封淡入(260ms)→ T=420 封口折合(500ms)
+// → T=1150 火漆下落(380ms)→ T=1530 落定(触感+微颤)→ 750ms 神圣停顿
+// → T=2280 启程(1200ms)→ T=3480 onDone(总长 3.5s,原 4.1s)
+const T_ENV      = 40;
+const DUR_ENV    = 260;
+const T_FLAP     = 420;
+const DUR_FLAP   = 500;
+const T_STAMP    = 1150;
 const DUR_DROP   = 380;
 const T_SETTLE   = T_STAMP + DUR_DROP; // = 2130
 const DUR_PAUSE  = 750;
@@ -86,9 +82,6 @@ export default function SealCeremony({ onDone }: Props) {
   const sealDropY   = useRef(new Animated.Value(-40)).current;
   const sealScale   = useRef(new Animated.Value(1.5)).current;
 
-  const squishScale   = useRef(new Animated.Value(0.5)).current;
-  const squishOpacity = useRef(new Animated.Value(0)).current;
-
   const doneCalled = useRef(false);
 
   useEffect(() => {
@@ -110,7 +103,8 @@ export default function SealCeremony({ onDone }: Props) {
 
       const easeOut = Easing.out(Easing.cubic);
       const easeInOut = Easing.inOut(Easing.cubic);
-      const departEase = Easing.bezier(0.6, 0.04, 0.3, 1);
+      // 慢起 → 加速远去:像被时间带走,而不是 UI 弹窗被划掉。
+      const departEase = Easing.in(Easing.cubic);
 
       // 第 1 幕a — 信封淡入落定
       Animated.parallel([
@@ -135,12 +129,6 @@ export default function SealCeremony({ onDone }: Props) {
         setTimeout(() => {
           if (cancelled) return;
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-          Animated.parallel([
-            Animated.timing(squishOpacity, { toValue: 0.5, duration: 60, useNativeDriver: true }),
-            Animated.timing(squishScale, { toValue: 1.2, duration: 420, easing: easeOut, useNativeDriver: true }),
-          ]).start(() => {
-            Animated.timing(squishOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
-          });
           Animated.sequence([
             Animated.timing(packJoltY, { toValue: 2, duration: 80, useNativeDriver: true }),
             Animated.timing(packJoltY, { toValue: 0, duration: 160, useNativeDriver: true }),
@@ -159,6 +147,9 @@ export default function SealCeremony({ onDone }: Props) {
             Animated.timing(packDepartY, { toValue: DEPART_TRANSLATE_Y, duration: DUR_DEPART, easing: departEase, useNativeDriver: true }),
             Animated.timing(packScale,   { toValue: DEPART_SCALE,       duration: DUR_DEPART, easing: departEase, useNativeDriver: true }),
             Animated.timing(packOpacity, { toValue: 0,                  duration: DUR_DEPART, easing: departEase, useNativeDriver: true }),
+            // 火漆比信封早 ~350ms 淡完:信封米色先融入背景、深棕火漆更"抗淡",
+            // 不提前收就会剩一个悬空棕点 —— 破坏「信离开了」的瞬间。
+            Animated.timing(sealOpacity, { toValue: 0, duration: DUR_DEPART - 350, easing: departEase, useNativeDriver: true }),
           ]).start();
         }, T_DEPART),
       );
@@ -175,6 +166,8 @@ export default function SealCeremony({ onDone }: Props) {
 
   // 封口旋转:数值 → 角度字符串(核心 Animated 用 interpolate 做)。
   const flapRotDeg = flapRot.interpolate({ inputRange: [0, 178], outputRange: ['0deg', '178deg'] });
+  // 折叠光影:立起时微暗(0.07)→ 折到一半最暗(0.16)→ 合上全亮(0)。
+  const flapShadeOpacity = flapRot.interpolate({ inputRange: [0, 90, 178], outputRange: [0, 0.24, 0.07] });
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -204,23 +197,22 @@ export default function SealCeremony({ onDone }: Props) {
           <View style={styles.flapSpacer} />
           <View style={styles.flapClip}>
             <View style={styles.flapTriangle} />
+            {/* 折叠光影:封口转动时变暗(受光变化),合上后归零 ——
+                两种米色太接近,靠这层"光"让折合动作立体可读。 */}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.flapShade, { opacity: flapShadeOpacity }]}
+            />
           </View>
         </Animated.View>
 
-        {/* 信封正面(主可见面)+ 底部折线的极淡 V 形折痕。 */}
+        {/* 信封正面:经典信封背构造 —— 左右侧折 + 底折在中央交汇(X 折痕),
+            合上的封口三角落下后正好补齐上方,四折交于火漆的位置。 */}
         <View style={styles.envFront}>
+          <View style={styles.sideFoldLeft} />
+          <View style={styles.sideFoldRight} />
           <View style={styles.vFoldTriangle} />
         </View>
-
-        {/* 蜡的挤压圈:落定瞬间晕开淡去。 */}
-        <Animated.View
-          accessible={false}
-          style={[
-            styles.squish,
-            { left: SQUISH_X, top: SQUISH_Y, zIndex: Z_SQUISH },
-            { opacity: squishOpacity, transform: [{ scale: squishScale }] },
-          ]}
-        />
 
         {/* 火漆印:从上落下、弹簧压进封口尖。 */}
         <Animated.Image
@@ -259,7 +251,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0, top: 0,
     width: ENV_W, height: ENV_H,
-    backgroundColor: colors.envelopeDeep,
+    // 信封背面与正面同一材质——沙色,作为底层衬色。
+    backgroundColor: colors.envelope,
     borderRadius: 5,
   },
 
@@ -280,12 +273,15 @@ const styles = StyleSheet.create({
   flapTriangle: {
     position: 'absolute',
     width: 0, height: 0,
-    top:  FLAP_H,
+    // ⚠️ top 必须是 0:三角画在裁剪容器内部(0..FLAP_H)。
+    // 之前写成 FLAP_H,整个三角被 overflow:hidden 裁掉 —— 封口从未显示过。
+    top:  0,
     left: 0,
     borderLeftWidth:  ENV_W / 2,
     borderRightWidth: ENV_W / 2,
     borderTopWidth:   FLAP_H,
-    borderTopColor:   colors.envelope,
+    // 封口用金色(比信封正面浅),折合后与正面形成明显色差,确保 3D 折痕可读。
+    borderTopColor:   colors.envelopeFlap,
     borderLeftColor:  'transparent',
     borderRightColor: 'transparent',
   },
@@ -294,10 +290,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0, top: 0,
     width: ENV_W, height: ENV_H,
+    // 沙色正面 — 无边框,深度靠色差 + 暖棕投影。
     backgroundColor: colors.envelope,
     borderRadius: 5,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
     overflow: 'hidden',
     zIndex: Z_ENV_FRONT,
     // 暖棕投影,不用黑。
@@ -306,7 +301,8 @@ const styles = StyleSheet.create({
     shadowRadius:  14,
     shadowOffset:  { width: 0, height: 8 },
   },
-  // 底部折线的极淡 V 折痕(与合上的封口三角组成经典信封菱形)。
+  // 底部 V 折痕:金色色调 opacity 0.35,与封口三角组成经典信封菱形。
+  // 颜色用封口金(#FAE1A8)让正面视觉上暗示「这是一封信封」。
   vFoldTriangle: {
     position: 'absolute',
     width: 0, height: 0,
@@ -315,18 +311,49 @@ const styles = StyleSheet.create({
     borderLeftWidth:   ENV_W / 2,
     borderRightWidth:  ENV_W / 2,
     borderBottomWidth: ENV_H - FLAP_H,
-    borderBottomColor: colors.envelopeDeep,
+    borderBottomColor: colors.envelopeFlap,
     borderLeftColor:   'transparent',
     borderRightColor:  'transparent',
-    opacity: 0.22,
+    opacity: 0.5, // 0.35 在两种米色之间读不出来 —— 提到 0.5 才能看见经典信封折痕
+  },
+  // 左右侧折:朝中央的三角,比底折淡一档 —— 三层折痕深浅不同才像真信封。
+  sideFoldLeft: {
+    position: 'absolute',
+    top: 0, left: 0,
+    width: 0, height: 0,
+    borderTopWidth:    ENV_H / 2,
+    borderBottomWidth: ENV_H / 2,
+    borderLeftWidth:   ENV_W / 2,
+    borderLeftColor:   colors.envelopeFlap,
+    borderTopColor:    'transparent',
+    borderBottomColor: 'transparent',
+    opacity: 0.28,
+  },
+  sideFoldRight: {
+    position: 'absolute',
+    top: 0, right: 0,
+    width: 0, height: 0,
+    borderTopWidth:    ENV_H / 2,
+    borderBottomWidth: ENV_H / 2,
+    borderRightWidth:  ENV_W / 2,
+    borderRightColor:  colors.envelopeFlap,
+    borderTopColor:    'transparent',
+    borderBottomColor: 'transparent',
+    opacity: 0.28,
   },
 
-  squish: {
+  // 折叠光影层:与封口同形的三角(border 三角技巧),透明度由 flapRot 驱动。
+  // 不能用矩形 —— 立起时会像一块方板,三角形才跟封口贴合。
+  flapShade: {
     position: 'absolute',
-    width:        SQUISH_W,
-    height:       SQUISH_H,
-    borderRadius: SQUISH_H / 2,
-    backgroundColor: colors.dangerDeep,
+    top: 0, left: 0,
+    width: 0, height: 0,
+    borderLeftWidth:  ENV_W / 2,
+    borderRightWidth: ENV_W / 2,
+    borderTopWidth:   FLAP_H,
+    borderTopColor:   colors.brandWarm,
+    borderLeftColor:  'transparent',
+    borderRightColor: 'transparent',
   },
 
   seal: {

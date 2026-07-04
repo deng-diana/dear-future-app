@@ -55,9 +55,9 @@ export const palette = {
   // 日历选中日圆背景 — 用更深的品牌色,确保奶白文字 ≥4.5:1(AA)
   brandSelected: '#84410F', // 日历选中日背景(=brandDark),奶白文字比率 6.28
 
-  // Envelope colors — SealCeremony (calibrated to sealed-envelope.png pale cream)
-  creamEnvelope: '#F5EDDA',      // envelope body — pale warm cream, lighter than page background
-  creamEnvelopeDeep: '#EAE3CE',  // flap / pocket accent — slightly deeper for crease shadow
+  // Envelope colors — SealCeremony (founder-approved warm sand + gold)
+  envelopeSand: '#F7DCB2',  // envelope body / front pocket — warm sand
+  envelopeGold: '#FAE1A8',  // flap + V-fold accent — lighter gold (flap is lighter than body)
 
   // 边框/分割/纸张质感 系
   borderMid: '#C9B097',    // 禁用按钮背景色/SignIn 输入框底边/BottomSheet 抓手条
@@ -116,8 +116,8 @@ export const colors = {
   paperFleck: palette.paperFleck,       // 纸张颗粒点(极低opacity)
 
   // Envelope surfaces — SealCeremony
-  envelope: palette.creamEnvelope,      // envelope body
-  envelopeDeep: palette.creamEnvelopeDeep, // flap / pocket accent
+  envelope: palette.envelopeSand,   // envelope body / front pocket (#F7DCB2 warm sand)
+  envelopeFlap: palette.envelopeGold, // envelope flap + V-fold accent (#FAE1A8 light gold, lighter than body)
 } as const;
 
 /*
