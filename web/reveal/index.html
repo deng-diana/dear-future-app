@@ -243,19 +243,9 @@
     background: var(--surface);
   }
 
-  /* Subtle film-grain overlay for vintage warmth */
-  .polaroid-window::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
-    mix-blend-mode: overlay;
-    opacity: 0.18;
-  }
-
-  /* The actual image inside the window */
+  /* The actual image inside the window.
+     Founder spec: NO fade/sepia/grain treatment — photos and video stay
+     exactly as the user shot them (原汁原味). */
   .polaroid-media {
     position: absolute;
     inset: 0;
@@ -263,10 +253,9 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
   }
 
-  /* Video element inside the window */
+  /* Video element inside the window — same rule: no filter, ever. */
   .polaroid-media--video {
     position: absolute;
     inset: 0;
@@ -274,7 +263,6 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    filter: saturate(0.88) sepia(0.1) contrast(0.92) brightness(1.02);
   }
 
   /* Narrow screens: keep the prints as ONE fanned row — never wrap into a
@@ -609,13 +597,13 @@
       if (grid) {
         // Exactly 4 photos — two rows of overlapping pairs.
         // Founder spec: EVERY row is identical (no mirroring) —
-        // left print tilts -9deg and sits UNDER (z:1);
-        // right print tilts +5deg, sits slightly lower and ON TOP (z:2).
+        // left print tilts -15deg and sits UNDER (z:1);
+        // right print tilts +15deg and sits ON TOP (z:2); bottoms aligned.
         var pairTransforms = [
-          { tf: 'rotate(-9deg)',                   zi: 1 },  // row 1 left  (under)
-          { tf: 'translateY(14px) rotate(5deg)',   zi: 2 },  // row 1 right (on top)
-          { tf: 'rotate(-9deg)',                   zi: 1 },  // row 2 left  (under)
-          { tf: 'translateY(14px) rotate(5deg)',   zi: 2 },  // row 2 right (on top)
+          { tf: 'rotate(-15deg)',  zi: 1 },  // row 1 left  (under)
+          { tf: 'rotate(15deg)',   zi: 2 },  // row 1 right (on top)
+          { tf: 'rotate(-15deg)',  zi: 1 },  // row 2 left  (under)
+          { tf: 'rotate(15deg)',   zi: 2 },  // row 2 right (on top)
         ];
         var pt = pairTransforms[index];
         return (
@@ -634,9 +622,9 @@
       // 3 photos: left -10deg (z:1), middle 0deg raised 14px (z:3, highest),
       //           right +10deg (z:2) — middle overlaps both neighbours.
       var stripTransforms = {
-        '1_0': { tf: 'rotate(0deg)',                   zi: 1 },
-        '2_0': { tf: 'rotate(-9deg)',                   zi: 1 },
-        '2_1': { tf: 'translateY(14px) rotate(5deg)',   zi: 2 },
+        '1_0': { tf: 'rotate(0deg)',    zi: 1 },
+        '2_0': { tf: 'rotate(-15deg)',  zi: 1 },
+        '2_1': { tf: 'rotate(15deg)',   zi: 2 },
         '3_0': { tf: 'rotate(-10deg)',                  zi: 1 },
         '3_1': { tf: 'translateY(-14px) rotate(0deg)',  zi: 3 },
         '3_2': { tf: 'rotate(10deg)',                   zi: 2 },
