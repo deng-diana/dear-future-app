@@ -5,7 +5,15 @@
 
 ## ▶ 下一步从这里继续
 
-**▶ Resume here (2026-07-04 晚): build 16 building on EAS → TestFlight smoke → attach to ASC v1.0.1 → SUBMIT.**
+**▶ Resume here (2026-07-04 夜): v1.0.1 (build 16) SUBMITTED — Waiting for Review.**
+Founder smoke-tested build 16 on device (ceremony + haptic approved), new
+6.5" screenshots (1284×2778, alpha stripped) uploaded, What's New + promo
+text set, review account intact, Manual release selected. WHEN APPROVED:
+release manually, then immediately turn OFF ALLOW_SANDBOX_PURCHASES
+(task #6 pattern; DELIVER_DEMO_MODE stays — it's scoped). v1.0 took
+~24-48h in queue.
+
+**上一节 (2026-07-04 晚): build 16 building on EAS → TestFlight smoke → attach to ASC v1.0.1 → SUBMIT.**
 Today's marathon (all committed, founder-approved on simulator):
 - **Seal ceremony finally REAL** (`a8d5c93`, `1246200`, `489add8`, `baa1194`):
   root causes found & fixed in layers — (1) reanimated worklets never drive
