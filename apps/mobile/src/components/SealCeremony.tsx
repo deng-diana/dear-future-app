@@ -1,14 +1,25 @@
-// SealCeremony — full-screen animation played after a letter is sealed.
-// Narrative: letter settles → envelope rises → letter slides in → flap folds
-// closed (3-D rotateX) → wax seal drops with spring press → squish ring + jolt
-// (HAPTIC here) → sacred pause → lift-and-fade departure → onDone().
+// SealCeremony — two-beat seal ceremony, total ≈ 2.83 s.
 //
-// Uses react-native-reanimated v4 (useSharedValue / withTiming / withSpring).
-// Reduce-motion (A13): skip straight to onDone after a 0 ms settle.
+// Beat 1 (~0–1.3 s): envelope fades in centered on ivory screen with flap OPEN
+//   (rotateX ≈ 178°, triangle standing upward) → flap folds DOWN (rotateX → 0°,
+//   hinged at the body's top edge via double-height wrapper trick, inOut-cubic 600 ms).
+//
+// Beat 2 (~1.75–2.83 s): wax seal drops from above and spring-presses onto the
+//   flap tip (scale 1.5→1, damping 13 stiffness 260) → stamp lands → haptic (Medium)
+//   + bordeaux squish ring + 2 px jolt → composition scales/translates to match the
+//   sealed-screen envelope (120 px wide, slightly above screen center) during the
+//   750 ms still pause → envelope lifts away and fades (departure) → onDone().
+//
+// (Departure replaces the earlier shrink-to-position hand-off — founder decision:
+// sealing = leaving. Note kept for history: the sealed screen envelope is 120 × 79, horizontally
+//   centered, translated −80 px from screen center, matching sealed-envelope.png's
+//   position on the sealed screen that fades in immediately after.
+//
+// Uses react-native-reanimated v4. Reduce-motion: skip to onDone instantly.
 // Public API: { onDone: () => void } — unchanged.
 
-import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Dimensions, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -23,68 +34,71 @@ import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme';
 
-// ── Geometry (proportional to the HTML prototype: letter 190×250, env 250×160) ──
-const { width: SW } = Dimensions.get('window');
+// ── Geometry ──────────────────────────────────────────────────────────────────
 
-const PAPER_W = SW * 0.72;
-const PAPER_H = PAPER_W * 1.38;
+// Envelope: aspect ratio mirrors sealed-envelope.png (120 × 79 ≈ 1.52 : 1).
+const ENV_W = 200;
+const ENV_H = Math.round((ENV_W * 79) / 120); // = 132
 
-const ENV_W = PAPER_W * (250 / 190);
-const ENV_H = ENV_W * (160 / 250);   // ENV_W * 0.64
-const FLAP_H = ENV_H * (88 / 160);   // ENV_H * 0.55
+// Flap: V-tip at ~42 % from top matches the sealed PNG's fold crease position.
+const FLAP_H = Math.round(ENV_H * 0.42); // = 55
 
-// Envelope top within the pack: (255-68)/250 = 0.748 × PAPER_H
-const ENV_TOP = PAPER_H * (187 / 250);
-
-// Pack: the entire letter+envelope composition, centered on screen.
+// Pack = the envelope composition (no letter paper in this design).
 const PACK_W = ENV_W;
-const PACK_H = ENV_TOP + ENV_H + 20;
+const PACK_H = ENV_H;
 
-// Letter is centered horizontally in the pack.
-const LETTER_X = (ENV_W - PAPER_W) / 2;
+// Seal stamp. The asset is portrait (≈ 2 : 3); resizeMode="contain" fills the box.
+const STAMP_W = 50;
+const STAMP_H = Math.round(STAMP_W * 1.5); // = 75
+const STAMP_X = (PACK_W - STAMP_W) / 2;   // = 75 — centered
+const STAMP_Y = Math.round(FLAP_H - STAMP_H / 2); // stamp center at flap-tip Y=55
 
-// Letter insert: slides down by 56% of its height.
-const INSERT_Y = PAPER_H * (140 / 250);
+// Wax squish ring (oval, slightly wider than tall).
+const SQUISH_W = 76;
+const SQUISH_H = 46;
+const SQUISH_X = (PACK_W - SQUISH_W) / 2;          // = 62
+const SQUISH_Y = Math.round(FLAP_H - SQUISH_H / 2); // = 32
 
-// Seal stamp (2:3 portrait, proportional to HTML 64px on 250px envelope).
-const STAMP_W = ENV_W * (64 / 250);
-const STAMP_H = STAMP_W * 1.5;
-const STAMP_X = (PACK_W - STAMP_W) / 2;
-// Seal center sits at the flap tip.
-const STAMP_Y = ENV_TOP + FLAP_H - STAMP_H / 2;
-
-// Wax squish ring (oval, proportional to HTML 96×58px).
-const SQUISH_W = ENV_W * (96 / 250);
-const SQUISH_H = SQUISH_W * (58 / 96);
-const SQUISH_X = (PACK_W - SQUISH_W) / 2;
-const SQUISH_Y = ENV_TOP + FLAP_H - SQUISH_H / 2;
-
-// Ruled lines on the letter paper (1px lines every 22px, matching HTML).
-const LINE_SPACING = 22;
-const N_LINES = Math.max(0, Math.floor(PAPER_H / LINE_SPACING) - 1);
-
-// Z-index layering (matches HTML prototype comment).
-const Z_ENV_BACK = 0;
-const Z_LETTER = 2;
+// Z-index layers.
+const Z_ENV_BACK  = 0;
 const Z_ENV_FRONT = 4;
-const Z_FLAP_OPEN = 1;
-const Z_FLAP_CLOSE = 5;
-const Z_SQUISH = 6;
-const Z_SEAL = 7;
+const Z_FLAP      = 5; // always above envFront; in open state they don't overlap spatially
+const Z_SQUISH    = 6;
+const Z_SEAL      = 7;
 
-// ── Timeline (ms from animation start) ────────────────────────────────────
-const T_ENV_IN = 750;
-const T_INSERT = 1150;
-const T_FLAP_CLOSE = 1850;
-const T_STAMP = 2450;
-const T_SETTLE = 2830;   // haptic + squish + jolt fire here
-const T_DEPART = T_SETTLE + 750;   // 3580
-const DUR_DEPART = 1300;
-const T_DONE = T_DEPART + DUR_DEPART; // 4880
+// Departure(创始人定稿:封存即离开 —— 产品哲学):盖印静止后,信封向上飞走消失;
+// 随后的已封存屏自带「从上而下浮现」入场,像信封的归来预告。
+const DEPART_TRANSLATE_Y = -340;  // 向上飞出屏幕方向
+const DEPART_SCALE       = 0.92;  // 远去时轻微缩小
 
-type Props = {
-  onDone: () => void;
-};
+// ── Timeline (ms) ─────────────────────────────────────────────────────────────
+//
+// T=0050 ─ envelope appear start
+// T=0350 ─ envelope settled (DUR_ENV = 300 ms)
+// T=0700 ─ flap fold start   (350 ms pause after envelope)
+// T=1300 ─ flap closed       (DUR_FLAP = 600 ms)
+// T=1750 ─ stamp drop start  (450 ms pause after flap)
+// T=2130 ─ stamp lands       (DUR_DROP = 380 ms) → haptic + squish + jolt
+// T=2880 ─ departure starts  (DUR_PAUSE = 750 ms sacred stillness)
+// T=4080 ─ onDone            (DUR_DEPART = 1200 ms lift & fade)
+//
+// Total: ≈ 4080 ms
+
+const T_ENV      = 50;
+const DUR_ENV    = 300;
+const T_FLAP     = 700;
+const DUR_FLAP   = 600;
+const T_STAMP    = 1750;
+const DUR_DROP   = 380;
+const T_SETTLE   = T_STAMP + DUR_DROP; // = 2130
+const DUR_PAUSE  = 750;                    // 神圣停顿:什么都不动
+const T_DEPART   = T_SETTLE + DUR_PAUSE;   // = 2880
+const DUR_DEPART = 1200;                   // 向上远去 + 淡出
+const T_DONE     = T_DEPART + DUR_DEPART;  // = 4080
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+type Props = { onDone: () => void };
 
 export default function SealCeremony({ onDone }: Props) {
   // ── Reduce-motion ─────────────────────────────────────────────────────────
@@ -99,66 +113,47 @@ export default function SealCeremony({ onDone }: Props) {
     return () => sub.remove();
   }, []);
 
-  // ── Flap z-index: starts behind letter (1), swaps above front (5) at T_FLAP_CLOSE
-  const [flapZIndex, setFlapZIndex] = useState<number>(Z_FLAP_OPEN);
+  // ── Shared values ─────────────────────────────────────────────────────────
 
-  // ── Shared animation values ───────────────────────────────────────────────
+  // Beat 1 — envelope appear (fade + gentle settle).
+  const packOpacity    = useSharedValue(0);
+  const packEnterY     = useSharedValue(8);
+  const packEnterScale = useSharedValue(0.97);
 
-  // Phase 1 – letter enter
-  const letterOpacity = useSharedValue(0);
-  const letterEnterY = useSharedValue(8);
-  const letterEnterScale = useSharedValue(0.96);
-
-  // Phase 3 – letter insert (additive on top of enter values)
-  const letterInsertY = useSharedValue(0);
-  const letterInsertScale = useSharedValue(1);
-
-  // Phase 2 – envelope in
-  const envOpacity = useSharedValue(0);
-  const envRiseY = useSharedValue(14);
-
-  // Phase 4 – flap close (degrees, 178 = open, 0 = closed)
+  // Beat 1 — flap fold: 178° = open (standing upward), 0° = closed (V-flap flat).
   const flapRotX = useSharedValue(178);
 
-  // Phase 5 – seal stamp
+  // Beat 2 — seal drop + spring press.
   const sealOpacity = useSharedValue(0);
-  const sealDropY = useSharedValue(-70);
-  const sealScale = useSharedValue(1.6);
+  const sealDropY   = useSharedValue(-40); // starts 40 px above final position
+  const sealScale   = useSharedValue(1.5);
 
-  // Phase 6 – wax squish ring
-  const squishScale = useSharedValue(0.45);
+  // Beat 2 — squish ring.
+  const squishScale   = useSharedValue(0.5);
   const squishOpacity = useSharedValue(0);
 
-  // Phase 6 – pack jolt (3 px quick press)
+  // Beat 2 — 2 px envelope jolt.
   const packJoltY = useSharedValue(0);
 
-  // Phase 8 – pack departure (lift-and-fade)
-  const packDepartY = useSharedValue(0);
-  const packDepartScale = useSharedValue(1);
-  const packDepartOpacity = useSharedValue(1);
+  // Beat 3 — departure:向上飞走(translateY)+ 远去缩小(scale)+ 淡出(复用 packOpacity)。
+  const packFinalScale      = useSharedValue(1);
+  const packFinalTranslateY = useSharedValue(0);
 
-  // ── onDone guard (call exactly once) ─────────────────────────────────────
+  // ── onDone guard (called exactly once) ───────────────────────────────────
   const doneCalled = useRef(false);
 
   // ── Animated styles ───────────────────────────────────────────────────────
 
-  // Letter: enter opacity/translate/scale, then insert translate/scale (additive).
-  const letterStyle = useAnimatedStyle(() => ({
-    opacity: letterOpacity.value,
+  // Pack (the whole composition): combines appear, jolt, and final hand-off.
+  const packStyle = useAnimatedStyle(() => ({
+    opacity: packOpacity.value,
     transform: [
-      { translateY: letterEnterY.value + letterInsertY.value },
-      { scale: letterEnterScale.value * letterInsertScale.value },
+      { translateY: packEnterY.value + packFinalTranslateY.value + packJoltY.value },
+      { scale: packEnterScale.value * packFinalScale.value },
     ],
   }));
 
-  // All envelope layers share the same rise-in animation.
-  const envStyle = useAnimatedStyle(() => ({
-    opacity: envOpacity.value,
-    transform: [{ translateY: envRiseY.value }],
-  }));
-
-  // Flap wrapper: perspective FIRST (required), then rotateX.
-  // backfaceVisibility:'hidden' (in StyleSheet) hides the flap at 178° (open).
+  // Flap: perspective MUST be first in the transform array (RN / Reanimated rule).
   const flapWrapStyle = useAnimatedStyle(() => ({
     transform: [
       { perspective: 700 },
@@ -166,7 +161,7 @@ export default function SealCeremony({ onDone }: Props) {
     ],
   }));
 
-  // Seal stamp: drop + spring press.
+  // Seal stamp: drop + spring scale.
   const sealStyle = useAnimatedStyle(() => ({
     opacity: sealOpacity.value,
     transform: [
@@ -181,22 +176,12 @@ export default function SealCeremony({ onDone }: Props) {
     transform: [{ scale: squishScale.value }],
   }));
 
-  // Pack: departure translateY+scale+opacity, plus the brief 3-px jolt (additive).
-  const packStyle = useAnimatedStyle(() => ({
-    opacity: packDepartOpacity.value,
-    transform: [
-      { translateY: packDepartY.value + packJoltY.value },
-      { scale: packDepartScale.value },
-    ],
-  }));
-
-  // ── Main animation effect ─────────────────────────────────────────────────
+  // ── Main animation ────────────────────────────────────────────────────────
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     const boot = setTimeout(() => {
       if (reduceMotionRef.current) {
-        // A13: skip ceremony, go straight to done.
         if (!doneCalled.current) {
           doneCalled.current = true;
           onDone();
@@ -204,82 +189,65 @@ export default function SealCeremony({ onDone }: Props) {
         return;
       }
 
-      // ── Phase 1 (T=0): letter settles onto screen ────────────────────────
-      letterOpacity.value = withTiming(1, { duration: 550, easing: Easing.out(Easing.cubic) });
-      letterEnterY.value = withTiming(0, { duration: 550, easing: Easing.out(Easing.cubic) });
-      letterEnterScale.value = withTiming(1, { duration: 550, easing: Easing.out(Easing.cubic) });
+      // Beat 1a — envelope fades in and settles (T_ENV, DUR_ENV).
+      packOpacity.value    = withDelay(T_ENV, withTiming(1,    { duration: DUR_ENV, easing: Easing.out(Easing.cubic) }));
+      packEnterY.value     = withDelay(T_ENV, withTiming(0,    { duration: DUR_ENV, easing: Easing.out(Easing.cubic) }));
+      packEnterScale.value = withDelay(T_ENV, withTiming(1,    { duration: DUR_ENV, easing: Easing.out(Easing.cubic) }));
 
-      // ── Phase 2 (T=750): envelope rises in from below ───────────────────
-      envOpacity.value = withDelay(T_ENV_IN, withTiming(1, { duration: 450 }));
-      envRiseY.value = withDelay(
-        T_ENV_IN,
-        withTiming(0, { duration: 450, easing: Easing.out(Easing.cubic) }),
-      );
-
-      // ── Phase 3 (T=1150): letter slides down into envelope pocket ────────
-      letterInsertY.value = withDelay(
-        T_INSERT,
-        withTiming(INSERT_Y, { duration: 650, easing: Easing.inOut(Easing.cubic) }),
-      );
-      letterInsertScale.value = withDelay(
-        T_INSERT,
-        withTiming(0.55, { duration: 650, easing: Easing.inOut(Easing.cubic) }),
-      );
-
-      // ── Phase 4 (T=1850): flap folds closed (3-D rotateX) ───────────────
+      // Beat 1b — flap folds closed: rotateX 178° → 0° (inOut-cubic).
+      // flapWrap z=5 throughout; in open state the flap is spatially above the
+      // envelope body (Y < 0 in pack coords) so no z-index conflict with envFront.
       flapRotX.value = withDelay(
-        T_FLAP_CLOSE,
-        withTiming(0, { duration: 500, easing: Easing.inOut(Easing.cubic) }),
+        T_FLAP,
+        withTiming(0, { duration: DUR_FLAP, easing: Easing.inOut(Easing.cubic) }),
       );
-      // Swap flap z-index so it folds ABOVE the envelope front.
-      timers.push(setTimeout(() => setFlapZIndex(Z_FLAP_CLOSE), T_FLAP_CLOSE));
 
-      // ── Phase 5 (T=2450): seal drops with spring press ───────────────────
-      sealOpacity.value = withDelay(T_STAMP, withTiming(1, { duration: 240 }));
-      sealDropY.value = withDelay(
+      // Beat 2a — stamp drops from above and spring-presses onto flap tip (T_STAMP).
+      sealOpacity.value = withDelay(T_STAMP, withTiming(1, { duration: 200 }));
+      sealDropY.value   = withDelay(
         T_STAMP,
-        withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) }),
+        withTiming(0, { duration: DUR_DROP, easing: Easing.in(Easing.quad) }),
       );
-      // Spring undershoot IS the stamp-press feel; overshootClamping: false is intentional.
-      sealScale.value = withDelay(
+      // Spring undershoot IS the press feel — overshootClamping:false is intentional.
+      sealScale.value   = withDelay(
         T_STAMP,
         withSpring(1, { damping: 13, stiffness: 260, overshootClamping: false }),
       );
 
-      // ── Phase 6 (T=2830): stamp settles — HAPTIC + squish ring + jolt ────
+      // Beat 2b — stamp settles (T_SETTLE): haptic + squish ring + jolt.
       timers.push(
         setTimeout(() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         }, T_SETTLE),
       );
 
-      // Squish ring: jump to 0.55 opacity then fade, while scale expands.
+      // Squish ring: snap to 0.5 opacity (~1 frame), expand to scale 1.2, fade out.
       squishOpacity.value = withDelay(
         T_SETTLE,
         withSequence(
-          withTiming(0.55, { duration: 16 }),  // ~1 frame instant appear
-          withTiming(0, { duration: 404 }),
+          withTiming(0.5, { duration: 16 }),
+          withTiming(0,   { duration: 420 }),
         ),
       );
-      squishScale.value = withDelay(T_SETTLE, withTiming(1.25, { duration: 420 }));
+      squishScale.value = withDelay(T_SETTLE, withTiming(1.2, { duration: 420 }));
 
-      // Envelope jolt: 3 px down in 80 ms, back to 0 in 160 ms.
+      // 2 px jolt: pack bumps down then springs back.
       packJoltY.value = withDelay(
         T_SETTLE,
         withSequence(
-          withTiming(3, { duration: 80 }),
+          withTiming(2, { duration: 80  }),
           withTiming(0, { duration: 160 }),
         ),
       );
 
-      // ── Phase 7 (T=3580): sacred pause (750 ms) then departure ───────────
-      // Departure variant: lift — translateY up, slight scale-down, fade.
-      const departEasing = Easing.bezier(0.6, 0.04, 0.3, 1);
-      packDepartY.value = withDelay(T_DEPART, withTiming(-340, { duration: DUR_DEPART, easing: departEasing }));
-      packDepartScale.value = withDelay(T_DEPART, withTiming(0.92, { duration: DUR_DEPART, easing: departEasing }));
-      packDepartOpacity.value = withDelay(T_DEPART, withTiming(0, { duration: DUR_DEPART, easing: departEasing }));
+      // Departure:750ms 神圣停顿后,信封踏上时间旅程 —— 向上远去、轻微缩小、淡出。
+      // 封存即离开(产品哲学);随后的已封存屏自上而下浮现,与之呼应。
+      const departEase = Easing.bezier(0.6, 0.04, 0.3, 1);
+      packFinalTranslateY.value = withDelay(T_DEPART, withTiming(DEPART_TRANSLATE_Y, { duration: DUR_DEPART, easing: departEase }));
+      packFinalScale.value      = withDelay(T_DEPART, withTiming(DEPART_SCALE,       { duration: DUR_DEPART, easing: departEase }));
+      packOpacity.value         = withDelay(T_DEPART, withTiming(0,                  { duration: DUR_DEPART, easing: departEase }));
 
-      // ── onDone after departure completes ─────────────────────────────────
+      // onDone after the full pause.
       timers.push(
         setTimeout(() => {
           if (!doneCalled.current) {
@@ -294,13 +262,9 @@ export default function SealCeremony({ onDone }: Props) {
 
     return () => {
       timers.forEach(clearTimeout);
-      cancelAnimation(letterOpacity);
-      cancelAnimation(letterEnterY);
-      cancelAnimation(letterEnterScale);
-      cancelAnimation(letterInsertY);
-      cancelAnimation(letterInsertScale);
-      cancelAnimation(envOpacity);
-      cancelAnimation(envRiseY);
+      cancelAnimation(packOpacity);
+      cancelAnimation(packEnterY);
+      cancelAnimation(packEnterScale);
       cancelAnimation(flapRotX);
       cancelAnimation(sealOpacity);
       cancelAnimation(sealDropY);
@@ -308,60 +272,49 @@ export default function SealCeremony({ onDone }: Props) {
       cancelAnimation(squishScale);
       cancelAnimation(squishOpacity);
       cancelAnimation(packJoltY);
-      cancelAnimation(packDepartY);
-      cancelAnimation(packDepartScale);
-      cancelAnimation(packDepartOpacity);
+      cancelAnimation(packFinalScale);
+      cancelAnimation(packFinalTranslateY);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={styles.overlay}>
-      {/* Pack: the whole letter+envelope composition that flies away on departure. */}
       <Animated.View style={[styles.pack, packStyle]}>
 
-        {/* Envelope back — z=0, behind letter, shows the pocket interior. */}
-        <Animated.View style={[styles.envBack, envStyle]} />
+        {/* Envelope back: pocket interior color, behind all other layers (z=0). */}
+        <View style={styles.envBack} />
 
-        {/* Letter paper — z=2, slides into envelope pocket in phase 3. */}
-        <Animated.View style={[styles.paper, letterStyle]}>
-          {Array.from({ length: N_LINES }).map((_, i) => (
-            <View
-              key={i}
-              style={[styles.ruledLine, { top: LINE_SPACING * (i + 1) }]}
-            />
-          ))}
-        </Animated.View>
-
-        {/* Flap wrapper — perspective + rotateX for the 3-D fold.
-            Height = FLAP_H × 2; the visible flap lives in the BOTTOM half so
-            the wrapper's center = the fold line (transformOrigin emulation).
-            backfaceVisibility:'hidden' keeps it invisible during the "open" state
-            (rotateX ≈ 178°). z-index starts at 1 (behind letter), swaps to 5
-            (above env front) when the close begins. */}
-        <Animated.View
-          style={[
-            styles.flapWrap,
-            { zIndex: flapZIndex },
-            flapWrapStyle,
-          ]}
-        >
-          {/* Top half: transparent spacer — shifts visual hinge to wrapper center. */}
+        {/* Flap wrapper: double-height container for transformOrigin emulation.
+            Height = FLAP_H × 2; top = −FLAP_H → wrapper center = fold line = Y=0
+            in pack (= envelope's top edge). perspective FIRST in the transform array.
+            flapSpacer (top half) is transparent; flapClip (bottom half) holds the
+            downward-V triangle.
+            At rotX ≈ 178° (open): flapClip appears ABOVE the envelope body (Y < 0
+            in pack coords), triangle appears mirrored → upward pointing. ✓
+            At rotX = 0° (closed): flapClip covers the top FLAP_H px of the envelope,
+            triangle pointing down = classic sealed-envelope V-flap. ✓
+            z=5 always: in open state there is no spatial overlap with envFront (z=4),
+            so no z-index artefact. */}
+        <Animated.View style={[styles.flapWrap, flapWrapStyle]}>
           <View style={styles.flapSpacer} />
-          {/* Bottom half: the visible downward-pointing triangle flap. */}
           <View style={styles.flapClip}>
+            {/* Downward-V via CSS border trick.
+                Element at top:FLAP_H (bottom of flapClip); borderTopWidth:FLAP_H
+                draws upward → base at Y=0, tip at Y=FLAP_H within flapClip. */}
             <View style={styles.flapTriangle} />
           </View>
         </Animated.View>
 
-        {/* Envelope front — z=4, covers the letter after it slides in.
-            V-fold crease triangle gives a paper-fold depth hint. */}
-        <Animated.View style={[styles.envFront, envStyle]}>
+        {/* Envelope front: main visible face (z=4). Contains an ultra-faint upward-V
+            crease shadow representing the bottom flap fold line, matching the
+            sealed-envelope.png's crease pattern. */}
+        <View style={styles.envFront}>
           <View style={styles.vFoldTriangle} />
-        </Animated.View>
+        </View>
 
-        {/* Wax squish ring — bordeaux oval glow, fires at stamp settle. */}
+        {/* Wax squish ring: bordeaux oval, expands and fades at stamp settle. */}
         <Animated.View
           accessible={false}
           style={[
@@ -371,7 +324,7 @@ export default function SealCeremony({ onDone }: Props) {
           ]}
         />
 
-        {/* Wax seal stamp — drops with spring press. Purely decorative (A7). */}
+        {/* Wax seal stamp: drops from above and spring-presses onto the flap tip. */}
         <Animated.Image
           source={require('@/assets/images/seal-stamp.png')}
           resizeMode="contain"
@@ -383,168 +336,121 @@ export default function SealCeremony({ onDone }: Props) {
             sealStyle,
           ]}
         />
+
       </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Full-screen warm-cream overlay, matches background so transition is seamless.
+  // Full-screen ivory overlay; composition is centered.
   overlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
   },
 
-  // Pack: fixed size, centered; flies away on departure.
+  // Fixed 200 × 132 px envelope composition, centered in overlay.
   pack: {
-    width: PACK_W,
+    width:  PACK_W,
     height: PACK_H,
   },
 
-  // ── Letter paper ───────────────────────────────────────────────────────────
-  paper: {
-    position: 'absolute',
-    left: LETTER_X,
-    top: 0,
-    width: PAPER_W,
-    height: PAPER_H,
-    backgroundColor: colors.surfacePaper,
-    borderRadius: 3,
-    overflow: 'hidden',
-    zIndex: Z_LETTER,
-    // Warm shadow only — never black/grey.
-    shadowColor: colors.brandWarm,
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-  },
-
-  // Faint horizontal ruled lines (match HTML: 1px every 22px, warm brown at 11%).
-  ruledLine: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    height: 1,
-    backgroundColor: colors.brandWarm,
-    opacity: 0.11,
-  },
-
-  // ── Envelope back (pocket interior, behind letter) ─────────────────────────
+  // ── Envelope back (pocket interior) ──────────────────────────────────────
   envBack: {
     position: 'absolute',
-    left: 0,
-    top: ENV_TOP,
-    width: ENV_W,
-    height: ENV_H,
-    backgroundColor: colors.envelopeDeep,  // slightly deeper pocket interior
-    borderRadius: 6,
+    left: 0, top: 0,
+    width: ENV_W, height: ENV_H,
+    backgroundColor: colors.envelopeDeep,
+    borderRadius: 5,
     zIndex: Z_ENV_BACK,
   },
 
-  // ── Flap ───────────────────────────────────────────────────────────────────
-
-  // Wrapper: FLAP_H × 2 tall. Top half = transparent spacer.
-  // Center of wrapper = fold line (transformOrigin emulation for rotateX).
+  // ── Flap wrapper (3-D fold trick) ─────────────────────────────────────────
   flapWrap: {
     position: 'absolute',
     left: 0,
-    top: ENV_TOP - FLAP_H,  // center = ENV_TOP = fold line
-    width: ENV_W,
+    top:  -FLAP_H,       // center of wrapper = Y=0 in pack = envelope's top edge
+    width:  ENV_W,
     height: FLAP_H * 2,
-    backfaceVisibility: 'hidden',  // hide at 178° (open state)
+    zIndex: Z_FLAP,
   },
 
-  // Spacer: fills the top half of the wrapper (invisible).
-  flapSpacer: {
-    height: FLAP_H,
-  },
+  // Transparent top half — shifts the visual hinge to the wrapper's center.
+  flapSpacer: { height: FLAP_H },
 
-  // Clips the triangle to exactly FLAP_H so it never overflows upward.
+  // Clips the triangle to FLAP_H so it never overflows upward.
   flapClip: {
-    width: ENV_W,
-    height: FLAP_H,
+    width:    ENV_W,
+    height:   FLAP_H,
     overflow: 'hidden',
   },
 
-  // Downward-pointing triangle via border trick.
-  // Position: bottom of flapClip + left=ENV_W/2 (center).
-  // border-top extends UPWARD from the element, creating a triangle with:
-  //   base at top (y=0 of flapClip), tip at bottom (y=FLAP_H).
   flapTriangle: {
     position: 'absolute',
-    width: 0,
-    height: 0,
-    top: FLAP_H,
+    width: 0, height: 0,
+    top:  FLAP_H,        // bottom of flapClip; borderTopWidth draws upward
     left: ENV_W / 2,
-    borderLeftWidth: ENV_W / 2,
+    borderLeftWidth:  ENV_W / 2,
     borderRightWidth: ENV_W / 2,
-    borderTopWidth: FLAP_H,
-    borderTopColor: colors.envelopeDeep,
-    borderLeftColor: 'transparent',
+    borderTopWidth:   FLAP_H,
+    borderTopColor:   colors.envelope,
+    borderLeftColor:  'transparent',
     borderRightColor: 'transparent',
   },
 
-  // ── Envelope front (above letter, creates pocket illusion) ─────────────────
+  // ── Envelope front ────────────────────────────────────────────────────────
   envFront: {
     position: 'absolute',
-    left: 0,
-    top: ENV_TOP,
-    width: ENV_W,
-    height: ENV_H,
+    left: 0, top: 0,
+    width: ENV_W, height: ENV_H,
     backgroundColor: colors.envelope,
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: colors.borderLight,
     overflow: 'hidden',
     zIndex: Z_ENV_FRONT,
-    // Warm shadow — no elevation (Android renders black elevation).
-    shadowColor: colors.brandWarm,
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
+    // Warm brown shadow only — no black, no elevation.
+    shadowColor:   colors.brandWarm,
+    shadowOpacity: 0.18,
+    shadowRadius:  14,
+    shadowOffset:  { width: 0, height: 8 },
   },
 
-  // V-fold crease on envelope front: upward triangle occupying the lower 68%.
-  // border-bottom extends DOWNWARD from element at top=ENV_H*0.32,
-  // creating an upward-pointing triangle: tip at (ENV_W/2, ENV_H*0.32),
-  // base corners at (0, ENV_H) and (ENV_W, ENV_H).
+  // Faint upward-V crease: represents the bottom-flap fold line on the sealed face.
+  // Tip at Y=FLAP_H (the seal center / V-junction); base at Y=ENV_H (envelope bottom).
+  // Combined with the closed flapTriangle above, this forms the classic envelope diamond.
   vFoldTriangle: {
     position: 'absolute',
-    width: 0,
-    height: 0,
-    top: ENV_H * 0.32,
+    width: 0, height: 0,
+    top:  FLAP_H,
     left: ENV_W / 2,
-    borderLeftWidth: ENV_W / 2,
-    borderRightWidth: ENV_W / 2,
-    borderBottomWidth: ENV_H * 0.68,
+    borderLeftWidth:   ENV_W / 2,
+    borderRightWidth:  ENV_W / 2,
+    borderBottomWidth: ENV_H - FLAP_H,
     borderBottomColor: colors.envelopeDeep,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
+    borderLeftColor:   'transparent',
+    borderRightColor:  'transparent',
+    opacity: 0.22,
   },
 
-  // ── Wax squish ring ────────────────────────────────────────────────────────
-  // Bordeaux oval glow approximating the radial-gradient in the HTML prototype.
-  // (RN has no radial gradient without Skia; a low-opacity solid oval is close.)
+  // ── Wax squish ring ───────────────────────────────────────────────────────
   squish: {
     position: 'absolute',
-    width: SQUISH_W,
-    height: SQUISH_H,
+    width:        SQUISH_W,
+    height:       SQUISH_H,
     borderRadius: SQUISH_H / 2,
-    backgroundColor: colors.dangerDeep,  // bordeauxRed #7A1E1E
+    backgroundColor: colors.dangerDeep, // bordeauxRed #7A1E1E
     opacity: 0,
   },
 
-  // ── Wax seal stamp ─────────────────────────────────────────────────────────
+  // ── Wax seal stamp ────────────────────────────────────────────────────────
   seal: {
     position: 'absolute',
-    width: STAMP_W,
+    width:  STAMP_W,
     height: STAMP_H,
   },
 });

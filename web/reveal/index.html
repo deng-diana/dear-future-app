@@ -144,12 +144,10 @@
     display: flex;
     flex-wrap: nowrap;
     justify-content: center;
-    align-items: flex-end;
-    /* 顶部多留些空间:中间那张会向上抬起成扇形 */
+    align-items: center;   /* vertical offsets handled via translateY on each photo */
     margin: 46px 0 0;
-    overflow: visible;     /* 扇形抬起不被裁切(窄屏由 @media 换行兜底) */
+    overflow: visible;     /* rotated corners must not be clipped */
     padding-bottom: 28px;  /* room for shadows below the photos */
-    /* Task 1: horizontal padding so rotated corners don't clip page edge */
     padding-left: 8px;
     padding-right: 8px;
   }
@@ -182,44 +180,48 @@
                 box-shadow 420ms cubic-bezier(.25,.8,.25,1);
   }
 
-  /* Photo polaroids: bigger than before, overlapping fan */
+  /* Photo polaroids: overlapping pair/trio aesthetic */
   .polaroid--photo {
     width: min(170px, 46vw);
     padding: 12px 12px 30px;
-    /* Negative margin creates the overlap — adjacent photos tuck under each other */
-    margin-left: -34px;
-    transform-origin: bottom center;
-    /* 关键:照片入场只淡入,不要用 .reveal 那个会动 transform 的 rise 动画 ——
-       否则动画把 transform 归零,扇形旋转/上抬就被盖掉了。 */
+    /* Negative margin creates the horizontal overlap (~25% of print width) */
+    margin-left: -40px;
+    transform-origin: center;
+    /* Entrance fades opacity only — never animates transform, so the
+       inline rotation/offset set per photo count is preserved throughout. */
     animation-name: photoFadeIn;
   }
   @keyframes photoFadeIn { from { opacity: 0; } to { opacity: 1; } }
-  /* First photo has no left overlap */
+  /* First photo in any flex row has no left overlap */
   .polaroid--photo:first-child { margin-left: 0; }
 
   /*
-    Fan rotation: leftmost = -15°, rightmost = +15°.
-    Interpolated values for 2–4 photos:
-      1 photo:  0°
-      2 photos: -15°, +15°
-      3 photos: -15°,  0°, +15°
-      4 photos: -15°, -5°, +5°, +15°
-    Applied via JS-set data-fan-rot attribute.
+    Pair/trio layout: per-photo transform and z-index are set as inline styles by JS.
+    Counts 1-3 use .photo-strip (single flex row); count 4 uses .photo-pair-stack
+    (two .photo-pair rows). All rotations are exactly ±10deg per founder spec.
   */
-  /* 旋转 + 上抬:越靠中间抬得越高 → 扇形(参考图中间那张最高) */
-  .polaroid--photo[data-fan-rot="-15"] { transform: translateY(0)    rotate(-15deg); }
-  .polaroid--photo[data-fan-rot="-10"] { transform: translateY(-10px) rotate(-10deg); }
-  .polaroid--photo[data-fan-rot="-5"]  { transform: translateY(-20px) rotate(-5deg); }
-  .polaroid--photo[data-fan-rot="0"]   { transform: translateY(-30px) rotate(0deg); }
-  .polaroid--photo[data-fan-rot="5"]   { transform: translateY(-20px) rotate(5deg); }
-  .polaroid--photo[data-fan-rot="10"]  { transform: translateY(-10px) rotate(10deg); }
-  .polaroid--photo[data-fan-rot="15"]  { transform: translateY(0)    rotate(15deg); }
 
-  /* z-index steps: leftmost lowest, rightmost sits on top */
-  .polaroid--photo[data-fan-z="0"] { z-index:1; }
-  .polaroid--photo[data-fan-z="1"] { z-index:2; }
-  .polaroid--photo[data-fan-z="2"] { z-index:3; }
-  .polaroid--photo[data-fan-z="3"] { z-index:4; }
+  /* ── Two-row overlapping pairs (exactly 4 photos) ── */
+  .photo-pair-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 46px 0 0;
+    padding-bottom: 28px;
+    padding-left: 8px;
+    padding-right: 8px;
+    overflow: visible;
+  }
+  /* Each row is a flex strip; .polaroid--photo:first-child handles the margin reset */
+  .photo-pair {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    overflow: visible;
+  }
+  /* Second row slightly overlaps the first — feels like one pile, not two shelves */
+  .photo-pair + .photo-pair { margin-top: -14px; }
 
   /* Video polaroid: own row, slight tilt, same warm shadow */
   .polaroid--video {
@@ -284,10 +286,22 @@
     .polaroid--photo {
       --w: min(168px, calc(96vw / (var(--n, 3) * 0.8 + 0.2)));
       width: var(--w);
-      margin-left: calc(var(--w) * -0.2);
+      margin-left: calc(var(--w) * -0.25);
       padding: 2.2vw 2.2vw 5vw;
     }
     .polaroid--photo:first-child { margin-left: 0; }
+  }
+  /* Pair-stack on narrow screens: keep prints from reaching the wrap padding edges.
+     Each .photo-pair has --n:2 so the 600px formula gives ~168px — fine at 600px but
+     too wide at 320-480px once the .wrap's 28px side padding is subtracted.
+     This rule caps prints at min(140px, 40vw) so the pair always clears the page. */
+  @media (max-width: 480px) {
+    .photo-pair-stack { padding-left: 6px; padding-right: 6px; }
+    .photo-pair-stack .polaroid--photo {
+      width: min(140px, 40vw);
+      margin-left: -32px;
+      padding: 2vw 2vw 4.5vw;
+    }
   }
 
   /* ── Scattered pile (5–10 photos) ──
@@ -553,36 +567,19 @@
       return out;
     }
 
-    /*
-      Compute the fan rotation angle for each photo in a group of `total` photos.
-      Leftmost = -15°, rightmost = +15°, interpolated linearly in between.
-      Snapped to the nearest 5° so we can use a small set of attribute-driven CSS rules.
-        1 photo  →  [0]
-        2 photos →  [-15, 15]
-        3 photos →  [-15, 0, 15]
-        4 photos →  [-15, -5, 5, 15]
-    */
-    function fanAngles(total) {
-      if (total === 1) return [0];
-      var out = [];
-      for (var i = 0; i < total; i++) {
-        var raw = -15 + (30 / (total - 1)) * i;
-        // Round to nearest 5 so our CSS attribute selectors match cleanly
-        out.push(Math.round(raw / 5) * 5);
-      }
-      return out;
-    }
-
     // Build a Polaroid block for a photo URL.
-    // `index` controls fan rotation + z-index + stagger animation.
-    // `total` is how many photos there are in this strip.
+    // `index` is the 0-based position in the safeUrls array.
+    // `total` is how many photos there are in this letter.
     // Returns an HTML string, or '' if url is falsy.
     // SECURITY: every URL goes through esc() AND has already passed safeMediaUrl() via parsePhotoUrls().
     // `pile` = true for 5–10 photos (scattered-pile layout).
-    // `grid` = true for exactly 4 photos (2x2 grid layout).
+    // `grid` = true for exactly 4 photos (two-row overlapping-pair layout).
     // data-photo-index carries the integer array index so the lightbox closure
     // can look up the URL from the already-validated safeUrls array — NEVER
     // read back from a DOM attribute as a URL.
+    //
+    // Transforms are set inline (not via CSS attribute selectors) so the
+    // opacity-only photoFadeIn animation never overwrites them.
     function photoPolaroid(url, index, total, pile, grid) {
       if (!url) return '';
       var safe = esc(url);          // XSS guard: attribute injection prevention
@@ -591,6 +588,7 @@
         '<div class="polaroid-window">' +
           '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" />' +
         '</div>';
+
       if (pile) {
         // Deterministic tilt + vertical jitter by index — looks tossed, not gridded,
         // and stays identical on every reload (no Math.random).
@@ -606,25 +604,47 @@
           '</figure>'
         );
       }
+
       if (grid) {
-        // 2x2 grid (exactly 4 photos): tiny alternating tilts come from CSS
-        // nth-child rules — no inline transform needed here.
+        // Exactly 4 photos — two rows of overlapping pairs.
+        // Row 1 (index 0-1): left -10deg / right +10deg (right on top, slightly lower).
+        // Row 2 (index 2-3): left +10deg (on top, slightly lower) / right -10deg — mirrored for variety.
+        // z-index:2 = dominant print in each pair; z-index:1 = subordinate.
+        var pairTransforms = [
+          { tf: 'rotate(-10deg)',                  zi: 1 },  // row 1 left  (under)
+          { tf: 'translateY(10px) rotate(10deg)',   zi: 2 },  // row 1 right (on top)
+          { tf: 'translateY(10px) rotate(10deg)',   zi: 2 },  // row 2 left  (on top, mirrored)
+          { tf: 'rotate(-10deg)',                   zi: 1 },  // row 2 right (under)
+        ];
+        var pt = pairTransforms[index];
         return (
-          '<figure class="polaroid polaroid--grid reveal ' + pClass + '"' +
-            ' data-photo-index="' + index + '">' +
+          '<figure class="polaroid polaroid--photo reveal ' + pClass + '"' +
+            ' data-photo-index="' + index + '"' +
+            ' style="transform:' + pt.tf + '; z-index:' + pt.zi + ';">' +
             win +
           '</figure>'
         );
       }
-      // Fan (1–3 photos): leftmost −15° … rightmost +15°, overlapping.
-      var angles = fanAngles(total);
-      var rotF = angles[index] || 0;
+
+      // 1–3 photos — polaroid-pair / polaroid-trio aesthetic.
+      // 1 photo:  centered, no rotation.
+      // 2 photos: left -10deg (under), right +10deg 10px lower (on top).
+      // 3 photos: left -10deg (z:1), middle 0deg raised 14px (z:3, highest),
+      //           right +10deg (z:2) — middle overlaps both neighbours.
+      var stripTransforms = {
+        '1_0': { tf: 'rotate(0deg)',                   zi: 1 },
+        '2_0': { tf: 'rotate(-10deg)',                  zi: 1 },
+        '2_1': { tf: 'translateY(10px) rotate(10deg)',  zi: 2 },
+        '3_0': { tf: 'rotate(-10deg)',                  zi: 1 },
+        '3_1': { tf: 'translateY(-14px) rotate(0deg)',  zi: 3 },
+        '3_2': { tf: 'rotate(10deg)',                   zi: 2 },
+      };
+      var key = total + '_' + index;
+      var st = stripTransforms[key] || { tf: 'rotate(0deg)', zi: index + 1 };
       return (
         '<figure class="polaroid polaroid--photo reveal ' + pClass + '"' +
-          ' data-fan-rot="' + rotF + '"' +
-          ' data-fan-z="' + index + '"' +
           ' data-photo-index="' + index + '"' +
-          ' style="z-index:' + (index + 1) + ';">' +
+          ' style="transform:' + st.tf + '; z-index:' + st.zi + ';">' +
           win +
         '</figure>'
       );
@@ -876,16 +896,40 @@
 
         // Build the photo layout container.
         // Layout rules by count:
-        //   1–3  → overlapping fan strip  (.photo-strip)
-        //   4    → tidy 2x2 grid          (.photo-grid)
-        //   5–10 → scattered pile         (.photo-pile)
+        //   1    → single centered polaroid           (.photo-strip, 0deg)
+        //   2    → overlapping pair  -10/+10deg       (.photo-strip)
+        //   3    → overlapping trio  -10/0/+10deg     (.photo-strip, middle raised)
+        //   4    → two rows of overlapping pairs      (.photo-pair-stack > .photo-pair × 2)
+        //   5–10 → scattered pile                     (.photo-pile)
         const pile = photoUrls.length >= 5;
         const grid = photoUrls.length === 4;
-        const photoHtml = photoUrls.length > 0
-          ? '<div class="' + (pile ? 'photo-pile' : grid ? 'photo-grid' : 'photo-strip') + '" style="--n:' + photoUrls.length + '">' +
-              photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length, pile, grid); }).join('') +
-            '</div>'
-          : '';
+        var photoHtml;
+        if (!photoUrls.length) {
+          photoHtml = '';
+        } else if (pile) {
+          photoHtml = '<div class="photo-pile" style="--n:' + photoUrls.length + '">' +
+            photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length, true, false); }).join('') +
+            '</div>';
+        } else if (grid) {
+          // Two rows of overlapping pairs; each .photo-pair has --n:2 for the
+          // responsive width formula. .polaroid--photo:first-child handles margin reset
+          // inside each pair row automatically.
+          photoHtml = '<div class="photo-pair-stack" style="--n:4">' +
+            '<div class="photo-pair" style="--n:2">' +
+              photoPolaroid(photoUrls[0], 0, 4, false, true) +
+              photoPolaroid(photoUrls[1], 1, 4, false, true) +
+            '</div>' +
+            '<div class="photo-pair" style="--n:2">' +
+              photoPolaroid(photoUrls[2], 2, 4, false, true) +
+              photoPolaroid(photoUrls[3], 3, 4, false, true) +
+            '</div>' +
+          '</div>';
+        } else {
+          // 1–3 photos: single flex row
+          photoHtml = '<div class="photo-strip" style="--n:' + photoUrls.length + '">' +
+            photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length, false, false); }).join('') +
+            '</div>';
+        }
 
         // video_url stays a single URL — guard it the same as before.
         const videoUrl = safeMediaUrl(letter.video_url);

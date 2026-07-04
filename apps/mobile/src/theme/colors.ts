@@ -55,9 +55,9 @@ export const palette = {
   // 日历选中日圆背景 — 用更深的品牌色,确保奶白文字 ≥4.5:1(AA)
   brandSelected: '#84410F', // 日历选中日背景(=brandDark),奶白文字比率 6.28
 
-  // Envelope colors — SealCeremony (founder spec)
-  creamEnvelope: '#FEEAC2',      // envelope body
-  creamEnvelopeDeep: '#FCDBAC',  // flap / pocket accent (slightly deeper)
+  // Envelope colors — SealCeremony (calibrated to sealed-envelope.png pale cream)
+  creamEnvelope: '#F5EDDA',      // envelope body — pale warm cream, lighter than page background
+  creamEnvelopeDeep: '#EAE3CE',  // flap / pocket accent — slightly deeper for crease shadow
 
   // 边框/分割/纸张质感 系
   borderMid: '#C9B097',    // 禁用按钮背景色/SignIn 输入框底边/BottomSheet 抓手条
