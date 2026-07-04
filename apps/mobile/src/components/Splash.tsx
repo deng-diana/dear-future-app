@@ -64,7 +64,7 @@ export default function Splash({ onStart }: Props) {
         <Animated.View style={styles.footer}>
           <Button label="Start" onPress={handleStart} />
           <View style={styles.promiseWrap}>
-            <Ionicons name="shield-checkmark-outline" size={15} color={colors.brandText} />
+            <Ionicons name="shield-checkmark-outline" size={15} color={colors.brandText} style={{ marginTop: 2 }} />
             <Text style={styles.promise}>
               No matter what happens to Reunite, your letter will still reach you.
             </Text>
@@ -101,9 +101,9 @@ const styles = StyleSheet.create({
   // 承诺小卡:浅纸色背景 + 盾形图标 + 两行以内的小字(标语下方,不压照片)。
   promiseWrap: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start', // 图标与首行文字顶对齐(不再垂直居中)
     gap: 8,
-    backgroundColor: 'rgba(255, 223, 191, 0.8)', // #FFDFBF @ 80%(创始人定稿)
+    backgroundColor: 'rgba(255, 223, 191, 0.65)', // #FFDFBF @ 65%(创始人定稿)
     borderRadius: 0, // 直角,与上方 Start 按钮同一套品牌语言
     paddingVertical: 9,
     paddingHorizontal: 14,

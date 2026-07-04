@@ -5,7 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Alert, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Alert, Animated, Easing, findNodeHandle, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -18,7 +18,7 @@ import SealCeremony from '@/components/SealCeremony';
 import SignIn from '@/components/SignIn';
 import Splash from '@/components/Splash';
 import { MIN_SEAL_DAYS } from '@/constants/rules';
-import { colors, fonts } from '@/theme';
+import { colors, fonts, palette, spacing } from '@/theme';
 import { compressVideoToFit, getVideoThumbnail, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier, TIERS } from '@/lib/purchases';
 import { supabase } from '@/lib/supabase';
@@ -713,6 +713,13 @@ export default function WriteScreen() {
   // A2: 封存完成时把 VoiceOver 焦点移到标题 + 播报封存成功。
   // 重要:必须在任何 if(...) return 之前声明,否则点 Start 切屏时 Hook 数量变化会崩溃(Rules of Hooks)。
   const sealedHeadingRef = useRef<Text>(null);
+  // 已封存屏的入场:整块内容从上方 16px 轻轻降落 + 渐现(ease-out,一次性)。
+  const sealedIntro = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!sealed) return;
+    sealedIntro.setValue(0);
+    Animated.timing(sealedIntro, { toValue: 1, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [sealed, sealedIntro]);
   useEffect(() => {
     if (!sealed) return;
     // 播报给屏幕阅读器用户
@@ -757,18 +764,29 @@ export default function WriteScreen() {
   if (sealed) {
     return (
       <SafeAreaView style={styles.sealedScreen} edges={['top', 'bottom']}>
-        {/* 内容居中:信封 + 标题 + 描述(信封改小一些)。 */}
-        <View style={styles.sealedContent}>
+        {/* 内容居中:信封 + 标题 + 描述。入场 = 渐现 + 自上而下轻降(ease-out)。 */}
+        <Animated.View
+          style={[
+            styles.sealedContent,
+            {
+              opacity: sealedIntro,
+              transform: [{ translateY: sealedIntro.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+            },
+          ]}>
           {/* A7: 装饰性信封图片,对屏幕阅读器隐藏 */}
           <Image source={require('@/assets/images/sealed-envelope.png')} style={styles.sealedLogo} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
           {/* A2: accessibilityLiveRegion="assertive" 确保 Android TalkBack 也能立即播报;ref 用于 iOS VoiceOver 焦点 */}
           <Text ref={sealedHeadingRef} style={styles.sealedText} accessibilityLiveRegion="assertive">Your letter is sealed</Text>
-          <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
-          {/* 已封存屏也轻声告知回信地址(信任的余韵;AccountButton 本就展示该地址,不违反「消失」)。 */}
+          {/* 一段话:邮箱 + 日期织进那句诗里(这是日期最后一次露面 —— 之后信就消失了)。 */}
           {session?.user?.email ? (
-            <Text style={styles.sealedEmailHint}>It will return to {session.user.email}</Text>
-          ) : null}
-        </View>
+            <Text style={styles.sealedHint}>
+              It will return to <Text style={styles.sealSheetItemBrand}>{session.user.email}</Text> on{' '}
+              <Text style={styles.sealSheetItemBrand}>{formatDate(effectiveDate)}</Text> — a day you'll have long forgotten.
+            </Text>
+          ) : (
+            <Text style={styles.sealedHint}>It will find its way back to you — on a day you've long forgotten.</Text>
+          )}
+        </Animated.View>
 
         {/* 底部按钮:与写信页 Seal 按钮同款(实心主题色、直角、近白文字),但更窄更精致。 */}
         <View style={styles.sealedFooter}>
@@ -949,11 +967,11 @@ export default function WriteScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel={`Returning ${formatDate(effectiveDate)}, tap to change the date`}>
-            <Text style={[styles.sealSheetItem, styles.sealSheetItemTappable]}>Returning {formatDate(effectiveDate)}</Text>
+            <Text style={[styles.sealSheetItem, styles.sealSheetItemTappable]}>Returning <Text style={styles.sealSheetItemBrand}>{formatDate(effectiveDate)}</Text></Text>
           </Pressable>
           {/* 回到哪:付费/封存前最强的信任证据 —— 用户亲眼看到信将回到自己的邮箱。 */}
           {session?.user?.email ? (
-            <Text style={styles.sealSheetItem}>to {session.user.email}</Text>
+            <Text style={styles.sealSheetItem}>to <Text style={styles.sealSheetItemBrand}>{session.user.email}</Text></Text>
           ) : null}
         </View>
 
@@ -975,7 +993,7 @@ export default function WriteScreen() {
                 key={key}
                 onPress={() => onTapTier(key)}
                 disabled={busy}
-                style={[styles.ladderBox, active && styles.ladderBoxActive]}
+                style={({ pressed }) => [styles.ladderBox, active && styles.ladderBoxActive, pressed && styles.ladderBoxPressed]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`${TIERS[key].label}, ${price}, ${TIERS[key].description}`}>
@@ -1028,11 +1046,11 @@ export default function WriteScreen() {
             <View style={styles.mediaWell}>
               <Text style={styles.wellHint}>Add photos or a video for this tier.</Text>
               <View style={styles.wellButtons}>
-                <Pressable style={styles.mediaBtn} onPress={addPhotos} disabled={busy} accessibilityRole="button" accessibilityLabel="Add photos">
+                <Pressable style={({ pressed }) => [styles.mediaBtn, pressed && styles.mediaBtnPressed]} onPress={addPhotos} disabled={busy} accessibilityRole="button" accessibilityLabel="Add photos">
                   <Ionicons name="images-outline" size={19} color={colors.brand} />
                   <Text style={styles.mediaBtnLabel}>Photos</Text>
                 </Pressable>
-                <Pressable style={styles.mediaBtn} onPress={addVideo} disabled={busy} accessibilityRole="button" accessibilityLabel="Add a video">
+                <Pressable style={({ pressed }) => [styles.mediaBtn, pressed && styles.mediaBtnPressed]} onPress={addVideo} disabled={busy} accessibilityRole="button" accessibilityLabel="Add a video">
                   <Ionicons name="film-outline" size={19} color={colors.brand} />
                   <Text style={styles.mediaBtnLabel}>Video</Text>
                 </Pressable>
@@ -1236,6 +1254,8 @@ const styles = StyleSheet.create({
     textDecorationStyle: 'dotted',
     textDecorationColor: colors.accentGold,
   },
+  // 清单里的主题色强调(送达日期 / 回信邮箱),嵌套 Text 使用。
+  sealSheetItemBrand: { color: colors.brandText },
   // Fine divider: full-width warm gold (slightly deeper than the date-hero one).
   sealSheetDivider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.accentGoldMid },
   // Three-box pricing ladder.
@@ -1252,6 +1272,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 3,
   },
+  // 按下反馈:边框亮成主题色(与 mediaBtnPressed 同一语言)。
+  ladderBoxPressed: { borderColor: colors.brand },
   ladderBoxActive: {
     // 选中 = 仅用更粗的深棕边框区分,不加填充(用户:填充色都不要)。
     borderWidth: 1.5,
@@ -1304,7 +1326,7 @@ const styles = StyleSheet.create({
     color: colors.textBody,
     alignSelf: 'stretch',
     textAlign: 'left',
-    marginBottom: 8,
+    marginBottom: spacing.lg, // 与下方价格框的呼吸感(8→16,间距 token)
   },
   // Add-more row (has media), left-aligned to match the thumbnails above it.
   sealMediaRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 22, marginTop: 10, alignSelf: 'stretch' },
@@ -1329,7 +1351,7 @@ const styles = StyleSheet.create({
   // "Add a moment" well (empty paid tier): a hairline paper well — no shadow, no material card.
   mediaWell: {
     alignSelf: 'stretch',
-    backgroundColor: colors.surfacePaper,
+    backgroundColor: colors.surfaceChip, // 与日期快捷片统一底色(#FAE6C9,token 化)
     borderRadius: 10,
     paddingVertical: 16,
     paddingHorizontal: 14,
@@ -1343,12 +1365,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    minHeight: 48,
+    minHeight: 40, // 压扁一档(48→40;触区仍够,外层有 padding)
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 4, // 圆角收小(8→4),更贴近直角的品牌语言
     paddingHorizontal: 10,
   },
+  // 按下反馈:边框亮成主题色(手指落下的那一瞬有回应)。
+  mediaBtnPressed: { borderColor: colors.brand },
   mediaBtnLabel: { fontFamily: fonts.regular, fontSize: 13, letterSpacing: 0.5, color: colors.brandDark },
   // Whisper-quiet fallback to the free words-only path.
   wellFreeWrap: { alignSelf: 'center', marginTop: 12 },
@@ -1365,7 +1389,15 @@ const styles = StyleSheet.create({
   sealedFooter: { paddingHorizontal: 32, paddingBottom: 40, alignItems: 'center' },
   // 这一屏的按钮更窄更精致:不再满宽,居中并限定最大宽度。
   sealedButton: { alignSelf: 'center', width: '100%', maxWidth: 296 },
-  sealedLogo: { width: 120, height: 79 }, // 蜡封信封图标(改小,aspect 50/33)
+  sealedLogo: {
+    width: 120,
+    height: 79, // 蜡封信封图标(aspect 50/33)
+    marginBottom: spacing.xl, // 与下方标题拉开呼吸感
+    shadowColor: palette.brownWarm, // 暖棕投影,与米色底和谐(不是脏黑)
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+  },
   // 标题:Courier Prime 粗体,深棕,收紧字距(用户规格)。
   sealedText: {
     fontFamily: fonts.bold,
@@ -1382,15 +1414,5 @@ const styles = StyleSheet.create({
     color: colors.brandText, // B: 文字场景用 brandText 而非 brand,确保对比度 AA
     textAlign: 'center',
     paddingHorizontal: 32,
-  },
-  // 已封存屏的回信地址:比 sealedHint 更轻的一行(小一号、静默色),只是余韵不抢戏。
-  sealedEmailHint: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.textMutedLight,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-    marginTop: 8,
   },
 });

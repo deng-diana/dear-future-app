@@ -6,3 +6,4 @@
 
 export { palette, colors } from './colors';
 export { fonts } from './typography';
+export { spacing } from './spacing';
