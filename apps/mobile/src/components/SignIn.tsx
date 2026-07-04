@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Button from '@/components/Button';
 import { supabase } from '@/lib/supabase';
@@ -37,7 +37,24 @@ function friendlyError(raw: string): string {
   return 'Something went sideways. Please try again.';
 }
 
+// 常见邮箱域名手滑对照表 —— 真实事故的直接防线:用户把 hotmail 打成 hotamil,
+// 验证码飞进不存在的邮箱,还以为是我们没发。检测到就给一条可点的"你是不是想输…"。
+const DOMAIN_FIXES: Record<string, string> = {
+  'hotamil.com': 'hotmail.com', 'hotmial.com': 'hotmail.com', 'hotmall.com': 'hotmail.com',
+  'gamil.com': 'gmail.com', 'gmial.com': 'gmail.com', 'gmali.com': 'gmail.com', 'gnail.com': 'gmail.com',
+  'outlok.com': 'outlook.com', 'outloook.com': 'outlook.com',
+  'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com',
+  'icoud.com': 'icloud.com', 'iclould.com': 'icloud.com', 'icluod.com': 'icloud.com',
+};
+function suggestEmailFix(raw: string): string | null {
+  const m = raw.trim().toLowerCase().match(/^([^@\s]+)@([^@\s]+)$/);
+  if (!m) return null;
+  const fixed = DOMAIN_FIXES[m[2]];
+  return fixed ? `${m[1]}@${fixed}` : null;
+}
+
 export default function SignIn({ onVerified, onCancel }: Props) {
+  const insets = useSafeAreaInsets(); // 刘海/状态栏高度 —— 关闭按钮避让用
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'email' | 'code'>('email'); // 现在在哪一步:输邮箱 还是 输码
@@ -164,11 +181,26 @@ export default function SignIn({ onVerified, onCancel }: Props) {
                 autoComplete="email"
                 accessibilityLabel="Email address"
               />
+              {/* 手滑救援:检测到常见域名拼写错误(hotamil→hotmail)→ 一点即改。 */}
+              {suggestEmailFix(email) ? (
+                <Pressable
+                  onPress={() => setEmail(suggestEmailFix(email)!)}
+                  hitSlop={{ top: 8, bottom: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use ${suggestEmailFix(email)}`}>
+                  <Text style={styles.suggestText}>Did you mean {suggestEmailFix(email)}?</Text>
+                </Pressable>
+              ) : null}
             </>
           ) : (
             <>
               <Text style={styles.title}>A code is waiting for you</Text>
-              <Text style={styles.hint}>We sent it to {email.trim()}.</Text>
+              {/* 一段话说完:邮箱和发件人名用主题色点亮(嵌套 Text),不再用背景框。
+                  发件人名依赖 Supabase SMTP Sender name 设置 —— 需与之保持一致(Reunite)。 */}
+              <Text style={styles.hint}>
+                We sent it to <Text style={styles.hintBrand}>{email.trim()}</Text>. It arrives from{' '}
+                <Text style={styles.hintBrand}>“Reunite”</Text> — if it isn’t there, check your junk folder.
+              </Text>
               {/* A3: OTP 字段加上自动填充(textContentType / autoComplete)+ 屏幕阅读器标签 */}
               <TextInput
                 style={[styles.input, styles.codeInput]}
@@ -235,16 +267,20 @@ export default function SignIn({ onVerified, onCancel }: Props) {
             </>
           )}
 
-          {/* 取消:字号与颜色与默认 link 不同,通过 textStyle 覆盖 */}
-          <Button
-            variant="link"
-            label="Not now"
-            onPress={onCancel}
-            disabled={busy}
-            textStyle={styles.cancel}
-          />
         </View>
       </KeyboardAvoidingView>
+
+      {/* 关闭 ✕:右上角(iOS 惯例)。"放弃登录"是代价最大的动作,不该埋在底部
+          链接堆里最易误点的位置(创始人拍板,2026-07-04)。 */}
+      <Pressable
+        onPress={onCancel}
+        disabled={busy}
+        style={[styles.closeBtn, { top: (insets.top > 0 ? insets.top : 44) + 4 }]}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Close sign in">
+        <Text style={styles.closeIcon}>✕</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -255,6 +291,10 @@ const styles = StyleSheet.create({
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
   title: { fontSize: 22, color: colors.textPrimary, lineHeight: 30 },
   hint: { fontSize: 14, color: colors.textMutedMid, lineHeight: 20 },
+  // 手滑救援行:品牌深棕、可点(样式对齐全 app 的"可点文字"语言)。
+  suggestText: { fontSize: 14, color: colors.brandText, marginTop: 10, textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: colors.accentGold },
+  // hint 里的主题色强调(邮箱地址 / 发件人名),嵌套 Text 使用。
+  hintBrand: { color: colors.brandText },
   input: {
     marginTop: 12,
     paddingVertical: 12,
@@ -267,11 +307,14 @@ const styles = StyleSheet.create({
   error: { fontSize: 13, color: colors.danger },
   resendNote: { fontSize: 13, color: colors.textMutedMid }, // 重发成功的软提示,与 hint 同色
 
-  footer: { padding: 16, gap: 14, alignItems: 'center' },
+  footer: { paddingVertical: 16, paddingHorizontal: 24, gap: 14, alignItems: 'center' }, // 左右 24 与 body 一致 → 按钮与内容同宽
   // Button 组件默认 alignSelf:'stretch';这里再加 width:'100%' 确保 footer alignItems:'center' 不压缩它
   buttonLayout: { width: '100%' },
   // SignIn 按钮文字比 Button 默认值略大、字距更宽,通过 textStyle 覆盖
   buttonText: { fontSize: 17, fontWeight: '600' as const, letterSpacing: 2 },
-  // "Not now" 是静默取消:字号略大、用更深的灰色(与默认 link 不同)
+  // 右上角关闭按钮:44pt 触区,安静的灰棕 ✕(替代原底部 "Not now" 链接)。
+  closeBtn: { position: 'absolute', right: 16, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, // top 由安全区动态计算,避开状态栏
+  closeIcon: { fontSize: 20, color: colors.textMutedMid, lineHeight: 22 },
+  // (原 "Not now" 底部链接已移除 —— cancel 样式仍被两条救援链接复用)
   cancel: { fontSize: 15, color: colors.textMutedMid },
 });

@@ -66,7 +66,7 @@ export default function Splash({ onStart }: Props) {
           <View style={styles.promiseWrap}>
             <Ionicons name="shield-checkmark-outline" size={15} color={colors.brandText} />
             <Text style={styles.promise}>
-              Whatever happens to us, your letter will reach you. If Reunite ever closes, every letter is delivered before we go.
+              No matter what happens to Reunite, your letter will still reach you.
             </Text>
           </View>
         </Animated.View>
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   // 上半组:居中,距顶约 12% 屏高
   top: { alignItems: 'center', paddingTop: SH * 0.12 },
   logo: { width: 108, height: 162 },          // 透明火漆(稍微大一点点;原图 2:3,内含上下留白)
-  wordmark: { width: 138, height: 40, marginTop: -20 }, // Reunite 切图(再缩小 + 上移靠近 logo)
+  wordmark: { width: 118, height: 34, marginTop: -28 }, // Reunite 切图:再缩小一档 + 更贴近火漆 logo
   divider: { width: 188, height: 11, marginTop: 12 },   // 金色分隔线(227×13)
   tagline: {
     fontFamily: fonts.regular,
@@ -97,14 +97,14 @@ const styles = StyleSheet.create({
   },
 
   // 底部按钮容器:左右页边距更大 → 按钮更窄;离底一点
-  footer: { paddingHorizontal: 64, paddingBottom: 56 },
+  footer: { paddingHorizontal: 32, paddingBottom: 56 }, // 32px 边距:按钮更长,承诺卡随之加宽(两行显示全)
   // 承诺小卡:浅纸色背景 + 盾形图标 + 两行以内的小字(标语下方,不压照片)。
   promiseWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(91, 70, 56, 0.10)', // 比页面稍深一点点的暖纸色(棕色 10% 洗染),不是白
-    borderRadius: 10,
+    backgroundColor: 'rgba(255, 223, 191, 0.8)', // #FFDFBF @ 80%(创始人定稿)
+    borderRadius: 0, // 直角,与上方 Start 按钮同一套品牌语言
     paddingVertical: 9,
     paddingHorizontal: 14,
     marginTop: 14,
@@ -113,8 +113,8 @@ const styles = StyleSheet.create({
   promise: {
     flex: 1,
     fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 19,
     color: colors.brandText,
     textAlign: 'left',
   },
