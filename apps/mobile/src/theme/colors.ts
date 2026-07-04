@@ -55,6 +55,10 @@ export const palette = {
   // 日历选中日圆背景 — 用更深的品牌色,确保奶白文字 ≥4.5:1(AA)
   brandSelected: '#84410F', // 日历选中日背景(=brandDark),奶白文字比率 6.28
 
+  // Envelope colors — SealCeremony (founder spec)
+  creamEnvelope: '#FEEAC2',      // envelope body
+  creamEnvelopeDeep: '#FCDBAC',  // flap / pocket accent (slightly deeper)
+
   // 边框/分割/纸张质感 系
   borderMid: '#C9B097',    // 禁用按钮背景色/SignIn 输入框底边/BottomSheet 抓手条
   borderLight: '#D6C7B2',  // 缩略图边框
@@ -110,6 +114,10 @@ export const colors = {
   surfaceChip: palette.sandWarm,        // 快捷选择片(日历 vow chips 等)默认底
   surfaceChipSelected: palette.sandGlow, // 快捷选择片选中底
   paperFleck: palette.paperFleck,       // 纸张颗粒点(极低opacity)
+
+  // Envelope surfaces — SealCeremony
+  envelope: palette.creamEnvelope,      // envelope body
+  envelopeDeep: palette.creamEnvelopeDeep, // flap / pocket accent
 } as const;
 
 /*

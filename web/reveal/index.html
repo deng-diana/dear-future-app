@@ -350,10 +350,125 @@
     50%      { box-shadow: 0 2px 10px rgba(87,32,7,.14), 0 0 0 8px rgba(178,107,36,.10); }
   }
   .music-toggle svg { width: 20px; height: 20px; display: block; }
-  /* 暂停时显示音符(邀请);播放时显示声波 */
+  /* Show note icon (invite) when paused; show waveform when playing */
   .music-toggle .ico-on  { display: none; }
   .music-toggle.playing .ico-on  { display: block; }
   .music-toggle.playing .ico-off { display: none; }
+
+  /* ── 2×2 grid (exactly 4 photos) ──
+     Two even columns, same polaroid frames as the fan strip but
+     straightened with only a tiny alternating tilt for life. */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    justify-items: center;
+    align-items: center;
+    max-width: 420px;
+    margin: 46px auto 0;
+    padding: 12px 16px 28px;
+    overflow: visible;
+  }
+  .polaroid--grid {
+    width: min(170px, 44vw);
+    padding: 12px 12px 30px;
+    transform-origin: center;
+    animation-name: photoFadeIn; /* opacity-only — keeps inline tilt intact */
+  }
+  /* Tiny alternating tilts — well within the ≤1.5 deg spec */
+  .polaroid--grid:nth-child(odd)  { transform: rotate(-1deg); }
+  .polaroid--grid:nth-child(even) { transform: rotate(1.5deg); }
+  @media (max-width: 480px) {
+    .photo-grid { gap: 12px; max-width: 100%; padding: 10px 10px 20px; }
+    .polaroid--grid { width: min(148px, 42vw); padding: 8px 8px 20px; }
+  }
+
+  /* ── Clickable polaroids: zoom cursor on pointer devices ── */
+  @media (hover: hover) {
+    .polaroid--photo,
+    .polaroid--pile,
+    .polaroid--grid { cursor: zoom-in; }
+  }
+
+  /* ── Hover lift — only when pointer hover is available AND motion is OK ──
+     translateY -4px + rotate → 0 (straightens any tilt), 180ms ease.
+     REVIEW FIX (adversarial review): never override transform on hover — fan
+     photos carry positional translateY (-20/-30px) and pile photos carry inline
+     jitter; a forced translateY(-4px) would DROP the raised middle print 26px
+     and oscillate under the cursor. The lift is expressed with shadow + stacking
+     only: zero transform = zero flicker. z-index !important beats the pile's
+     inline z-index so the hovered print rises above its neighbours. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .polaroid--photo:hover,
+    .polaroid--pile:hover,
+    .polaroid--grid:hover {
+      z-index: 30 !important;
+      box-shadow:
+        0 4px 16px rgba(102,79,54,.14),
+        0 16px 36px rgba(102,79,54,.18),
+        0 32px 64px rgba(102,79,54,.12);
+      /* 180ms ease for hover-in; base .polaroid transition handles hover-out */
+      transition: box-shadow 180ms ease !important;
+    }
+  }
+
+  /* ── Lightbox ── */
+  .lb-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(43,34,26,0.82);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: lbFadeIn 160ms ease forwards;
+  }
+  @keyframes lbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .lb-img {
+    max-width: 90vw;
+    max-height: 82vh;
+    object-fit: contain;
+    /* Subtle paper border matching the polaroid white frame */
+    border: 10px solid #FFFDF8;
+    border-radius: 1px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.38);
+    display: block;
+  }
+
+  /* Top-right control pills: Download + Close */
+  .lb-controls {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 10px;
+    z-index: 1;
+  }
+  .lb-btn {
+    height: 44px;          /* 44px touch target */
+    min-width: 44px;
+    padding: 0 18px;
+    border-radius: 22px;
+    border: 1px solid rgba(91,70,56,.22);
+    background: #F4EEE4;   /* ivory */
+    color: #5B4638;         /* warm brown */
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: .05em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .15s ease;
+  }
+  .lb-btn:hover { background: #FFFDF8; }
+
+  /* Skip hover lift and lightbox fade for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .lb-scrim { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -463,8 +578,12 @@
     // `total` is how many photos there are in this strip.
     // Returns an HTML string, or '' if url is falsy.
     // SECURITY: every URL goes through esc() AND has already passed safeMediaUrl() via parsePhotoUrls().
-    // `pile` = true for 5–10 photos (scattered-pile layout); false = overlapping fan (≤4).
-    function photoPolaroid(url, index, total, pile) {
+    // `pile` = true for 5–10 photos (scattered-pile layout).
+    // `grid` = true for exactly 4 photos (2x2 grid layout).
+    // data-photo-index carries the integer array index so the lightbox closure
+    // can look up the URL from the already-validated safeUrls array — NEVER
+    // read back from a DOM attribute as a URL.
+    function photoPolaroid(url, index, total, pile, grid) {
       if (!url) return '';
       var safe = esc(url);          // XSS guard: attribute injection prevention
       var pClass = 'p' + index;     // animation stagger: p0…p9
@@ -473,7 +592,7 @@
           '<img class="polaroid-media" src="' + safe + '" alt="A memory you sealed with this letter" />' +
         '</div>';
       if (pile) {
-        // Deterministic tilt + vertical jitter by index → looks tossed, not gridded,
+        // Deterministic tilt + vertical jitter by index — looks tossed, not gridded,
         // and stays identical on every reload (no Math.random).
         var tilts = [-6, 4, -3, 7, -8, 3, -5, 6, -2, 5];
         var jitter = [0, -9, 7, -4, 9, -6, 4, -10, 2, -3];
@@ -481,18 +600,30 @@
         var ty = jitter[index % jitter.length];
         return (
           '<figure class="polaroid polaroid--pile reveal ' + pClass + '"' +
+            ' data-photo-index="' + index + '"' +
             ' style="transform: rotate(' + rot + 'deg) translateY(' + ty + 'px); z-index:' + (index + 1) + ';">' +
             win +
           '</figure>'
         );
       }
-      // Fan (≤4): leftmost −15° … rightmost +15°, overlapping.
+      if (grid) {
+        // 2x2 grid (exactly 4 photos): tiny alternating tilts come from CSS
+        // nth-child rules — no inline transform needed here.
+        return (
+          '<figure class="polaroid polaroid--grid reveal ' + pClass + '"' +
+            ' data-photo-index="' + index + '">' +
+            win +
+          '</figure>'
+        );
+      }
+      // Fan (1–3 photos): leftmost −15° … rightmost +15°, overlapping.
       var angles = fanAngles(total);
       var rotF = angles[index] || 0;
       return (
         '<figure class="polaroid polaroid--photo reveal ' + pClass + '"' +
           ' data-fan-rot="' + rotF + '"' +
           ' data-fan-z="' + index + '"' +
+          ' data-photo-index="' + index + '"' +
           ' style="z-index:' + (index + 1) + ';">' +
           win +
         '</figure>'
@@ -574,6 +705,153 @@
       });
     }
 
+    // Lightbox for photo polaroids.
+    //
+    // SECURITY contract (hard requirement):
+    //   - `safeUrls` is the already-validated array from parsePhotoUrls() — every
+    //     entry has passed safeMediaUrl() before reaching here.
+    //   - The lightbox img.src is set via direct property assignment from
+    //     safeUrls[idx] — NEVER via innerHTML interpolation and NEVER by reading
+    //     a URL back from a DOM attribute.
+    //   - The integer `data-photo-index` attribute is only used as an array index
+    //     into safeUrls; it is bounds-checked before use.
+    //   - All interactive elements are built with createElement + textContent;
+    //     no innerHTML is used inside this function.
+    function setupLightbox(safeUrls) {
+      if (!safeUrls || !safeUrls.length) return;
+      var root = document.getElementById('root');
+      if (!root) return;
+
+      function openLightbox(url, idx) {
+        if (document.querySelector('.lb-scrim')) return; // already open
+
+        // Lock body scroll while lightbox is visible
+        // REVIEW FIX: html 是真正的视口滚动容器(html 有 overflow-x:hidden → body 不再传播)。两个都锁。
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        var prevFocus = document.activeElement;
+
+        // Scrim — warm-dark overlay
+        var scrim = document.createElement('div');
+        scrim.className = 'lb-scrim';
+        scrim.setAttribute('role', 'dialog');
+        scrim.setAttribute('aria-modal', 'true');
+        scrim.setAttribute('aria-label', 'Photo viewer');
+
+        // Enlarged photo — src assigned via property, not innerHTML
+        var img = document.createElement('img');
+        img.className = 'lb-img';
+        img.alt = 'Memory ' + (idx + 1) + ' of ' + safeUrls.length;
+        img.src = url; // already passed safeMediaUrl() — safe to assign directly
+
+        // Controls row: Download + Close
+        var controls = document.createElement('div');
+        controls.className = 'lb-controls';
+
+        // Download button: fetch → blob → objectURL → temporary <a download> → revoke.
+        // Falls back to window.open() if the cross-origin fetch fails.
+        var dlBtn = document.createElement('button');
+        dlBtn.className = 'lb-btn';
+        dlBtn.type = 'button';
+        dlBtn.setAttribute('aria-label', 'Download this photo');
+        dlBtn.textContent = 'Download';
+        dlBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          fetch(url)
+            .then(function (r) { return r.blob(); })
+            .then(function (blob) {
+              var objUrl = URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = objUrl;
+              // 扩展名从 blob 的真实类型推断(png/webp 不再被硬写成 jpg)
+              var ext = (blob.type && blob.type.indexOf('/') > -1) ? blob.type.split('/')[1].replace('jpeg', 'jpg') : 'jpg';
+              a.download = 'reunite-photo-' + (idx + 1) + '.' + ext;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(objUrl);
+            })
+            .catch(function () {
+              // Cross-origin fetch blocked — open in new tab as fallback
+              // 兜底:同步构造带 noopener 的链接跳转(popup 拦截下也更稳)
+              var fa = document.createElement('a');
+              fa.href = url; fa.target = '_blank'; fa.rel = 'noopener';
+              document.body.appendChild(fa); fa.click(); fa.remove();
+            });
+        });
+
+        // Close button
+        var closeBtn = document.createElement('button');
+        closeBtn.className = 'lb-btn';
+        closeBtn.type = 'button';
+        closeBtn.setAttribute('aria-label', 'Close photo viewer');
+        closeBtn.textContent = '✕'; // ✕
+
+        function close() {
+          document.removeEventListener('keydown', keyHandler);
+          document.documentElement.style.overflow = '';
+          document.body.style.overflow = '';
+          if (scrim.parentNode) scrim.parentNode.removeChild(scrim);
+          // Restore focus to the polaroid that triggered the lightbox
+          if (prevFocus && prevFocus.focus) prevFocus.focus();
+        }
+
+        closeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          close();
+        });
+
+        controls.appendChild(dlBtn);
+        controls.appendChild(closeBtn);
+        scrim.appendChild(img);
+        scrim.appendChild(controls);
+        document.body.appendChild(scrim);
+
+        // Focus the close button immediately for keyboard users
+        closeBtn.focus();
+
+        // Click on the dark scrim background (not the image/controls) closes
+        scrim.addEventListener('click', function (e) {
+          if (e.target === scrim) close();
+        });
+
+        // Esc 关闭;Tab 在弹层的两个按钮间循环(简易焦点圈,不逃到背景页)
+        function keyHandler(e) {
+          if (e.key === 'Escape') { close(); return; }
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            if (document.activeElement === dlBtn) { closeBtn.focus(); } else { dlBtn.focus(); }
+          }
+        }
+        document.addEventListener('keydown', keyHandler);
+      }
+
+      // Single delegated listener on root covers all three photo polaroid types
+      function activateFrom(e) {
+        var fig = e.target.closest('.polaroid--photo, .polaroid--pile, .polaroid--grid');
+        if (!fig) return;
+        var idx = parseInt(fig.getAttribute('data-photo-index'), 10);
+        // Bounds-check the index before using it as an array subscript
+        if (isNaN(idx) || idx < 0 || idx >= safeUrls.length) return;
+        openLightbox(safeUrls[idx], idx);
+      }
+      root.addEventListener('click', activateFrom);
+      // REVIEW FIX: 键盘也能打开(Enter/Space);配合下方为照片补上的 tabindex/role
+      root.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          var fig = e.target && e.target.closest && e.target.closest('.polaroid--photo, .polaroid--pile, .polaroid--grid');
+          if (fig) { e.preventDefault(); activateFrom(e); }
+        }
+      });
+      // 照片 figure 可聚焦 + 语义化(打开大图的按钮)
+      var figs = root.querySelectorAll('.polaroid--photo, .polaroid--pile, .polaroid--grid');
+      for (var fi = 0; fi < figs.length; fi++) {
+        figs[fi].setAttribute('tabindex', '0');
+        figs[fi].setAttribute('role', 'button');
+        figs[fi].setAttribute('aria-label', 'View photo ' + (fi + 1) + ' full size');
+      }
+    }
+
     async function main() {
       const token = getToken();
       const root = document.getElementById('root');
@@ -596,13 +874,16 @@
         // parsePhotoUrls() already runs every URL through safeMediaUrl().
         const photoUrls = parsePhotoUrls(letter.photo_url);
 
-        // Build the overlapping fan strip; each polaroid is an inline <figure>
-        // (no extra wrapper div per photo — the strip flex container handles layout).
-        // ≤4 photos → overlapping fan; 5–10 → scattered pile (different container).
+        // Build the photo layout container.
+        // Layout rules by count:
+        //   1–3  → overlapping fan strip  (.photo-strip)
+        //   4    → tidy 2x2 grid          (.photo-grid)
+        //   5–10 → scattered pile         (.photo-pile)
         const pile = photoUrls.length >= 5;
+        const grid = photoUrls.length === 4;
         const photoHtml = photoUrls.length > 0
-          ? '<div class="' + (pile ? 'photo-pile' : 'photo-strip') + '" style="--n:' + photoUrls.length + '">' +
-              photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length, pile); }).join('') +
+          ? '<div class="' + (pile ? 'photo-pile' : grid ? 'photo-grid' : 'photo-strip') + '" style="--n:' + photoUrls.length + '">' +
+              photoUrls.map(function(u, i) { return photoPolaroid(u, i, photoUrls.length, pile, grid); }).join('') +
             '</div>'
           : '';
 
@@ -655,8 +936,12 @@
           else img.addEventListener('error', hide);
         });
 
-        // 信显示成功 → 亮出音乐按钮(温柔邀请)。
+        // Letter loaded — show music button (gentle invite).
         initMusic();
+        // Attach lightbox to all photo polaroids now that the DOM is built.
+        // Passes the already-validated URL array so the lightbox never needs
+        // to read a URL back from the DOM.
+        setupLightbox(photoUrls);
 
       } catch (e) {
         state.textContent = 'Something went wrong opening this letter.';

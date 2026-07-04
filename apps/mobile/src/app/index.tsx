@@ -970,13 +970,13 @@ export default function WriteScreen() {
               accessibilityLabel={`Returning ${formatDate(effectiveDate)}, tap to change the date`}>
               Returning <Text style={styles.sealSheetItemBrand}>{formatDate(effectiveDate)}</Text>
             </Text>
-            {session?.user?.email ? (
-              <>
-                {' · to '}
-                <Text style={styles.sealSheetItemBrand}>{session.user.email}</Text>
-              </>
-            ) : null}
           </Text>
+          {/* 第 3 行:回信邮箱单独一行(拼在日期后会尴尬地折行)。 */}
+          {session?.user?.email ? (
+            <Text style={styles.sealSheetItem}>
+              to <Text style={styles.sealSheetItemBrand}>{session.user.email}</Text>
+            </Text>
+          ) : null}
         </View>
 
         {/* 分割线:细金 */}
