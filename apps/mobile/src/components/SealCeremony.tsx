@@ -148,12 +148,20 @@ export default function SealCeremony({ onDone }: Props) {
         }, T_SETTLE),
       );
 
-      // 尾声 — 神圣停顿后,信封向上远去、缩小、淡出(封存即离开)
-      Animated.parallel([
-        Animated.timing(packDepartY, { toValue: DEPART_TRANSLATE_Y, duration: DUR_DEPART, delay: T_DEPART, easing: departEase, useNativeDriver: true }),
-        Animated.timing(packScale,   { toValue: DEPART_SCALE,       duration: DUR_DEPART, delay: T_DEPART, easing: departEase, useNativeDriver: true }),
-        Animated.timing(packOpacity, { toValue: 0,                  duration: DUR_DEPART, delay: T_DEPART, easing: departEase, useNativeDriver: true }),
-      ]).start();
+      // 尾声 — 神圣停顿后,信封向上远去、缩小、淡出(封存即离开)。
+      // ⚠️ 必须用 setTimeout 延后 .start():packOpacity/packScale 在入场时各有
+      // 一个动画在跑,core Animated 里对同一个值再次 .start()(哪怕带 delay)
+      // 会立刻掐掉前一个 —— 之前整场白屏的根因就是入场动画被这里同步掐死。
+      timers.push(
+        setTimeout(() => {
+          if (cancelled) return;
+          Animated.parallel([
+            Animated.timing(packDepartY, { toValue: DEPART_TRANSLATE_Y, duration: DUR_DEPART, easing: departEase, useNativeDriver: true }),
+            Animated.timing(packScale,   { toValue: DEPART_SCALE,       duration: DUR_DEPART, easing: departEase, useNativeDriver: true }),
+            Animated.timing(packOpacity, { toValue: 0,                  duration: DUR_DEPART, easing: departEase, useNativeDriver: true }),
+          ]).start();
+        }, T_DEPART),
+      );
 
       timers.push(setTimeout(finish, T_DONE));
     });
