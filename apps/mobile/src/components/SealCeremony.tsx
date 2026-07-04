@@ -59,7 +59,7 @@ const DUR_ENV    = 260;
 const T_FLAP     = 420;
 const DUR_FLAP   = 500;
 const T_STAMP    = 1150;
-const DUR_DROP   = 380;
+const DUR_DROP   = 260; // 创始人反馈:盖印要快、干脆 —— 380→260
 const T_SETTLE   = T_STAMP + DUR_DROP; // = 2130
 const DUR_PAUSE  = 750;
 const T_DEPART   = T_SETTLE + DUR_PAUSE; // = 2880
@@ -117,11 +117,12 @@ export default function SealCeremony({ onDone }: Props) {
       Animated.timing(flapRot, { toValue: 0, duration: DUR_FLAP, delay: T_FLAP, easing: easeInOut, useNativeDriver: true }).start();
 
       // 第 2 幕 — 火漆:出现 + 下落 + 弹簧压印
-      Animated.timing(sealOpacity, { toValue: 1, duration: 200, delay: T_STAMP, easing: easeOut, useNativeDriver: true }).start();
+      Animated.timing(sealOpacity, { toValue: 1, duration: 120, delay: T_STAMP, easing: easeOut, useNativeDriver: true }).start();
       Animated.timing(sealDropY, { toValue: 0, duration: DUR_DROP, delay: T_STAMP, easing: Easing.in(Easing.quad), useNativeDriver: true }).start();
       Animated.sequence([
         Animated.delay(T_STAMP),
-        Animated.spring(sealScale, { toValue: 1, damping: 13, stiffness: 260, mass: 1, useNativeDriver: true }),
+        // 更硬的弹簧 = 一下压定,几乎不回弹 —— 盖印要干脆。
+        Animated.spring(sealScale, { toValue: 1, damping: 16, stiffness: 420, mass: 1, useNativeDriver: true }),
       ]).start();
 
       // 落定帧:触觉 + 挤压圈 + 微颤(定时器对齐 T_SETTLE)
