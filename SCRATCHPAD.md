@@ -5,7 +5,33 @@
 
 ## ▶ 下一步从这里继续
 
-**▶ Resume here (2026-07-04): v1.0.1 build 15 in TestFlight, awaiting Dan's smoke test → submit for review.**
+**▶ Resume here (2026-07-04 晚): build 16 building on EAS → TestFlight smoke → attach to ASC v1.0.1 → SUBMIT.**
+Today's marathon (all committed, founder-approved on simulator):
+- **Seal ceremony finally REAL** (`a8d5c93`, `1246200`, `489add8`, `baa1194`):
+  root causes found & fixed in layers — (1) reanimated worklets never drive
+  in this app → rewrote with core RN Animated; (2) core-Animated trap:
+  a second .start() on the same Animated.Value cancels the first even with
+  a delay → departure now starts via setTimeout; (3) the flap triangle was
+  drawn OUTSIDE its clip container (top=FLAP_H instead of 0) → the 3D fold
+  had never rendered once. Final look: founder's two colors (#F7DCB2 body /
+  #FAE1A8 flap), X-crease envelope front, seal pressed at center, no border,
+  no capsule squish, faster front half (3.4s total), crisp stamp (260ms drop,
+  stiff spring), ease-in fly-away with wax fading before the envelope
+  (designer-review catch). Dev route `/ceremony-preview` loops it for tuning.
+- **Reveal page pair layout redone per founder mockup** (`15a82c1`, deployed +
+  curl-verified): every row identical — left −9° under, right +5° on top
+  14px lower; 40px row gap; smaller overlap. Dan should re-check his letter
+  link when convenient.
+- Verification workflow that made this possible: temp boot-redirect into the
+  preview route + `simctl recordVideo` + ffmpeg contact sheets — I could SEE
+  every frame myself instead of guessing from Dan's descriptions.
+- Build 16 kicked off (autoIncrement, channel production, fingerprint clean;
+  expo-doctor: only the known react-native-compressor new-arch note).
+Next: build finishes → TestFlight smoke (seal one letter incl. ceremony on
+device w/ haptic) → ASC v1.0.1 attach build 16 → submit (What's New drafted).
+At Release: turn OFF ALLOW_SANDBOX_PURCHASES.
+
+**▶ 上一节 (2026-07-04 早): v1.0.1 build 15 in TestFlight, awaiting Dan's smoke test → submit for review.**
 v1.0.1 contents: perf bundle (eager upload at pick, real compression %, staged
 busy copy, no-double-charge), designer 6-pack (return-email trust line, draft
 autosave, OTP resend/8-digit, human errors, a11y, splash contrast), NEW calendar
