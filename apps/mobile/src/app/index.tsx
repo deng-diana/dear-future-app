@@ -21,6 +21,7 @@ import { MIN_SEAL_DAYS } from '@/constants/rules';
 import { colors, fonts, palette, spacing } from '@/theme';
 import { compressVideoToFit, getVideoThumbnail, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier, TIERS } from '@/lib/purchases';
+import { maybeAskForReview } from '@/lib/reviewPrompt';
 import { supabase } from '@/lib/supabase';
 import { tierFor } from '@/lib/tiers';
 
@@ -727,6 +728,12 @@ export default function WriteScreen() {
     // 把 VoiceOver 焦点移动到"Sealed"标题
     const tag = findNodeHandle(sealedHeadingRef.current);
     if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+  }, [sealed]);
+  // 评价邀请:已封存屏落定 ~3 秒后(情绪最高点)问一次;点"Write another"离开则取消。
+  useEffect(() => {
+    if (!sealed) return;
+    const t = setTimeout(() => { maybeAskForReview(); }, 3000);
+    return () => clearTimeout(t);
   }, [sealed]);
 
   // 岔路口⓪⁻:开场页 —— 启动先显示 Splash,只有点 Start 才进入(无自动跳转)。
