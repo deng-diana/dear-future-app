@@ -24,7 +24,11 @@ Deno.serve(async () => {
   // 默认 review@dearfuture.space)的信不看日期、立刻发 —— 让审核员/创始人当场验证送达。
   // 其他所有账号照常走 due_letters() 的到期规则 —— 上线后开着它也不会破坏真实用户的信。
   // secret 改了即时生效,无需重新部署。
-  const DEMO = Deno.env.get('DELIVER_DEMO_MODE') === 'true';
+  // 熄灯协议(The Promise):若 Reunite 有一天必须关闭,设 DELIVER_FLUSH_ALL=true ——
+  // 所有未送达的信立刻全部送出(对所有账号)。信最坏的命运是「早到」,绝不是「不到」。
+  // 这是我们对用户的公开承诺的机械保证;执行方法写在 docs/THE-PROMISE.md。
+  const FLUSH_ALL = Deno.env.get('DELIVER_FLUSH_ALL') === 'true';
+  const DEMO = FLUSH_ALL || Deno.env.get('DELIVER_DEMO_MODE') === 'true';
   const DEMO_EMAILS = (Deno.env.get('DELIVER_DEMO_EMAILS') ?? 'review@dearfuture.space')
     .split(',')
     .map((s) => s.trim().toLowerCase())
@@ -62,7 +66,8 @@ Deno.serve(async () => {
     }
 
     // 演示圈定:只因演示模式被捞出来(还没到期)的信,主人必须是演示账号;否则跳过。
-    if (letter._demoOnly && !DEMO_EMAILS.includes(email.toLowerCase())) {
+    // (熄灯协议例外:FLUSH_ALL 时对所有账号放行 —— 那是「全部送出」的最后一步。)
+    if (!FLUSH_ALL && letter._demoOnly && !DEMO_EMAILS.includes(email.toLowerCase())) {
       results.push({ id: letter.id, sent: false, reason: 'demo scope: not a demo account' });
       continue;
     }

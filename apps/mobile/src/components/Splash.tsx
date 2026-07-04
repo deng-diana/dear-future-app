@@ -55,8 +55,14 @@ export default function Splash({ onStart }: Props) {
           <Text style={styles.tagline}>Write to your future self.{'\n'}Meet the person you used to be.</Text>
         </Animated.View>
 
-        {/* 底部:Start 按钮(与写信页同款实心主题色) */}
+        {/* 底部:承诺 + Start 按钮(与写信页同款实心主题色) */}
         <Animated.View style={styles.footer}>
+          {/* The Promise:一句真诚的保证 —— 信最坏的命运是「早到」,绝不是「不到」。
+              背后有真实机制:全文永远送进用户自己的邮箱 + 熄灯协议(DELIVER_FLUSH_ALL,
+              见 docs/THE-PROMISE.md)。承诺敢写在开屏,因为它是可执行的。 */}
+          <Text style={styles.promise}>
+            Whatever happens to us, your letter will reach you.{'\n'}That is the promise.
+          </Text>
           <Button label="Start" onPress={handleStart} />
         </Animated.View>
       </SafeAreaView>
@@ -87,4 +93,13 @@ const styles = StyleSheet.create({
 
   // 底部按钮容器:左右页边距更大 → 按钮更窄;离底一点
   footer: { paddingHorizontal: 64, paddingBottom: 56 },
+  // 承诺行:安静的小字,按钮上方,像信纸角落的一句手写保证。
+  promise: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brandText,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
 });
