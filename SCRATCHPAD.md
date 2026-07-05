@@ -5,7 +5,23 @@
 
 ## ▶ 下一步从这里继续
 
-**▶ Resume here (2026-07-04 收工): v1.0.1 (build 16) SUBMITTED — Waiting for Review. 明天:等审 + 发第一条 X post。**
+**▶ Resume here (2026-07-05): v1.0.1 IS LIVE 🎉 — released, sandbox switch off, review-prompt OTA'd.**
+- Approved overnight (first-pass!), founder clicked Release This Version.
+- Release-moment actions done: ALLOW_SANDBOX_PURCHASES unset (verified 0
+  matches in secrets; DELIVER_DEMO_MODE stays — scoped to founder+review
+  emails). OTA update group 1d4a4eae pushed to channel production
+  (runtime 1.0.1): review invitation 1.5s after the sealed screen —
+  Alert→write-review link on build 16; auto-upgrades to the native
+  StoreKit rating sheet when build 17 ships (expo-store-review now in
+  package.json). Users pick the OTA up on their next two app launches.
+- Detection uses expo requireOptionalNativeModule (never throws) — the
+  try/require version redboxed in dev and risked a release JS fatal.
+- Next: ① Dan posts the first X thread (assets on Desktop:
+  reunite-ceremony-clip.mp4 main tweet, demo video reply, $5.99 story);
+  ② submit Apple featuring Nomination (ASC sidebar) now that 1.0.1 is
+  live; ③ plan Product Hunt; ④ build 17 whenever next native change
+  lands. Simulator dev client is stale (built pre-1.0.1, shows
+  Version 1.0.0 in profile) — rerun `npx expo run:ios` when convenient.
 - X 首发已备好(目标:互动/反馈):主楼 = 3.5s 仪式竖屏视频
   (`~/Desktop/reunite-ceremony-clip.mp4`)+ 提问式文案(见 chat);
   一楼回复 = 2.5min 真人 demo(`~/Desktop/Reunite演示素材/demo_video_upload.mp4`);
