@@ -729,10 +729,11 @@ export default function WriteScreen() {
     const tag = findNodeHandle(sealedHeadingRef.current);
     if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
   }, [sealed]);
-  // 评价邀请:已封存屏落定 ~3 秒后(情绪最高点)问一次;点"Write another"离开则取消。
+  // 评价邀请:已封存屏落定 ~1.5 秒后(情绪最高点)问一次;点"Write another"离开则取消。
+  // 创始人定稿 1.5s:入场动画 620ms 刚落定、句子读到一半 —— 再晚用户可能已经走了。
   useEffect(() => {
     if (!sealed) return;
-    const t = setTimeout(() => { maybeAskForReview(); }, 3000);
+    const t = setTimeout(() => { maybeAskForReview(); }, 1500);
     return () => clearTimeout(t);
   }, [sealed]);
 

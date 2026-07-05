@@ -5,37 +5,41 @@
 //     需要带该原生模块的 build(build 17+);系统自动限频(每用户每年最多 3 次)。
 //  ② 兜底(build 16 走 OTA 时):温和的 Alert → 跳 App Store 写评论页。
 //     直接跳转会突兀,所以先问一句;纯 JS,可随 OTA 下发。
+//     (模拟器没有 App Store,跳转会报"address is invalid" —— 真机正常。)
 //
-// ⚠️ 新架构陷阱(见 memory:视频压缩):不能用 NativeModules.X 判断原生模块在不在,
-// 要直接 require 包本身 —— 原生侧缺失时 require 在运行时抛错,用 try/catch 接住。
+// ⚠️ 探测方式必须用 expo 的 requireOptionalNativeModule:模块不在时返回 null,
+// 绝不抛错。不能用 try { require('expo-store-review') }:包内部的
+// requireNativeModule 在缺原生模块时会抛错,dev 弹红屏,release 有崩溃风险
+// (见 memory:Hooks 规则违规→只在 release 崩 的教训 —— JS fatal = SIGABRT)。
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requireOptionalNativeModule } from 'expo';
 import { Alert, Linking } from 'react-native';
 
 const ASKED_KEY = 'reunite.reviewAsked';
 const WRITE_REVIEW_URL = 'https://apps.apple.com/app/id6782853400?action=write-review';
 
-type StoreReviewModule = {
-  isAvailableAsync(): Promise<boolean>;
-  requestReview(): Promise<void>;
-};
-
 export async function maybeAskForReview(): Promise<void> {
   try {
     // 一生只问一次 —— 安静的产品不纠缠。先落盘再弹窗,防止任何路径下重复打扰。
-    if (await AsyncStorage.getItem(ASKED_KEY)) return;
-    await AsyncStorage.setItem(ASKED_KEY, '1');
-
-    let StoreReview: StoreReviewModule | null = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      StoreReview = require('expo-store-review');
-    } catch {
-      StoreReview = null; // 原生模块不在这个 build 里(OTA 到旧包)→ 走兜底
+    // dev 里跳过这条,方便反复调试弹窗本身。
+    if (!__DEV__) {
+      if (await AsyncStorage.getItem(ASKED_KEY)) return;
+      await AsyncStorage.setItem(ASKED_KEY, '1');
     }
 
-    if (StoreReview && (await StoreReview.isAvailableAsync().catch(() => false))) {
-      await StoreReview.requestReview(); // 是否真的显示由系统决定
-      return;
+    // 原生模块在这个 build 里吗?不在 → null(不抛错),走兜底。
+    const hasNative = requireOptionalNativeModule('ExpoStoreReview') != null;
+
+    if (hasNative) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const StoreReview = require('expo-store-review') as {
+        isAvailableAsync(): Promise<boolean>;
+        requestReview(): Promise<void>;
+      };
+      if (await StoreReview.isAvailableAsync().catch(() => false)) {
+        await StoreReview.requestReview(); // 是否真的显示由系统决定
+        return;
+      }
     }
 
     Alert.alert(
