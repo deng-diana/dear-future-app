@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { useState } from 'react';
-import { Alert, Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
@@ -66,6 +66,21 @@ export default function AccountButton({ email, onSignOut }: Props) {
     // onSignOut 通知父级 UI 更新(index.tsx 里 auth 状态变化会自动触发,signOut 已足够)。
   }
 
+  // 分享给朋友:调 iOS 原生分享面板。口碑是 Reunite 唯一合规的增长面,
+  // 文案要像一句真诚的安利,不是广告。先关卡片再弹分享面板,避免层叠。
+  async function handleShare() {
+    setOpen(false);
+    try {
+      await Share.share({
+        message:
+          "I write letters to my future self with Reunite. You seal a letter, it disappears — and it returns years later, on a day you've long forgotten.",
+        url: 'https://apps.apple.com/app/id6782853400',
+      });
+    } catch {
+      // 用户取消分享或面板失败都无需处理 —— 静默即可。
+    }
+  }
+
   // 卡片顶部:优先用真实刘海高度;若 insets 还没测到(返回 0),
   // 回退到 iOS 标准状态栏高度 44,保证卡片不会躲进状态栏下面。
   const cardTop = (insets.top > 0 ? insets.top : 44) + 8;
@@ -105,6 +120,16 @@ export default function AccountButton({ email, onSignOut }: Props) {
               accessibilityLabel="Support">
               <Ionicons name="help-circle-outline" size={18} color={colors.textBody} />
               <Text style={styles.signOut}>Support</Text>
+            </Pressable>
+            <View style={styles.divider} />
+            {/* Share with a friend:口碑入口,放在积极操作区(Support 之下、红色 Delete 之上)。 */}
+            <Pressable
+              onPress={handleShare}
+              style={styles.menuRow}
+              accessibilityRole="button"
+              accessibilityLabel="Share Reunite with a friend">
+              <Ionicons name="share-outline" size={18} color={colors.textBody} />
+              <Text style={styles.signOut}>Share with a friend</Text>
             </Pressable>
             <View style={styles.divider} />
             {/* Delete account 放在上方(用户要求);用红色 + 垃圾桶图标强烈区分,避免误点;且本身有两步确认。 */}
