@@ -96,7 +96,8 @@
      颜色全部来自品牌色板:Bordeaux #7A1E1E / Warm Brown #5B4638 /
      Soft Brown #6B5A4B / Antique Gold #D6B26E / Ivory #F4EEE4 */
   .panel {
-    width: 445px; /* 稍窄;"This demo is real…" 仍保持一行(该行有 nowrap 保底) */
+    /* 宽度对齐 "This demo is real…" 那行的自然宽度 —— intro 和小字同宽,左缘右缘都齐 */
+    width: 420px;
     flex: none;
   }
   /* 品牌行:左边图标、右边字标 + tagline */
@@ -111,9 +112,9 @@
     height: 72px;
     display: block;
     flex: none;
-    border-radius: 17px;
-    /* 浅描边把图标从同色系背景里分出来;投影收小、色相偏暖橙、更清透 */
-    border: 1px solid rgba(139,98,44,.28);
+    border-radius: 14px;
+    /* 描边只要"隐约有一条边"的程度 —— 很浅,不抢戏 */
+    border: 1px solid rgba(139,98,44,.14);
     box-shadow: 0 6px 14px rgba(201,122,42,.26);
   }
   .panel h1 {
@@ -148,10 +149,10 @@
     margin-top: 30px;
     display: inline-flex;
     align-items: center;
-    gap: 24px;
-    padding: 16px 26px 16px 16px;
+    gap: 14px;
+    padding: 10px 22px 10px 10px;
     border: 1px solid rgba(139,98,44,.30);
-    border-radius: 12px;
+    border-radius: 8px;
   }
   .qr-card img {
     width: 124px;
@@ -207,8 +208,8 @@
           </div>
         </div>
         <p class="intro">
-          Write a letter to your future self. Seal it, and it disappears &mdash;
-          until it returns to you, years from now, on a day you&rsquo;ve long forgotten.
+          Write a letter to your future self. Seal it, and it disappears.
+          It returns to you, years from now, on a day you&rsquo;ve long forgotten.
         </p>
         <p class="live-note">
           This demo is real. A letter you seal here will truly be delivered.
