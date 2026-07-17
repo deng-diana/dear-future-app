@@ -194,14 +194,8 @@
 <body>
   <div class="stage" id="stage">
     <div class="layout" id="layout">
-      <div class="phone">
-        <div class="notch"></div>
-        <div class="screen">
-          <!-- 真正的 app 在 /app(Expo web 导出),这里只是把它框进手机里 -->
-          <iframe src="/app" title="Reunite app" allow="clipboard-write; encrypted-media"></iframe>
-        </div>
-      </div>
-      <div class="panel">
+      <!-- 面板在左(先读到"这是什么"),手机 demo 在右且对齐屏幕中心 —— demo 是主角 -->
+      <div class="panel" id="panel">
         <!-- 资源必须用绝对路径:页面 URL 是 /demo(cleanUrls,无斜杠),
              相对路径会被浏览器解析到根目录 → 404(老坑,别再踩) -->
         <div class="brand-row">
@@ -226,6 +220,13 @@
           </p>
         </div>
       </div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <!-- 真正的 app 在 /app(Expo web 导出),这里只是把它框进手机里 -->
+          <iframe src="/app" title="Reunite app" allow="clipboard-write; encrypted-media"></iframe>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -234,11 +235,13 @@
   </div>
 
   <script>
-    // 按视口大小把「手机 + 面板」整体等比缩放到刚好放下,始终居中、完整。
-    // 用 offsetWidth 量真实尺寸:窄屏下面板被 CSS 藏起时,量到的就是只有手机的宽度。
+    // 按视口大小把「面板 + 手机」整体等比缩放到刚好放下,且让手机对齐屏幕中心。
+    // 手机中心比整体中心靠右 (面板宽+间距)/2 —— 把 stage 往左平移这么多(乘缩放比),
+    // 并夹在剩余空隙内,保证面板左缘不出屏。窄屏下面板 display:none,偏移自然为 0。
     (function () {
       var stage = document.getElementById('stage');
       var layout = document.getElementById('layout');
+      var panel = document.getElementById('panel');
       var MARGIN = 40;
       function fit() {
         var w = layout.offsetWidth;
@@ -248,7 +251,10 @@
           (window.innerWidth - MARGIN) / w,
           (window.innerHeight - MARGIN) / h
         );
-        stage.style.transform = 'scale(' + s + ')';
+        var panelTotal = panel.offsetWidth > 0 ? w - 418 : 0; // 手机含边框 418px,其余是面板+间距
+        var slack = Math.max(0, (window.innerWidth - w * s) / 2);
+        var shift = Math.min(panelTotal / 2 * s, slack);
+        stage.style.transform = 'translateX(' + (-shift) + 'px) scale(' + s + ')';
       }
       window.addEventListener('resize', fit);
       fit();
