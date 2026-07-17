@@ -13,13 +13,16 @@
 // (见 memory:Hooks 规则违规→只在 release 崩 的教训 —— JS fatal = SIGABRT)。
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requireOptionalNativeModule } from 'expo';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 const ASKED_KEY = 'reunite.reviewAsked';
 const WRITE_REVIEW_URL = 'https://apps.apple.com/app/id6782853400?action=write-review';
 
 export async function maybeAskForReview(): Promise<void> {
   try {
+    // web(官网 Live Demo)没有 App Store 评论这回事 —— 直接跳过,
+    // 免得 react-native-web 的 Alert(是个空操作)白白烧掉"一生一次"的机会。
+    if (Platform.OS === 'web') return;
     // 一生只问一次 —— 安静的产品不纠缠。先落盘再弹窗,防止任何路径下重复打扰。
     // dev 里跳过这条,方便反复调试弹窗本身。
     if (!__DEV__) {

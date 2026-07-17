@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Reunite — Live Demo</title>
+<meta name="description" content="Write a letter to your future self. Try the live demo — letters you seal here are real." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -16,12 +20,21 @@
     background: radial-gradient(circle at 50% 28%, #F3E6CC 0%, #E7D6B8 55%, #DAC6A4 100%);
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: #5B4638;
   }
 
-  /* 缩放容器:JS 按视口算缩放比,保证整台手机始终完整可见、居中 */
+  /* 缩放容器:JS 按视口算缩放比,保证手机 + 介绍面板始终完整可见、居中 */
   .stage {
     transform-origin: center center;
     will-change: transform;
+  }
+
+  /* 手机 + 介绍面板:横向排列 */
+  .layout {
+    display: flex;
+    align-items: center;
+    gap: 84px;
   }
 
   /* 手机外框:深色机身 + 圆角 + 柔和投影 */
@@ -32,6 +45,7 @@
     background: #0e0e0f;
     border-radius: 56px;
     padding: 14px;
+    flex: none;
     box-shadow:
       0 2px 4px rgba(40,26,12,.20),
       0 30px 70px rgba(60,40,20,.32),
@@ -68,31 +82,142 @@
     z-index: 5;
     pointer-events: none;
   }
+
+  /* 介绍面板:安静、纸感,像一张放在手机旁的说明卡 */
+  .panel {
+    width: 320px;
+    flex: none;
+  }
+  .panel h1 {
+    font-weight: 600;
+    font-size: 56px;
+    letter-spacing: 0.01em;
+    line-height: 1;
+  }
+  .panel .tagline {
+    font-style: italic;
+    font-size: 22px;
+    margin-top: 10px;
+    color: #6B5A4B;
+  }
+  .panel .rule {
+    width: 44px;
+    height: 1px;
+    background: #D6B26E;
+    margin: 26px 0;
+  }
+  .panel .intro {
+    font-size: 19px;
+    line-height: 1.55;
+    color: #5B4638;
+  }
+  .panel .live-note {
+    font-size: 16px;
+    line-height: 1.5;
+    margin-top: 14px;
+    color: #6B5A4B;
+    font-style: italic;
+  }
+  .qr-card {
+    margin-top: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 18px;
+    background: #F4EEE4;
+    border-radius: 14px;
+    padding: 16px 20px 16px 16px;
+    box-shadow: 0 10px 26px rgba(60,40,20,.14);
+  }
+  .qr-card img {
+    width: 128px;
+    height: 128px;
+    display: block;
+  }
+  .qr-card .qr-label {
+    font-size: 17px;
+    line-height: 1.45;
+    max-width: 130px;
+  }
+  .qr-card .qr-label strong { font-weight: 600; }
+  .qr-card .qr-label a {
+    color: #7A1E1E;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(122,30,30,.35);
+  }
+
+  /* 窄屏(手机访问):扫不了自己的屏幕 —— 收起面板,底部给一条可点的 App Store 链接 */
+  .mobile-bar { display: none; }
+  @media (max-width: 760px) {
+    .panel { display: none; }
+    .mobile-bar {
+      display: block;
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      text-align: center;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(244,238,228,.92);
+      backdrop-filter: blur(6px);
+      font-size: 17px;
+      z-index: 20;
+    }
+    .mobile-bar a {
+      color: #7A1E1E;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(122,30,30,.35);
+    }
+  }
 </style>
 </head>
 <body>
   <div class="stage" id="stage">
-    <div class="phone">
-      <div class="notch"></div>
-      <div class="screen">
-        <!-- 真正的 app 在 /app(Expo web 导出),这里只是把它框进手机里 -->
-        <iframe src="/app" title="Reunite app" allow="clipboard-write; encrypted-media"></iframe>
+    <div class="layout" id="layout">
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <!-- 真正的 app 在 /app(Expo web 导出),这里只是把它框进手机里 -->
+          <iframe src="/app" title="Reunite app" allow="clipboard-write; encrypted-media"></iframe>
+        </div>
+      </div>
+      <div class="panel">
+        <h1>Reunite</h1>
+        <p class="tagline">Meet the person you used to be.</p>
+        <div class="rule"></div>
+        <p class="intro">
+          Write a letter to your future self. Seal it, and it disappears &mdash;
+          until it returns to you, years from now, on a day you&rsquo;ve long forgotten.
+        </p>
+        <p class="live-note">
+          This demo is real. A letter you seal here will truly be delivered.
+        </p>
+        <div class="qr-card">
+          <img src="qr-appstore.png" alt="QR code — download Reunite on the App Store" />
+          <p class="qr-label">
+            <strong>Scan to get the app</strong><br />
+            or <a href="https://apps.apple.com/app/id6782853400">open the App&nbsp;Store</a>
+          </p>
+        </div>
       </div>
     </div>
   </div>
 
+  <div class="mobile-bar">
+    <a href="https://apps.apple.com/app/id6782853400">Get Reunite on the App&nbsp;Store &rarr;</a>
+  </div>
+
   <script>
-    // 按视口大小把整台手机等比缩放到刚好放下,始终居中、完整。
+    // 按视口大小把「手机 + 面板」整体等比缩放到刚好放下,始终居中、完整。
+    // 用 offsetWidth 量真实尺寸:窄屏下面板被 CSS 藏起时,量到的就是只有手机的宽度。
     (function () {
       var stage = document.getElementById('stage');
-      var PHONE_W = 390 + 28;   // 含机身边框
-      var PHONE_H = 844 + 28;
-      var MARGIN = 32;
+      var layout = document.getElementById('layout');
+      var MARGIN = 40;
       function fit() {
+        var w = layout.offsetWidth;
+        var h = layout.offsetHeight;
         var s = Math.min(
           1,
-          (window.innerWidth - MARGIN) / PHONE_W,
-          (window.innerHeight - MARGIN) / PHONE_H
+          (window.innerWidth - MARGIN) / w,
+          (window.innerHeight - MARGIN) / h
         );
         stage.style.transform = 'scale(' + s + ')';
       }
