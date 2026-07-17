@@ -136,16 +136,21 @@ export default function AccountButton({ email, onSignOut }: Props) {
               <Text style={styles.signOut}>Support</Text>
             </Pressable>
             <View style={styles.divider} />
-            {/* Share with a friend:口碑入口,放在积极操作区(Support 之下、红色 Delete 之上)。 */}
-            <Pressable
-              onPress={handleShare}
-              style={styles.menuRow}
-              accessibilityRole="button"
-              accessibilityLabel="Share Reunite with a friend">
-              <Ionicons name="share-outline" size={18} color={colors.textBody} />
-              <Text style={styles.signOut}>Share with a friend</Text>
-            </Pressable>
-            <View style={styles.divider} />
+            {/* Share with a friend:口碑入口,放在积极操作区(Support 之下、红色 Delete 之上)。
+                仅原生:web demo 上 iOS 分享面板不存在,这行没有意义。 */}
+            {Platform.OS !== 'web' && (
+              <>
+                <Pressable
+                  onPress={handleShare}
+                  style={styles.menuRow}
+                  accessibilityRole="button"
+                  accessibilityLabel="Share Reunite with a friend">
+                  <Ionicons name="share-outline" size={18} color={colors.textBody} />
+                  <Text style={styles.signOut}>Share with a friend</Text>
+                </Pressable>
+                <View style={styles.divider} />
+              </>
+            )}
             {/* Delete account 放在上方(用户要求);用红色 + 垃圾桶图标强烈区分,避免误点;且本身有两步确认。 */}
             <Pressable
               onPress={handleDeleteAccount}
@@ -169,11 +174,16 @@ export default function AccountButton({ email, onSignOut }: Props) {
               <Ionicons name="log-out-outline" size={18} color={colors.textBody} />
               <Text style={styles.signOut}>Sign out</Text>
             </Pressable>
-            <View style={styles.divider} />
-            {/* 版本号脚注:显示真实的原生版本 + build 号,方便确认装的是哪个 build(也利于排查 / 审核)。 */}
-            <Text style={styles.version}>
-              Version {Application.nativeApplicationVersion ?? '?'}
-            </Text>
+            {/* 版本号脚注:显示真实的原生版本 + build 号,方便确认装的是哪个 build(也利于排查 / 审核)。
+                仅原生:web 上没有原生版本号(会显示 "Version ?"),整行隐藏。 */}
+            {Platform.OS !== 'web' && (
+              <>
+                <View style={styles.divider} />
+                <Text style={styles.version}>
+                  Version {Application.nativeApplicationVersion ?? '?'}
+                </Text>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
