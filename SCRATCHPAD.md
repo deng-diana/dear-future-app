@@ -5,6 +5,26 @@
 
 ## ▶ 下一步从这里继续
 
+**2026-07-17(下午): Live Demo 生产级修复 —— 网页封存全链路打通(创始人实测通过)**
+- 「Seal·Free 点了没反应」三层根因,全部修复并上线:
+  ① **CORS 预检被拒**:seal-letter 等函数只允许 `Authorization, Content-Type`,
+  浏览器版 supabase-js 还带 `apikey` + `x-client-info` → 预检失败,请求根本
+  没发出。三个函数(seal-letter/delete-account/review-login)已补头并部署,
+  curl 预检验证通过。**教训:给浏览器用的 Supabase 函数,CORS 允许头必须是
+  `authorization, x-client-info, apikey, content-type` 全家桶。**
+  ② **web 上 RN Alert 是空操作** → 所有错误静默。新建 `lib/notify.ts`
+  (web 走浏览器原生 alert),封存/上传错误已接入;登出、删除账号的带按钮
+  确认框 web 改走原生 confirm(否则点了没反应)。
+  ③ **仪式动画后白屏**:Sealed 屏的 `AccessibilityInfo.setAccessibilityFocus`
+  在 react-native-web 不存在,调用抛错 → React 卸载整棵树。该 effect 和
+  SignIn 的错误播报都加了 web 直跳过。
+- **网页端不再显示定价底单**:选完日期(或途中登录完成)直接封存,
+  按钮原地转圈 → 仪式动画 → Sealed 屏。App 原生流程不变。
+- **DELIVER_DEMO_MODE / DELIVER_DEMO_EMAILS 已 unset**(审核期秒送遗留,
+  创始人测试时"封存秒收邮件"即它所致)。现在所有信一律走真实日期。
+  未来送审需临时重开(同 ALLOW_SANDBOX_PURCHASES)。
+- 验证:创始人真实走完 写信→登录→封存→动画→Sealed,通过。
+
 **2026-07-17: 官网 Live Demo 重建 + App Store 二维码面板(7acf40f,已上线验证)**
 - `/app`(demo 里 iframe 的 Expo web 导出)停在 7 月 2 日 —— 重新导出,
   封存动效重做 / Share 入口 / 性能包全部包含。资源修正照旧
