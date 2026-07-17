@@ -91,16 +91,28 @@
     pointer-events: none;
   }
 
-  /* 介绍面板:安静、纸感,像一张放在手机旁的说明卡 */
+  /* 介绍面板:安静、纸感,像一张放在手机旁的说明卡。
+     颜色全部来自品牌色板:Bordeaux #7A1E1E / Warm Brown #5B4638 /
+     Soft Brown #6B5A4B / Antique Gold #D6B26E / Ivory #F4EEE4 */
   .panel {
     width: 320px;
     flex: none;
+  }
+  /* App 图标:iOS 式圆角 + 轻投影 */
+  .panel .app-icon {
+    width: 76px;
+    height: 76px;
+    display: block;
+    border-radius: 18px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 20px rgba(60,40,20,.22);
   }
   .panel h1 {
     font-weight: 600;
     font-size: 56px;
     letter-spacing: 0.01em;
     line-height: 1;
+    color: #7A1E1E; /* 品牌主色 Bordeaux —— 与 app 内字标一致 */
   }
   .panel .tagline {
     font-style: italic;
@@ -110,8 +122,8 @@
   }
   .panel .rule {
     width: 44px;
-    height: 1px;
-    background: #D6B26E;
+    height: 2px;
+    background: #D6B26E; /* 品牌 Antique Gold —— 与 app 内分隔线一致 */
     margin: 26px 0;
   }
   .panel .intro {
@@ -187,6 +199,9 @@
         </div>
       </div>
       <div class="panel">
+        <!-- 资源必须用绝对路径:页面 URL 是 /demo(cleanUrls,无斜杠),
+             相对路径会被浏览器解析到根目录 → 404(老坑,别再踩) -->
+        <img class="app-icon" src="/demo/app-icon.png" alt="Reunite app icon" />
         <h1>Reunite</h1>
         <p class="tagline">Meet the person you used to be.</p>
         <div class="rule"></div>
@@ -198,7 +213,7 @@
           This demo is real. A letter you seal here will truly be delivered.
         </p>
         <div class="qr-card">
-          <img src="qr-appstore.png" alt="QR code — download Reunite on the App Store" />
+          <img src="/demo/qr-appstore.png" alt="QR code — download Reunite on the App Store" />
           <p class="qr-label">
             <strong>Scan to get the app</strong><br />
             or <a href="https://apps.apple.com/app/id6782853400">open the App&nbsp;Store</a>
