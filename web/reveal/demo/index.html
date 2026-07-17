@@ -112,7 +112,9 @@
     display: block;
     flex: none;
     border-radius: 17px;
-    box-shadow: 0 10px 26px rgba(158,110,48,.32);
+    /* 浅描边把图标从同色系背景里分出来;投影收小、色相偏暖橙、更清透 */
+    border: 1px solid rgba(139,98,44,.28);
+    box-shadow: 0 6px 14px rgba(201,122,42,.26);
   }
   .panel h1 {
     font-weight: 600;
@@ -130,7 +132,7 @@
   .panel .intro {
     font-size: 19px;
     line-height: 1.55;
-    color: #5B4638;
+    color: #67350F; /* 与 app 内默认正文墨水色一致(theme brownInk) */
     margin-top: 30px;
   }
   .panel .live-note {
@@ -140,21 +142,20 @@
     color: #6B5A4B;
     font-style: italic;
   }
+  /* 二维码:不要卡片不要投影 —— 透明底直接放在背景上,只加一圈浅描边 */
   .qr-card {
     margin-top: 30px;
     display: inline-flex;
     align-items: center;
-    gap: 18px;
-    background: #FFFFFF; /* 纯白 —— 米色背景上灰米卡片显脏,白色干净 */
-    border-radius: 14px;
-    padding: 16px 22px 16px 16px;
-    /* 投影同样走暖琥珀色相 —— 清透,不发灰 */
-    box-shadow: 0 14px 32px rgba(158,110,48,.24);
+    gap: 22px;
   }
   .qr-card img {
     width: 128px;
     height: 128px;
     display: block;
+    padding: 8px;
+    border: 1px solid rgba(139,98,44,.30);
+    border-radius: 10px;
   }
   .qr-card .qr-label {
     font-size: 17px;
