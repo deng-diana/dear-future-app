@@ -849,6 +849,9 @@ export default function WriteScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}>
+            {/* web:没有状态栏/刘海,安全区为 0,邮戳会贴顶 —— 垫一段"模拟状态栏"留白
+                (AccountButton 的头像 top 也按同值下移,两者保持对齐)。 */}
+            {Platform.OS === 'web' && <View style={{ height: 28 }} />}
             {/* 账号头像(蜡封):绝对定位在滚动内容的右上角,随内容一起上滑 —— 不再固定在角上与分割线打架(用户要求)。 */}
             {session ? <AccountButton email={session.user.email!} onSignOut={confirmSignOut} /> : null}
 

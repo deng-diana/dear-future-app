@@ -196,7 +196,8 @@ const styles = StyleSheet.create({
   // top:14 ≈ Dateline 的 paddingTop(16),让蜡封顶端与"日期"那一行对齐。
   avatar: {
     position: 'absolute',
-    top: 14,
+    // web 下移 28:index.tsx 在 web 给邮戳垫了 28px"模拟状态栏"留白,头像同步。
+    top: Platform.OS === 'web' ? 42 : 14,
     right: 24,
     width: 44,
     height: 44,
