@@ -5,6 +5,21 @@
 
 ## ▶ 下一步从这里继续
 
+**2026-07-17: 官网 Live Demo 重建 + App Store 二维码面板(7acf40f,已上线验证)**
+- `/app`(demo 里 iframe 的 Expo web 导出)停在 7 月 2 日 —— 重新导出,
+  封存动效重做 / Share 入口 / 性能包全部包含。资源修正照旧
+  (assets/node_modules → _libs)。线上已 curl 验证新 bundle 在服务。
+- `/demo` 页:手机右侧新增介绍面板 —— Reunite 字标 + tagline + 一句话
+  介绍 + "This demo is real" + App Store 二维码(纸感卡片)。窄屏(手机
+  访问)自动收起面板,底部换成可点的 App Store 链接(自己屏幕扫不了码)。
+- reviewPrompt 加 web 直跳过:网页上 Alert 是空操作,白烧"一生一次"。
+  只影响 web,无需 OTA。
+- **以后更新 demo 一条命令:`./scripts/update-demo.sh deploy`**(导出 +
+  路径修正 + 替换 + 部署 + 验证)。app 有改动想同步到官网时跑它即可。
+- Demo 本身就是生产级:web 封存走免费档、写进同一个 Supabase,
+  cron 照常投递 —— 网页上封的信真的会寄到。
+- 08b5d14 Share with a friend OTA(e10f7c47)仍待 Dan 真机测试回报。
+
 **▶ Resume here (2026-07-05): v1.0.1 IS LIVE 🎉 — released, sandbox switch off, review-prompt OTA'd.**
 - Approved overnight (first-pass!), founder clicked Release This Version.
 - Release-moment actions done: ALLOW_SANDBOX_PURCHASES unset (verified 0
