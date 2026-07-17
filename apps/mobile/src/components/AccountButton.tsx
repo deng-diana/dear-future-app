@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { useState } from 'react';
-import { Alert, Image, Linking, Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Modal, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 
@@ -21,6 +22,19 @@ export default function AccountButton({ email, onSignOut }: Props) {
   // 第一步弹框说清楚后果:所有未送达的信永远消失,无法撤销。
   function handleDeleteAccount() {
     setOpen(false); // 先关掉卡片,让弹框完整显示
+    // web:RN Alert 是空操作,两步确认全走浏览器原生 confirm(同样问两次,防误触)。
+    if (Platform.OS === 'web') {
+      const g = globalThis as { confirm?: (msg: string) => boolean };
+      const first = g.confirm?.(
+        'Delete account?\n\nEvery letter still sealed and waiting will be permanently cancelled — they will NEVER be delivered. This cannot be undone.',
+      );
+      if (!first) return;
+      const second = g.confirm?.(
+        'Are you sure?\n\nYour account and all sealed letters will be permanently deleted. There is no going back.',
+      );
+      if (second) void runDeleteAccount();
+      return;
+    }
     Alert.alert(
       'Delete account',
       'Every letter still sealed and waiting will be permanently cancelled — they will NEVER be delivered. This cannot be undone.',
@@ -58,7 +72,7 @@ export default function AccountButton({ email, onSignOut }: Props) {
     const { error } = await supabase.functions.invoke('delete-account');
     setDeleting(false);
     if (error) {
-      Alert.alert('Something went wrong', error.message || 'Could not delete your account. Please try again.');
+      notify('Something went wrong', error.message || 'Could not delete your account. Please try again.');
       return;
     }
     // Edge Function 删除成功 → 本地也清掉登录状态,回到未登录界面。

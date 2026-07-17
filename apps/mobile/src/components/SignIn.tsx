@@ -64,8 +64,10 @@ export default function SignIn({ onVerified, onCancel }: Props) {
   const [resendNote, setResendNote] = useState(''); // 重发成功后的软提示
 
   // A5: 有错误时立即通过屏幕阅读器播报(让 VoiceOver/TalkBack 用户知道出错了)
+  // web 跳过:react-native-web 的无障碍 API 不全,错误路径调用可能抛错卸载整棵树;
+  // 网页上错误本来就有红字展示,不需要播报。
   useEffect(() => {
-    if (error) AccessibilityInfo.announceForAccessibility(error);
+    if (error && Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(error);
   }, [error]);
 
   // 重发倒计时:每秒递减,到 0 停止

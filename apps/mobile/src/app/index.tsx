@@ -713,6 +713,14 @@ export default function WriteScreen() {
 
   // 登出 / 换邮箱:确认后退出登录。草稿保留,下次封存会重新问邮箱。
   function confirmSignOut() {
+    // web:RN Alert 是空操作,带按钮的确认框必须换浏览器原生 confirm,否则点了没反应。
+    if (Platform.OS === 'web') {
+      const ok = (globalThis as { confirm?: (msg: string) => boolean }).confirm?.(
+        "Sign out?\n\nYour draft stays. You'll choose an email again when you seal.",
+      );
+      if (ok) supabase.auth.signOut();
+      return;
+    }
     Alert.alert('Sign out?', "Your draft stays. You'll choose an email again when you seal.", [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() },
@@ -731,6 +739,9 @@ export default function WriteScreen() {
   }, [sealed, sealedIntro]);
   useEffect(() => {
     if (!sealed) return;
+    // web:react-native-web 的无障碍 API 不全(setAccessibilityFocus 缺失),
+    // 调用会抛错 → React 卸载整棵树 → 仪式动画后白屏。这段只在原生执行。
+    if (Platform.OS === 'web') return;
     // 播报给屏幕阅读器用户
     AccessibilityInfo.announceForAccessibility('Your letter is sealed. It will return to you in the future.');
     // 把 VoiceOver 焦点移动到"Sealed"标题
@@ -757,6 +768,11 @@ export default function WriteScreen() {
         onCancel={() => setShowSignIn(false)}
         onVerified={() => {
           setShowSignIn(false);
+          // web:没有支付,不展示定价底单 —— 登录完成直接封存(同 handleSeal 的 web 快路径)。
+          if (Platform.OS === 'web') {
+            void handleSealSheet();
+            return;
+          }
           // 验证刚通过,登录信息已就位,打开付款底单(主人由数据库自动填)。
           setStep('seal');
         }}
