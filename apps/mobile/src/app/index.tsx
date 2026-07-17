@@ -21,6 +21,7 @@ import { MIN_SEAL_DAYS } from '@/constants/rules';
 import { colors, fonts, palette, spacing } from '@/theme';
 import { compressVideoToFit, getVideoThumbnail, pickPhotos, pickVideo, randomFolder, uploadMedia, MAX_PHOTOS, type PickedMedia } from '@/lib/media';
 import { purchaseTier, TIERS } from '@/lib/purchases';
+import { notify } from '@/lib/notify';
 import { maybeAskForReview } from '@/lib/reviewPrompt';
 import { supabase } from '@/lib/supabase';
 import { tierFor } from '@/lib/tiers';
@@ -277,7 +278,7 @@ export default function WriteScreen() {
     );
     if (results.some((u) => !u)) {
       // 上传失败 → 千万别往下走付款。封存即消失,信一走用户永远发现不了图丢了。
-      Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
+      notify('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
       return null; // 信还在、可重试,且尚未付款
     }
     const photoUrls = results as string[];
@@ -319,7 +320,7 @@ export default function WriteScreen() {
       }
       // null 可能是"视频太大"(uploadMedia 已弹自己的提示)或网络失败 —— 都中止。
       if (!videoUrl) {
-        Alert.alert('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
+        notify('Upload failed', "Your photos or video didn't upload. Please check your connection and try again.");
         return null; // 信还在、可重试,且尚未付款
       }
     }
@@ -376,7 +377,7 @@ export default function WriteScreen() {
         msg = error.message;
       }
       console.log('封存失败:', msg);
-      Alert.alert('Could not seal', msg, [{ text: 'OK' }]);
+      notify('Could not seal', msg); // 跨端弹窗:web 上 RN Alert 是空操作,必须用 notify
       return; // 没写成功就不切到"已封存"屏,信还在,可重试
     }
 
@@ -419,6 +420,13 @@ export default function WriteScreen() {
     if (busy) return;
     if (!session) {
       setShowSignIn(true);
+      return;
+    }
+    // web 演示:浏览器里没法付款,不展示定价底单 —— 选完日期直接封存
+    //(日期底单上的 Seal 按钮原地转圈,成功后照常播封存仪式)。
+    // handleSealSheet 内部本来就有 web 免费路径,直接复用。
+    if (Platform.OS === 'web') {
+      void handleSealSheet();
       return;
     }
     // 打开 SealSheet(付款 + 确认底单)。

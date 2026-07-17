@@ -17,7 +17,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // 浏览器在正式请求前会先发一次 OPTIONS "预检请求";我们得回答"允许"。
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
