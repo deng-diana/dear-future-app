@@ -54,10 +54,11 @@
     border-radius: 56px;
     padding: 14px;
     flex: none;
+    /* 机身投影也带暖色相,和面板的投影一个气质 */
     box-shadow:
-      0 2px 4px rgba(40,26,12,.20),
-      0 30px 70px rgba(60,40,20,.32),
-      0 12px 28px rgba(60,40,20,.22);
+      0 2px 4px rgba(122,84,38,.18),
+      0 30px 70px rgba(140,98,44,.34),
+      0 12px 28px rgba(140,98,44,.20);
   }
 
   /* 屏幕:圆角裁切,装 app 的 iframe */
@@ -98,26 +99,32 @@
     width: 320px;
     flex: none;
   }
-  /* App 图标:iOS 式圆角 + 轻投影 */
+  /* 品牌行:左边图标、右边字标 + tagline */
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  /* App 图标:iOS 式圆角。投影带背景色相(暖琥珀),干净清透,不发灰 */
   .panel .app-icon {
-    width: 76px;
-    height: 76px;
+    width: 92px;
+    height: 92px;
     display: block;
-    border-radius: 18px;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 20px rgba(60,40,20,.22);
+    flex: none;
+    border-radius: 22px;
+    box-shadow: 0 10px 26px rgba(158,110,48,.32);
   }
   .panel h1 {
     font-weight: 600;
-    font-size: 56px;
+    font-size: 38px;
     letter-spacing: 0.01em;
     line-height: 1;
     color: #7A1E1E; /* 品牌主色 Bordeaux —— 与 app 内字标一致 */
   }
   .panel .tagline {
     font-style: italic;
-    font-size: 22px;
-    margin-top: 10px;
+    font-size: 19px;
+    margin-top: 5px;
     color: #6B5A4B;
   }
   .panel .rule {
@@ -146,7 +153,8 @@
     background: #F4EEE4;
     border-radius: 14px;
     padding: 16px 20px 16px 16px;
-    box-shadow: 0 10px 26px rgba(60,40,20,.14);
+    /* 投影同样走暖琥珀色相 —— 清透,不发灰 */
+    box-shadow: 0 14px 32px rgba(158,110,48,.24);
   }
   .qr-card img {
     width: 128px;
@@ -201,9 +209,13 @@
       <div class="panel">
         <!-- 资源必须用绝对路径:页面 URL 是 /demo(cleanUrls,无斜杠),
              相对路径会被浏览器解析到根目录 → 404(老坑,别再踩) -->
-        <img class="app-icon" src="/demo/app-icon.png" alt="Reunite app icon" />
-        <h1>Reunite</h1>
-        <p class="tagline">Meet the person you used to be.</p>
+        <div class="brand-row">
+          <img class="app-icon" src="/demo/app-icon.png" alt="Reunite app icon" />
+          <div class="brand-text">
+            <h1>Reunite</h1>
+            <p class="tagline">Meet the person you used to be.</p>
+          </div>
+        </div>
         <div class="rule"></div>
         <p class="intro">
           Write a letter to your future self. Seal it, and it disappears &mdash;
