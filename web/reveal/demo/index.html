@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Reunite — Live Demo</title>
 <meta name="description" content="Write a letter to your future self. Try the live demo — letters you seal here are real." />
+<script>
+  // iPhone 用户直接送进 App Store —— 手机上体验 iframe demo 又挤又扫不了码,
+  // 真正想要的就是下载。放在 <head> 最前面,页面还没画出来就跳走,不闪现。
+  // (iPad 不跳:大屏看 demo 是好的;安卓照常看 demo。)
+  if (/iPhone|iPod/.test(navigator.userAgent)) {
+    location.replace('https://apps.apple.com/gb/app/reunite-letters-to-future-you/id6782853400');
+  }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
