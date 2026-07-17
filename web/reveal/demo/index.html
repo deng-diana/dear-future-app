@@ -96,7 +96,7 @@
      颜色全部来自品牌色板:Bordeaux #7A1E1E / Warm Brown #5B4638 /
      Soft Brown #6B5A4B / Antique Gold #D6B26E / Ivory #F4EEE4 */
   .panel {
-    width: 320px;
+    width: 470px; /* 放宽:tagline 和 "This demo is real…" 各一行放得下 */
     flex: none;
   }
   /* 品牌行:左边图标、右边字标 + tagline */
@@ -107,11 +107,11 @@
   }
   /* App 图标:iOS 式圆角。投影带背景色相(暖琥珀),干净清透,不发灰 */
   .panel .app-icon {
-    width: 92px;
-    height: 92px;
+    width: 72px;
+    height: 72px;
     display: block;
     flex: none;
-    border-radius: 22px;
+    border-radius: 17px;
     box-shadow: 0 10px 26px rgba(158,110,48,.32);
   }
   .panel h1 {
@@ -127,16 +127,11 @@
     margin-top: 5px;
     color: #6B5A4B;
   }
-  .panel .rule {
-    width: 44px;
-    height: 2px;
-    background: #D6B26E; /* 品牌 Antique Gold —— 与 app 内分隔线一致 */
-    margin: 26px 0;
-  }
   .panel .intro {
     font-size: 19px;
     line-height: 1.55;
     color: #5B4638;
+    margin-top: 30px;
   }
   .panel .live-note {
     font-size: 16px;
@@ -150,9 +145,9 @@
     display: inline-flex;
     align-items: center;
     gap: 18px;
-    background: #F4EEE4;
+    background: #FFFFFF; /* 纯白 —— 米色背景上灰米卡片显脏,白色干净 */
     border-radius: 14px;
-    padding: 16px 20px 16px 16px;
+    padding: 16px 22px 16px 16px;
     /* 投影同样走暖琥珀色相 —— 清透,不发灰 */
     box-shadow: 0 14px 32px rgba(158,110,48,.24);
   }
@@ -163,8 +158,7 @@
   }
   .qr-card .qr-label {
     font-size: 17px;
-    line-height: 1.45;
-    max-width: 130px;
+    line-height: 1.5;
   }
   .qr-card .qr-label strong { font-weight: 600; }
   .qr-card .qr-label a {
@@ -216,7 +210,6 @@
             <p class="tagline">Meet the person you used to be.</p>
           </div>
         </div>
-        <div class="rule"></div>
         <p class="intro">
           Write a letter to your future self. Seal it, and it disappears &mdash;
           until it returns to you, years from now, on a day you&rsquo;ve long forgotten.
