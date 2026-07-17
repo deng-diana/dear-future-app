@@ -26,6 +26,13 @@ if grep -q 'assets/node_modules' _expo/static/js/web/entry-*.js; then
   echo "ERROR: node_modules references remain in bundle" >&2
   exit 1
 fi
+# 去掉浏览器给输入框画的蓝色焦点圈(focus ring)—— 信纸有自己的光标,蓝框破坏纸感。
+# 注:app.json 是 web.output "single",expo-router 的 +html.tsx 不生效,所以在这里注入。
+LC_ALL=C sed -i '' 's|</head>|<style>textarea:focus,input:focus{outline:none}</style></head>|' index.html
+if ! grep -q 'outline:none' index.html; then
+  echo "ERROR: focus-ring CSS injection failed" >&2
+  exit 1
+fi
 
 echo "── 3/4 replace web/reveal/app ──"
 cd "$ROOT"
