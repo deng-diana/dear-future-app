@@ -96,7 +96,7 @@
      颜色全部来自品牌色板:Bordeaux #7A1E1E / Warm Brown #5B4638 /
      Soft Brown #6B5A4B / Antique Gold #D6B26E / Ivory #F4EEE4 */
   .panel {
-    width: 470px; /* 放宽:tagline 和 "This demo is real…" 各一行放得下 */
+    width: 445px; /* 稍窄;"This demo is real…" 仍保持一行(该行有 nowrap 保底) */
     flex: none;
   }
   /* 品牌行:左边图标、右边字标 + tagline */
@@ -127,7 +127,7 @@
     font-style: italic;
     font-size: 19px;
     margin-top: 5px;
-    color: #6B5A4B;
+    color: #67350F; /* app 正文墨水色,与 intro 统一 */
   }
   .panel .intro {
     font-size: 19px;
@@ -139,23 +139,24 @@
     font-size: 16px;
     line-height: 1.5;
     margin-top: 14px;
-    color: #6B5A4B;
+    color: #67350F; /* app 正文墨水色 */
     font-style: italic;
+    white-space: nowrap; /* 这句必须一行显示完整 */
   }
-  /* 二维码:不要卡片不要投影 —— 透明底直接放在背景上,只加一圈浅描边 */
+  /* 下载区:整块(二维码 + 文字)一个矩形浅描边框住;无底色无投影 */
   .qr-card {
     margin-top: 30px;
     display: inline-flex;
     align-items: center;
-    gap: 22px;
+    gap: 24px;
+    padding: 16px 26px 16px 16px;
+    border: 1px solid rgba(139,98,44,.30);
+    border-radius: 12px;
   }
   .qr-card img {
-    width: 128px;
-    height: 128px;
+    width: 124px;
+    height: 124px;
     display: block;
-    padding: 8px;
-    border: 1px solid rgba(139,98,44,.30);
-    border-radius: 10px;
   }
   .qr-card .qr-label {
     font-size: 17px;
@@ -213,7 +214,7 @@
           This demo is real. A letter you seal here will truly be delivered.
         </p>
         <div class="qr-card">
-          <img src="/demo/qr-appstore.png" alt="QR code — download Reunite on the App Store" />
+          <img src="/demo/qr-appstore.svg" alt="QR code — download Reunite on the App Store" />
           <p class="qr-label">
             <strong>Scan to get the app</strong><br />
             or <a href="https://apps.apple.com/app/id6782853400">open the App&nbsp;Store</a>
